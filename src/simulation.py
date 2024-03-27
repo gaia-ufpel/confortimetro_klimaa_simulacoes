@@ -22,7 +22,7 @@ TO_CSV_APP = "runreadvars"
 
 if platform.system() == "Windows":
     EXPAND_OBJECTS_APP = "ExpandObjects.exe"
-    TO_CSV_APP = "RunReadESO.bat"
+    TO_CSV_APP = "PostProcess/RunReadESO.bat"
 
 class Simulation:
     def __init__(self, configs: SimulationConfig):

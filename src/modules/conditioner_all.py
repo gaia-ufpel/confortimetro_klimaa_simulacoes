@@ -187,7 +187,7 @@ class ConditionerAll:
         pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
         while pmv > self.configs.pmv_upperbound:
             vel = round(vel + self.configs.air_speed_delta, 2)
-            if vel >= self.configs.max_vel:
+            if vel > self.configs.max_vel:
                 vel = self.configs.max_vel
                 status_ac = 1
                 break
@@ -195,7 +195,7 @@ class ConditionerAll:
 
         while pmv < self.configs.pmv_lowerbound:
             vel = round(vel - self.configs.air_speed_delta, 2)
-            if vel <= 0.0:
+            if vel < 0.0:
                 vel = 0.0
                 status_ac = 1
                 break
