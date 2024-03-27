@@ -6,9 +6,6 @@ from importlib import import_module
 from eppy.modeleditor import IDF
 
 from modules import MODULES_MAPPER
-from modules.conditioner_all import ConditionerAll
-from modules.conditioner_ac import ConditionerAc
-from modules.conditioner_without_window import ConditionerWithoutWindow
 
 import utils
 from utils.simulation_config import SimulationConfig
@@ -59,9 +56,9 @@ class Simulation:
             os.system(f'cd \"{self.configs.input_path}\" ; cp \"{self.configs.idf_filename}\" in.idf ; \"{os.path.join(self.configs.energy_path, EXPAND_OBJECTS_APP)}\"')
 
         # Moving expanded.idf to output folder
-        os.rename(PATH_SEP.join(self.configs.input_path, "expanded.idf"), self.configs.expanded_idf_path)
+        os.rename(PATH_SEP.join([self.configs.input_path, "expanded.idf"]), self.configs.expanded_idf_path)
         os.makedirs(self.configs.output_path, exist_ok=True)
-        self.configs.to_json(PATH_SEP.join(self.configs.output_path, "configs.json"))
+        self.configs.to_json(PATH_SEP.join([self.configs.output_path, "configs.json"]))
 
         # Running simulation
         self.ep_api.runtime.callback_begin_zone_timestep_after_init_heat_balance(self.state, self.conditioner)
@@ -72,11 +69,11 @@ class Simulation:
 
         # Parsing results to CSV
         if platform.system() == "Windows":
-            os.system(f"cd \"{self.configs.output_path}\" && {PATH_SEP.join(self.configs.energy_path, TO_CSV_APP)} eplusout.eso")
+            os.system(f"cd \"{self.configs.output_path}\" && {PATH_SEP.join([self.configs.energy_path, TO_CSV_APP])} eplusout.eso")
         else:
-            os.system(f"cd \"{self.configs.output_path}\" ; {PATH_SEP.join(self.configs.energy_path, TO_CSV_APP)} eplusout.eso")
+            os.system(f"cd \"{self.configs.output_path}\" ; {PATH_SEP.join([self.configs.energy_path, TO_CSV_APP])} eplusout.eso")
 
         for room in self.configs.rooms:
-            utils.summary_results_from_room(PATH_SEP.join(self.configs.output_path, 'eplusout.csv'), room)
+            utils.summary_results_from_room(PATH_SEP.join([self.configs.output_path, 'eplusout.csv']), room)
 
         utils.get_stats_from_simulation(self.configs.output_path, self.configs.rooms)
