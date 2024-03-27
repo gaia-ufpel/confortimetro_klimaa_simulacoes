@@ -1,8 +1,10 @@
 documents
 resources/outros
-resources/outputs
+outputs
 backups
 logs
 
 __pycache__
 .vscode
+
+*.zip

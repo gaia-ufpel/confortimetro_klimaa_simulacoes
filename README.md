@@ -1,7 +1,17 @@
-# Simulações com EnergyPlus
+# Simulações Personalizadas com EnergyPlus e Python
 
-## Como executar:
+## Como executar
 
-Criando um ambiente virtual com os módulos necessários:
+- Instale o pacote `poetry` do Python: `pip install poetry`
 
-`python -m`
+- Instale as dependências da aplicação: `poetry install`
+
+- Execute a aplicação: `poetry run python src/app.py`
+
+## Tecnologias
+
+- EnergyPlus
+- Python
+- Pandas
+- Eppy
+- Tkinter
