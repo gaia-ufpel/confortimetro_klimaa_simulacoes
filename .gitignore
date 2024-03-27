@@ -1,7 +1,8 @@
 documents
-assets/inputs/outros
-assets/outputs
+resources/outros
+resources/outputs
 backups
 logs
 
 __pycache__
+.vscode

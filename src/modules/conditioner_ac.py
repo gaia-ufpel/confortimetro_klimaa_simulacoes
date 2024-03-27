@@ -2,7 +2,7 @@ import pythermalcomfort
 from ladybug_comfort.pmv import predicted_mean_vote
 import logging
 import datetime
-from simulation_config import SimulationConfig
+from utils.simulation_config import SimulationConfig
 
 class ConditionerAc:
     def __init__(self, ep_api, configs: SimulationConfig):

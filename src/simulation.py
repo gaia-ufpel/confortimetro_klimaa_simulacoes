@@ -5,11 +5,13 @@ from importlib import import_module
 
 from eppy.modeleditor import IDF
 
-from simulation_config import SimulationConfig
-from conditioner_all import ConditionerAll
-from conditioner_ac import ConditionerAc
-from conditioner_without_window import ConditionerWithoutWindow
+from modules import MODULES_MAPPER
+from modules.conditioner_all import ConditionerAll
+from modules.conditioner_ac import ConditionerAc
+from modules.conditioner_without_window import ConditionerWithoutWindow
+
 import utils
+from utils.simulation_config import SimulationConfig
 
 EnergyPlusAPI = None
 
@@ -33,7 +35,7 @@ class Simulation:
         self.ep_api = EnergyPlusAPI()
         self.state = self.ep_api.state_manager.new_state()
 
-        self.conditioner = ConditionerAc(ep_api=self.ep_api, configs=SimulationConfig(**self.configs.__dict__))
+        self.conditioner = MODULES_MAPPER[self.configs.module_type](ep_api=self.ep_api, configs=SimulationConfig(**self.configs.__dict__))
 
     def run(self):
         # Modifying IDF file

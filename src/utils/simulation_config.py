@@ -2,6 +2,8 @@ from dataclasses import dataclass
 import json
 import os
 
+from utils.module_type import ModuleType
+
 @dataclass
 class SimulationConfig:
     epw_path: str
@@ -27,6 +29,7 @@ class SimulationConfig:
     temp_open_window_bound: float = 5.0
     air_speed_delta: float = 0.15
     pmv_comfort_bound: float = 0.2
+    module_type: ModuleType = ModuleType.COMPLETE
 
     def __post_init__(self):
         self.input_path = os.path.dirname(self.idf_path)

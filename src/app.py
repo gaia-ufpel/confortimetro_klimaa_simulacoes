@@ -7,10 +7,13 @@ from tkinter import Tk, Label, Entry, Button, filedialog, ttk, Frame
 from tkinter import messagebox
 
 from simulation import Simulation
-from simulation_config import SimulationConfig
+from utils.module_type import ModuleType
+from modules import MODULES_MAPPER
+
+from utils.simulation_config import SimulationConfig
 
 class SimulationGUI(tk.Tk):
-    def __init__(self, config_path="config.json"):
+    def __init__(self, config_path="resources/config.json"):
         super().__init__()
 
         self._build()        
@@ -52,21 +55,21 @@ class SimulationGUI(tk.Tk):
 
         # Input file
         ttk.Label(paths_frame, text="Arquivo IDF:", justify="left").grid(row=0, column=0)
-        ttk.Button(paths_frame, text="Procurar", width=10, command=self.browse_idf).grid(row=0, column=1, rowspan=2)
+        ttk.Button(paths_frame, text="Procurar", width=10, command=self.browse_idf).grid(row=0, column=1, rowspan=2, padx=5, pady=5)
         self.inputfile_entry = ttk.Entry(paths_frame, width=60)
-        self.inputfile_entry.grid(row=1, column=0)
+        self.inputfile_entry.grid(row=1, column=0, padx=5, pady=5)
 
         # Output folder
         ttk.Label(paths_frame, text="Diretório de saída:", justify="left").grid(row=2, column=0)
-        ttk.Button(paths_frame, text="Procurar", width=10, command=self.browse_output).grid(row=2, column=1, rowspan=2)
+        ttk.Button(paths_frame, text="Procurar", width=10, command=self.browse_output).grid(row=2, column=1, rowspan=2, padx=5, pady=5)
         self.outputfolder_entry = ttk.Entry(paths_frame, width=60)
-        self.outputfolder_entry.grid(row=3, column=0)
+        self.outputfolder_entry.grid(row=3, column=0, padx=5, pady=5)
 
         # Weather file
         ttk.Label(paths_frame, text="Arquivo EPW:", anchor="w", justify="left").grid(row=4, column=0)
-        ttk.Button(paths_frame, text="Procurar", width=10, command=self.browse_weather).grid(row=4, column=1, rowspan=2)
+        ttk.Button(paths_frame, text="Procurar", width=10, command=self.browse_weather).grid(row=4, column=1, rowspan=2, padx=5, pady=5)
         self.epwfile_entry = ttk.Entry(paths_frame, width=60)
-        self.epwfile_entry.grid(row=5, column=0)
+        self.epwfile_entry.grid(row=5, column=0, padx=5, pady=5)
 
         return paths_frame
 
@@ -76,17 +79,17 @@ class SimulationGUI(tk.Tk):
         # PMV lowerbound
         ttk.Label(simulation_frame, text="PMV Min:").grid(row=6, column=0)
         self.pmv_lowerbound_entry = ttk.Entry(simulation_frame, width=10)
-        self.pmv_lowerbound_entry.grid(row=7, column=0)
+        self.pmv_lowerbound_entry.grid(row=7, column=0, padx=5, pady=5)
 
         # PMV upperbound
         ttk.Label(master=simulation_frame, text="PMV Max:").grid(row=6, column=1)
         self.pmv_upperbound_entry = ttk.Entry(simulation_frame, width=10)
-        self.pmv_upperbound_entry.grid(row=7, column=1)
+        self.pmv_upperbound_entry.grid(row=7, column=1, padx=5, pady=5)
 
         # Velocity max
         ttk.Label(simulation_frame, text="Velocidade Max:").grid(row=6, column=2)
         self.vel_max_entry = ttk.Entry(simulation_frame, width=10)
-        self.vel_max_entry.grid(row=7, column=2)
+        self.vel_max_entry.grid(row=7, column=2, padx=5, pady=5)
 
         # Adaptative
         ttk.Label(simulation_frame, text="Margem Adaptativo:").grid(row=6, column=3)
@@ -94,52 +97,60 @@ class SimulationGUI(tk.Tk):
         self.cbx_adaptative = ttk.Combobox(simulation_frame, textvariable=self.selected_adaptative, width=10)
         self.cbx_adaptative["values"] = ("80%", "90%")
         self.cbx_adaptative["state"] = "readonly"
-        self.cbx_adaptative.grid(row=7, column=3)
+        self.cbx_adaptative.grid(row=7, column=3, padx=5, pady=5)
 
         # Temperature ac min
         ttk.Label(simulation_frame, text="Temperatura AC Min:").grid(row=8, column=0)
         self.temp_ac_min_entry = ttk.Entry(simulation_frame, width=10)
-        self.temp_ac_min_entry.grid(row=9, column=0)
+        self.temp_ac_min_entry.grid(row=9, column=0, padx=5, pady=5)
 
         # Temperature ac max
         ttk.Label(simulation_frame, text="Temperatura AC Max:").grid(row=8, column=1)
         self.temp_ac_max_entry = ttk.Entry(simulation_frame, width=10)
-        self.temp_ac_max_entry.grid(row=9, column=1)
+        self.temp_ac_max_entry.grid(row=9, column=1, padx=5, pady=5)
 
         # Met
         ttk.Label(simulation_frame, text="Met:").grid(row=8, column=2)
         self.met_entry = ttk.Entry(simulation_frame, width=10)
-        self.met_entry.grid(row=9, column=2)
+        self.met_entry.grid(row=9, column=2, padx=5, pady=5)
 
         # Wme
         ttk.Label(simulation_frame, text="Wme:").grid(row=8, column=3)
         self.wme_entry = ttk.Entry(simulation_frame, width=10)
-        self.wme_entry.grid(row=9, column=3)
+        self.wme_entry.grid(row=9, column=3, padx=5, pady=5)
 
         # Confort bound
         ttk.Label(simulation_frame, text="Banda de conforto:").grid(row=10, column=0)
         self.comfort_bound_entry = ttk.Entry(simulation_frame, width=10)
-        self.comfort_bound_entry.grid(row=11, column=0)
+        self.comfort_bound_entry.grid(row=11, column=0, padx=5, pady=5)
 
         # CO2 limit
         ttk.Label(simulation_frame, text="Limite CO2:").grid(row=10, column=1)
         self.co2_limit_entry = ttk.Entry(simulation_frame, width=10)
-        self.co2_limit_entry.grid(row=11, column=1)
+        self.co2_limit_entry.grid(row=11, column=1, padx=5, pady=5)
 
         # Air speed delta
         ttk.Label(simulation_frame, text="Variação da vel. ventilação:").grid(row=10, column=2)
         self.air_speed_delta_entry = ttk.Entry(simulation_frame, width=10)
-        self.air_speed_delta_entry.grid(row=11, column=2)
+        self.air_speed_delta_entry.grid(row=11, column=2, padx=5, pady=5)
 
         # Temp open window bound
         ttk.Label(simulation_frame, text="Margem temp. abertura janela:").grid(row=10, column=3)
         self.temp_open_window_bound_entry = ttk.Entry(simulation_frame, width=10)
-        self.temp_open_window_bound_entry.grid(row=11, column=3)
+        self.temp_open_window_bound_entry.grid(row=11, column=3, padx=5, pady=5)
 
         # Rooms
-        ttk.Label(simulation_frame, text="Rooms:").grid(row=12, column=0)
+        ttk.Label(simulation_frame, text="Salas:").grid(row=12, column=0)
         self.rooms_entry = ttk.Entry(simulation_frame, width=50)
-        self.rooms_entry.grid(row=13, column=1, columnspan=3)
+        self.rooms_entry.grid(row=12, column=1, columnspan=3, padx=5, pady=5)
+
+        # Module Type
+        ttk.Label(simulation_frame, text="Módulo:").grid(row=13, column=0)
+        self.selected_module = tk.StringVar()
+        self.cbx_module = ttk.Combobox(simulation_frame, textvariable=self.selected_module, width=30)
+        self.cbx_module["values"] = [m.value for m in MODULES_MAPPER.keys()]
+        self.cbx_module["state"] = "readonly"
+        self.cbx_module.grid(row=13, column=1, columnspan=3, padx=5, pady=5)
 
         return simulation_frame
 
@@ -178,6 +189,7 @@ class SimulationGUI(tk.Tk):
         self.air_speed_delta_entry.insert(0, self.configs.air_speed_delta)
         self.temp_open_window_bound_entry.insert(0, self.configs.temp_open_window_bound)
         self.rooms_entry.insert(0, ",".join(self.configs.rooms))
+        self.selected_module.set(self.configs.module_type)
 
     def update_configs(self):
         self.configs.idf_path = self.inputfile_entry.get()
@@ -198,6 +210,7 @@ class SimulationGUI(tk.Tk):
         self.configs.air_speed_delta = float(self.air_speed_delta_entry.get())
         self.configs.temp_open_window_bound = float(self.temp_open_window_bound_entry.get())
         self.configs.rooms = self.rooms_entry.get().split(',')
+        self.configs.module_type = ModuleType[self.selected_module.get()]
 
     def save_configs(self):
         self.update_configs()
