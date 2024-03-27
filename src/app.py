@@ -71,6 +71,12 @@ class SimulationGUI(tk.Tk):
         self.epwfile_entry = ttk.Entry(paths_frame, width=60)
         self.epwfile_entry.grid(row=5, column=0, padx=5, pady=5)
 
+        # EnergyPlus path
+        ttk.Label(paths_frame, text="Caminho do EnergyPlus:", anchor="w", justify="left").grid(row=6, column=0)
+        ttk.Button(paths_frame, text="Procurar", width=10, command=self.browse_weather).grid(row=6, column=1, rowspan=2, padx=5, pady=5)
+        self.energy_path_entry = ttk.Entry(paths_frame, width=60)
+        self.energy_path_entry.grid(row=7, column=0, padx=5, pady=5)
+
         return paths_frame
 
     def _build_simulation_config(self):
@@ -173,6 +179,7 @@ class SimulationGUI(tk.Tk):
         self.inputfile_entry.insert(0, self.configs.idf_path)
         self.outputfolder_entry.insert(0, self.configs.output_path)
         self.epwfile_entry.insert(0, self.configs.epw_path)
+        self.energy_path_entry.insert(0, self.configs.energy_path)
         self.pmv_upperbound_entry.insert(0, self.configs.pmv_upperbound)
         self.pmv_lowerbound_entry.insert(0, self.configs.pmv_lowerbound)
         self.vel_max_entry.insert(0, self.configs.max_vel)
@@ -195,6 +202,7 @@ class SimulationGUI(tk.Tk):
         self.configs.idf_path = self.inputfile_entry.get()
         self.configs.output_path = self.outputfolder_entry.get()
         self.configs.epw_path = self.epwfile_entry.get()
+        self.configs.energy_path = self.energy_path_entry.get()
         self.configs.pmv_upperbound = float(self.pmv_upperbound_entry.get())
         self.configs.pmv_lowerbound = float(self.pmv_lowerbound_entry.get())
         self.configs.max_vel = float(self.vel_max_entry.get())

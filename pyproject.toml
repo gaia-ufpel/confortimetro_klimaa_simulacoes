@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "confortimetro-klimaa-simulacoes"
+version = "0.1.0"
+description = ""
+authors = ["Gabriel Leite Bessa <gabrielleitebessa@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pandas = "^2.2.1"
+esoreader = "^1.2.3"
+ladybug-comfort = "^0.18.14"
+pythermalcomfort = "^2.10.0"
+eppy = "^0.5.63"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
