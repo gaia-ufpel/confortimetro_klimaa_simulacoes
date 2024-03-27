@@ -6,22 +6,22 @@ from utils.module_type import ModuleType
 
 @dataclass
 class SimulationConfig:
-    epw_path: str
-    output_path: str
-    energy_path: str
-    rooms: list[str]
-    pmv_upperbound: float
-    pmv_lowerbound: float
-    co2_limit: float
-    max_vel: float
-    adaptative_bound: float
-    temp_ac_min: float
-    temp_ac_max: float
     met_as_watts: float
-    wme: float
-
     _idf_path: str
     _met: float
+
+    epw_path: str = None
+    output_path: str = None
+    energy_path: str = None
+    rooms: list[str] = None
+    pmv_upperbound: float = 0.5
+    pmv_lowerbound: float = -0.5
+    co2_limit: float = 1000
+    max_vel: float = 1.2
+    adaptative_bound: float = 2.5
+    temp_ac_min: float = 16.0
+    temp_ac_max: float = 30.0
+    wme: float = 0.0
 
     input_path: str = None
     expanded_idf_path: str = None

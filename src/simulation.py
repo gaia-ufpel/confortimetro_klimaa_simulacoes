@@ -2,11 +2,9 @@ import sys
 import os
 import platform
 from importlib import import_module
-
 from eppy.modeleditor import IDF
 
 from modules import MODULES_MAPPER
-
 import utils
 from utils.simulation_config import SimulationConfig
 
@@ -22,7 +20,7 @@ TO_CSV_APP = "runreadvars"
 
 if platform.system() == "Windows":
     EXPAND_OBJECTS_APP = "ExpandObjects.exe"
-    TO_CSV_APP = "PostProcess/RunReadESO.bat"
+    TO_CSV_APP = "PostProcess/ReadVarsESO.exe"
 
 class Simulation:
     def __init__(self, configs: SimulationConfig):
@@ -38,16 +36,7 @@ class Simulation:
 
     def run(self):
         # Modifying IDF file
-        IDF.setiddname(os.path.join(self.configs.energy_path, "Energy+.idd"))
-        idf = IDF(self.configs.idf_path)
-        for schedule in idf.idfobjects["Schedule:Constant"]:
-            if schedule.Name == MET_SCHEDULE_NAME:
-                schedule.Schedule_Type_Limits_Name = "Any Number"
-                schedule.Hourly_Value = self.configs.met_as_watts
-            elif schedule.Name == WME_SCHEDULE_NAME:
-                schedule.Schedule_Type_Limits_Name = "Any Number"
-                schedule.Hourly_Value = self.configs.wme
-        idf.save(self.configs.idf_path)
+        self._modify_idf()
 
         # Expanding objects and creating expanded.idf
         if platform.system() == "Windows":
@@ -69,7 +58,7 @@ class Simulation:
 
         # Parsing results to CSV
         if platform.system() == "Windows":
-            os.system(f"cd \"{self.configs.output_path}\" && {PATH_SEP.join([self.configs.energy_path, TO_CSV_APP])} eplusout.eso")
+            os.system(f"cd \"{self.configs.output_path}\" && {PATH_SEP.join([self.configs.energy_path, TO_CSV_APP])}")
         else:
             os.system(f"cd \"{self.configs.output_path}\" ; {PATH_SEP.join([self.configs.energy_path, TO_CSV_APP])} eplusout.eso")
 
@@ -77,3 +66,39 @@ class Simulation:
             utils.summary_results_from_room(PATH_SEP.join([self.configs.output_path, 'eplusout.csv']), room)
 
         utils.get_stats_from_simulation(self.configs.output_path, self.configs.rooms)
+
+    def _modify_idf(self):
+        IDF.setiddname(os.path.join(self.configs.energy_path, "Energy+.idd"))
+        idf = IDF(self.configs.idf_path)
+        
+        idf = self._modify_schedules_idf(idf)
+
+        idf.save(self.configs.idf_path)
+
+    def _modify_schedules_idf(self, idf: IDF):
+        for schedule in idf.idfobjects["Schedule:Constant"]:
+            if schedule.Name == MET_SCHEDULE_NAME:
+                schedule.Schedule_Type_Limits_Name = "Any Number"
+                schedule.Hourly_Value = self.configs.met_as_watts
+            elif schedule.Name == WME_SCHEDULE_NAME:
+                schedule.Schedule_Type_Limits_Name = "Any Number"
+                schedule.Hourly_Value = self.configs.wme
+
+        return idf
+
+    def _add_schedules_idf(self, idf: IDF):
+        idf.newidfobject("ScheduleTypeLimits", Name="Any Number", Lower_Limit_Value=-1000000, Upper_Limit_Value=1000000, Numeric_Type="CONTINUOUS", Unit_Type="Dimensionless")
+        idf.newidfobject("Schedule:Constant", Name=MET_SCHEDULE_NAME, Schedule_Type_Limits_Name="Any Number", Hourly_Value=self.configs.met_as_watts)
+        idf.newidfobject("Schedule:Constant", Name=WME_SCHEDULE_NAME, Schedule_Type_Limits_Name="Any Number", Hourly_Value=self.configs.wme)
+
+        return idf
+
+    def _configure_zones_idf(self, idf: IDF):
+        for zone in idf.idfobjects["Zone"]:
+            zone.People_Name = MET_SCHEDULE_NAME
+            zone.Work_Eff_Name = WME_SCHEDULE_NAME
+
+        return idf
+
+    def _add_output_variables_idf(self, idf: IDF):
+        pass

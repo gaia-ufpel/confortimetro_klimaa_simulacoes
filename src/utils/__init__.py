@@ -14,6 +14,16 @@ JANELA_COLUMN = 'JANELA_{}:Schedule Value [](TimeStep)'
 DOAS_COLUMN = 'DOAS_STATUS_{}:Schedule Value [](TimeStep)'
 EM_CONFORTO_COLUMN = 'EM_CONFORTO_{}:Schedule Value [](TimeStep)'
 
+PORCENT2ADAPTATIVE = {
+    "90%": 2.5,
+    "80%": 3.5
+}
+
+ADAPTATIVE2PORCENT = {
+    2.5: "90%",
+    3.5: "80%"
+}
+
 def summary_results_from_room(csv_path, room):
     df = pandas.read_csv(csv_path)
     base_path = csv_path[:-13]

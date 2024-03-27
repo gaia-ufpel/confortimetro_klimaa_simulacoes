@@ -7,23 +7,28 @@ from tkinter import Tk, Label, Entry, Button, filedialog, ttk, Frame
 from tkinter import messagebox
 
 from simulation import Simulation
-from utils.module_type import ModuleType
 from modules import MODULES_MAPPER
-
+from utils import ADAPTATIVE2PORCENT, PORCENT2ADAPTATIVE
+from utils.module_type import ModuleType
 from utils.simulation_config import SimulationConfig
 
 class SimulationGUI(tk.Tk):
     def __init__(self, config_path="resources/config.json"):
         super().__init__()
 
-        self._build()        
+        self._build()
 
         self.config_path = config_path
-        self.configs = SimulationConfig.from_json(config_path)
+        if not os.path.exists(config_path):
+            self.configs = SimulationConfig()
+            self.configs.to_json(config_path)
+        else:
+            self.configs = SimulationConfig.from_json(config_path)
+
         self.show_configs()
 
     def _build(self):
-        self.title("EnergyPlus Simulações Customizadas")
+        self.title("Simulações Personalizadas com EnergyPlus e Python")
         self.config(padx=10, pady=100)
         self.configure(background="#cdb4db")
 
@@ -42,13 +47,9 @@ class SimulationGUI(tk.Tk):
         simulation_frame = self._build_simulation_config()
         simulation_frame.grid(row=1, column=0, columnspan=2, padx=30, pady=30)
 
-        # Save button
-        self.save_button = ttk.Button(self, text="Salvar", width=20, command=self.save_configs)
-        self.save_button.grid(row=2, column=0)
-
         # Run button
         self.run_button = ttk.Button(self, text="Executar", width=60, command=self.run)
-        self.run_button.grid(row=2, column=1)
+        self.run_button.grid(row=2, column=0, columnspan=2)
 
     def _build_path_config(self):
         paths_frame = ttk.Frame(master=self)
@@ -188,10 +189,7 @@ class SimulationGUI(tk.Tk):
         self.pmv_upperbound_entry.insert(0, self.configs.pmv_upperbound)
         self.pmv_lowerbound_entry.insert(0, self.configs.pmv_lowerbound)
         self.vel_max_entry.insert(0, self.configs.max_vel)
-        if self.configs.adaptative_bound == 2.5:
-            self.selected_adaptative.set("90%")
-        else:
-            self.selected_adaptative.set("80%")
+        self.selected_adaptative.set(ADAPTATIVE2PORCENT[self.configs.adaptative_bound])
         self.temp_ac_min_entry.insert(0, self.configs.temp_ac_min)
         self.temp_ac_max_entry.insert(0, self.configs.temp_ac_max)
         self.met_entry.insert(0, self.configs.met)
@@ -211,10 +209,7 @@ class SimulationGUI(tk.Tk):
         self.configs.pmv_upperbound = float(self.pmv_upperbound_entry.get())
         self.configs.pmv_lowerbound = float(self.pmv_lowerbound_entry.get())
         self.configs.max_vel = float(self.vel_max_entry.get())
-        if self.selected_adaptative.get() == "80%":
-            self.configs.adaptative_bound = 3.5
-        else:
-            self.configs.adaptative_bound = 2.5
+        self.configs.adaptative_bound = PORCENT2ADAPTATIVE[self.selected_adaptative.get()]
         self.configs.temp_ac_min = float(self.temp_ac_min_entry.get())
         self.configs.temp_ac_max = float(self.temp_ac_max_entry.get())
         self.configs.met = float(self.met_entry.get())
@@ -233,7 +228,7 @@ class SimulationGUI(tk.Tk):
         if self.run_button['state'] == tk.DISABLED:
             return None
         
-        self.update_configs()
+        self.save_configs()
 
         if not os.path.exists(self.configs.input_path):
             tk.messagebox.showerror("Erro", "Arquivo IDF não encontrado!")
