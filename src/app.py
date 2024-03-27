@@ -73,7 +73,7 @@ class SimulationGUI(tk.Tk):
 
         # EnergyPlus path
         ttk.Label(paths_frame, text="Caminho do EnergyPlus:", anchor="w", justify="left").grid(row=6, column=0)
-        ttk.Button(paths_frame, text="Procurar", width=10, command=self.browse_weather).grid(row=6, column=1, rowspan=2, padx=5, pady=5)
+        ttk.Button(paths_frame, text="Procurar", width=10, command=self.browse_energy).grid(row=6, column=1, rowspan=2, padx=5, pady=5)
         self.energy_path_entry = ttk.Entry(paths_frame, width=60)
         self.energy_path_entry.grid(row=7, column=0, padx=5, pady=5)
 
@@ -174,6 +174,11 @@ class SimulationGUI(tk.Tk):
         filename = filedialog.askopenfilename(initialdir = ".", title = "Select Weather File", filetypes = (("EPW Files","*.epw"),("all files","*.*")))
         self.epwfile_entry.delete(0, 'end')
         self.epwfile_entry.insert(0, filename)
+
+    def browse_energy(self):
+        filename = filedialog.askdirectory(initialdir = ".", title = "Select Energy Folder")
+        self.energy_path_entry.delete(0, 'end')
+        self.energy_path_entry.insert(0, filename)
 
     def show_configs(self):
         self.inputfile_entry.insert(0, self.configs.idf_path)

@@ -4,7 +4,7 @@ import logging
 import datetime
 from utils.simulation_config import SimulationConfig
 
-class ConditionerAc:
+class ConditionerWithoutVent:
     def __init__(self, ep_api, configs: SimulationConfig):
         logging.basicConfig(filename=f'logs/simulation_{datetime.datetime.now().isoformat()}.log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
@@ -68,47 +68,60 @@ class ConditionerAc:
                 mrt = self.ep_api.exchange.get_variable_value(state, self.mrt_handler[room])
                 hum_rel = self.ep_api.exchange.get_variable_value(state, self.hum_rel_handler[room]) # Umidade relativa
                 clo = self.ep_api.exchange.get_variable_value(state, self.clo_handler[room]) # Roupagem
+                temp_op_max = self.ep_api.exchange.get_actuator_value(state, self.temp_op_max_handler[room])
 
                 # Valores iniciais
                 status_janela = self.ep_api.exchange.get_actuator_value(state, self.status_janela_handler[room])
+                vel = self.ep_api.exchange.get_actuator_value(state, self.vel_handler[room])
                 status_ac = self.ep_api.exchange.get_actuator_value(state, self.status_ac_handler[room])
                 status_doas = 0
+                temp_cool_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_cool_ac_handler[room])
+                temp_heat_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_heat_ac_handler[room])
 
                 if self.ac_on_counter >= self.ac_on_max_timesteps:
                     status_janela = 0
+                    vel = 0.0
                     status_ac = 0
                     self.ac_on_counter = 0
 
                 #logging.info(f'data: {self.ep_api.exchange.day_of_month(state)} - temp_ar: {temp_ar} - mrt: {mrt} - vel: {vel} - rh: {hum_rel} - met: {self.met} - clo: {clo} - pmv: {self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)}')
-                
-                pmv = self.get_pmv(temp_ar, mrt, 0.0, hum_rel, clo)
 
                 if status_janela == 0 and status_ac == 0:
                     if temp_op > temp_min_adaptativo:
                         status_janela = 1
                 if status_janela == 1:
-                    # Executar com o modelo adaptativo
-                    if temp_op < temp_min_adaptativo or temp_op > temp_max_adaptativo or tdb > temp_ar or tdb < temp_ar - self.configs.temp_open_window_bound:
+                    # Executar com o modelo adaptativo ou adaptativo com implemento
+                    if temp_op < temp_min_adaptativo or tdb > temp_ar:
+                            status_janela = 0
+                    elif tdb < temp_ar - self.configs.temp_open_window_bound:
                         status_janela = 0
                 if status_janela == 0:
-                    # Executar com o modelo PMV
-                    if pmv < self.configs.pmv_lowerbound or pmv > self.configs.pmv_upperbound:
+                    if not self.is_comfortable(temp_op, temp_neutra_adaptativo, 0, status_janela):
                         status_ac = 1
 
-                if status_ac == 1:    
+                if status_ac == 1:
+                    # Executar com o modelo PMV
+                    temp_cool_ac, temp_heat_ac = self.get_best_temperatures_with_pmv(mrt, vel, hum_rel, clo)
                     self.ac_on_counter += 1
                     
                 status_doas = 0
                 if co2 >= self.configs.co2_limit and status_janela == 0:
                     status_doas = 1
 
+                pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
+
                 # Mandando para o Energy os valores atualizados
+                self.ep_api.exchange.set_actuator_value(state, self.status_vent_handler[room], 1 if vel > 0 else 0)
+                self.ep_api.exchange.set_actuator_value(state, self.vel_handler[room], vel)
                 self.ep_api.exchange.set_actuator_value(state, self.status_ac_handler[room], status_ac)
                 if self.status_doas_handler != -1:
                     self.ep_api.exchange.set_actuator_value(state, self.status_doas_handler[room], status_doas)
+                self.ep_api.exchange.set_actuator_value(state, self.temp_cool_ac_handler[room], temp_cool_ac)
+                self.ep_api.exchange.set_actuator_value(state, self.temp_heat_ac_handler[room], temp_heat_ac)
                 self.ep_api.exchange.set_actuator_value(state, self.status_janela_handler[room], status_janela)
+                self.ep_api.exchange.set_actuator_value(state, self.temp_op_max_handler[room], temp_op_max)
                 self.ep_api.exchange.set_actuator_value(state, self.pmv_handler[room], pmv)
-                em_conforto = self.is_comfortable(temp_op, temp_neutra_adaptativo, pmv, status_janela)
+                em_conforto = self.is_comfortable(temp_op, temp_neutra_adaptativo, temp_op_max, pmv, status_janela, vel)
                 self.ep_api.exchange.set_actuator_value(state, self.em_conforto_handler[room], em_conforto)
             else:
                 # Eliminando CO2 da sala
@@ -126,15 +139,42 @@ class ConditionerAc:
                 self.ac_on_counter = 0
 
                 # Desligando tudo se não há ocupação
+                self.ep_api.exchange.set_actuator_value(state, self.status_vent_handler[room], 0)
+                self.ep_api.exchange.set_actuator_value(state, self.vel_handler[room], 0)
                 self.ep_api.exchange.set_actuator_value(state, self.status_ac_handler[room], 0)
                 if self.status_doas_handler != -1:
                     self.ep_api.exchange.set_actuator_value(state, self.status_doas_handler[room], 0)
+                self.ep_api.exchange.set_actuator_value(state, self.temp_cool_ac_handler[room], self.configs.temp_ac_max)
+                self.ep_api.exchange.set_actuator_value(state, self.temp_heat_ac_handler[room], self.configs.temp_ac_min)
                 self.ep_api.exchange.set_actuator_value(state, self.pmv_handler[room], 0)
                 self.ep_api.exchange.set_actuator_value(state, self.status_janela_handler[room], status_janela)
+                self.ep_api.exchange.set_actuator_value(state, self.temp_op_max_handler[room], 0)
                 self.ep_api.exchange.set_actuator_value(state, self.em_conforto_handler[room], 1)
 
             self.ep_api.exchange.set_actuator_value(state, self.adaptativo_max_handler[room], temp_max_adaptativo)
             self.ep_api.exchange.set_actuator_value(state, self.adaptativo_min_handler[room], temp_min_adaptativo)
+
+    def get_best_temperatures_with_pmv(self, mrt, vel, hum_rel, clo):
+        best_cool_temp = self.configs.temp_ac_max
+        best_heat_temp = self.configs.temp_ac_min
+        
+        pmv = self.get_pmv(best_cool_temp, mrt, vel, hum_rel, clo)
+        while pmv > self.configs.pmv_upperbound:
+            best_cool_temp -= 1.0
+            if best_cool_temp <= self.configs.temp_ac_min:
+                best_cool_temp = self.configs.temp_ac_min
+                break
+            pmv = self.get_pmv(best_cool_temp, mrt, vel, hum_rel, clo)
+
+        pmv = self.get_pmv(best_heat_temp, mrt, vel, hum_rel, clo)
+        while pmv < self.configs.pmv_lowerbound:
+            best_heat_temp += 1.0
+            if best_heat_temp >= self.configs.temp_ac_max:
+                best_heat_temp = self.configs.temp_ac_max
+                break
+            pmv = self.get_pmv(best_heat_temp, mrt, vel, hum_rel, clo)
+
+        return best_cool_temp, best_heat_temp
 
     def get_pmv(self, temp_ar, mrt, vel, rh, clo):
         return predicted_mean_vote(

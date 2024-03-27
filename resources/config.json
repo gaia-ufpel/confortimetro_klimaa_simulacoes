@@ -1,6 +1,6 @@
 {
     "epw_path": "./resources/BRA_RS_Camaqua.869890_INMET.epw",
-    "output_path": "./resources/outputs/FAURB_50_PTHP_AR_3",
+    "output_path": "./outputs/FAURB_50_PTHP_AR_4",
     "energy_path": "/usr/local/EnergyPlus-9-4-0",
     "rooms": [
         "SALA_AULA",
