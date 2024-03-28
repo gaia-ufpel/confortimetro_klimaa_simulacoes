@@ -62,9 +62,7 @@ class Simulation:
         else:
             os.system(f"cd \"{self.configs.output_path}\" ; {PATH_SEP.join([self.configs.energy_path, TO_CSV_APP])} eplusout.eso")
 
-        for room in self.configs.rooms:
-            utils.summary_results_from_room(PATH_SEP.join([self.configs.output_path, 'eplusout.csv']), room)
-
+        utils.summary_rooms_results_from_eso(self.configs.output_path, self.configs.rooms)
         utils.get_stats_from_simulation(self.configs.output_path, self.configs.rooms)
 
     def _modify_idf(self):

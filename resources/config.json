@@ -1,6 +1,9 @@
 {
+    "met_as_watts": 125.496,
+    "_idf_path": "/mnt/sda1/gabriellb/Documentos/Faculdade/projetos/gaia/confortimetro_klimaa_simulacoes/resources/FAURB/FAURB_PTHP_ENTORNO.idf",
+    "_met": 1.2,
     "epw_path": "./resources/BRA_RS_Camaqua.869890_INMET.epw",
-    "output_path": "./outputs/FAURB_50_PTHP_AR_4",
+    "output_path": "./outputs/FAURB_ENTORNO_1",
     "energy_path": "/usr/local/EnergyPlus-9-4-0",
     "rooms": [
         "SALA_AULA",
@@ -18,15 +21,12 @@
     "adaptative_bound": 2.5,
     "temp_ac_min": 18.0,
     "temp_ac_max": 30.0,
-    "met_as_watts": 125.496,
     "wme": 0.0,
-    "_idf_path": "./resources/FAURB_50/FAURB_50_PTHP_TEMP_FIXA.idf",
-    "_met": 1.2,
-    "input_path": "./resources/FAURB_50",
-    "expanded_idf_path": "./resources/FAURB_50/expanded.idf",
-    "idf_filename": "FAURB_50_PTHP_TEMP_FIXA.idf",
+    "input_path": "/mnt/sda1/gabriellb/Documentos/Faculdade/projetos/gaia/confortimetro_klimaa_simulacoes/resources/FAURB",
+    "expanded_idf_path": "/mnt/sda1/gabriellb/Documentos/Faculdade/projetos/gaia/confortimetro_klimaa_simulacoes/resources/FAURB/expanded.idf",
+    "idf_filename": "FAURB_PTHP_ENTORNO.idf",
     "temp_open_window_bound": 5.0,
     "air_speed_delta": 0.15,
     "pmv_comfort_bound": 0.2,
-    "module_type": "FIXED_AC_WITHOUT_VENT"
+    "module_type": "COMPLETE"
 }
