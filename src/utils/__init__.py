@@ -58,14 +58,15 @@ def get_stats_from_simulation(output_path, rooms):
     """
     Pega as estatísticas de cada informação, necessário executar a summary_results_from_room antes.
     """
-    people_column = 'PEOPLE_{}:People Occupant Count [](TimeStep)'
-    ac_column = 'AC_{}:Schedule Value [](TimeStep)'
-    cooling_column = '{} PTHP:Zone Packaged Terminal Heat Pump Total Cooling Energy [J](TimeStep)'
-    heating_column = '{} PTHP:Zone Packaged Terminal Heat Pump Total Heating Energy [J](TimeStep)'
-    vent_column = 'VENT_{}:Schedule Value [](TimeStep)'
-    janela_column = 'JANELA_{}:Schedule Value [](TimeStep)'
-    doas_column = 'DOAS_STATUS_{}:Schedule Value [](TimeStep)'
-    em_conforto_column = 'EM_CONFORTO_{}:Schedule Value [](TimeStep)'
+    people_column = 'PEOPLE_{}:People Occupant Count'
+    ac_column = 'AC_{}:Schedule Value'
+    cooling_column = '{} PTHP:Zone Packaged Terminal Heat Pump Total Cooling Energy'
+    heating_column = '{} PTHP:Zone Packaged Terminal Heat Pump Total Heating Energy'
+    vent_column = 'VENT_{}:Schedule Value'
+    janela_column = 'JANELA_{}:Schedule Value'
+    doas_column = 'DOAS_STATUS_{}:Schedule Value'
+    co2_column = '{}:Zone Air CO2 Concentration'
+    em_conforto_column = 'EM_CONFORTO_{}:Schedule Value'
 
     id_arquivo = output_path.split("/")[-1]
 
@@ -124,9 +125,12 @@ def get_stats_from_simulation(output_path, rooms):
         row['DOAS ligado'] = len(df[(df[people_column.format(room)] != 0) & (df[doas_column.format(room)] == 1)]) / row['Número ocupação']
         row['Janela fechada, ar desligado e ventilador desligado'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 0) & (df[janela_column.format(room)] == 0) & (df[ac_column.format(room)] == 0)]) / row['Número ocupação']
         row['Desconforto'] = len(df[(df[people_column.format(room)] != 0) & (df[em_conforto_column.format(room)] == 0)]) / row['Número ocupação']
-        row['CO2 máximo'] = df[f"{room.upper()}:Zone Air CO2 Concentration [ppm](TimeStep)"].max()
+        row['CO2 máximo'] = df[co2_column.format(room)].max()
         row['Janela aberta sem pessoas'] = len(df[(df[people_column.format(room)] == 0) & (df[janela_column.format(room)] == 1)]) / len(df[df[people_column.format(room)] == 0])
 
         stats_df = pandas.concat([stats_df, pandas.DataFrame(row, index=[len(stats_df)])])
 
     stats_df.to_excel(os.path.join(output_path, f"ESTATISTICAS.xlsx"), index=False)
+
+if __name__ == "__main__":
+    get_stats_from_simulation("./outputs/FAURB_ENTORNO_2", ["SALA_AULA", "LINSE", "SEC_LINSE", "RECEPCAO", "ATELIE1", "ATELIE2", "ATELIE3"])

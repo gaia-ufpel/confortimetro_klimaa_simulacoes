@@ -7,11 +7,26 @@ from eppy.modeleditor import IDF
 from modules import MODULES_MAPPER
 import utils
 from utils.simulation_config import SimulationConfig
+from utils.module_type import ModuleType
 
 EnergyPlusAPI = None
 
 PATH_SEP = "/"
 
+OUTDOOR_CO2_SCHEDULE_NAME = "Outdoor CO2 Schedule"
+PEOPLE_OBJECT_NAME = "PEOPLE_{}"
+JANELA_SCHEDULE_NAME = "JANELA_{}"
+VENT_SCHEDULE_NAME = "VENT_{}"
+VEL_SCHEDULE_NAME = "VEL_{}"
+AC_SCHEDULE_NAME = "AC_{}"
+DOAS_SCHEDULE_NAME = "DOAS_STATUS_{}"
+TEMP_COOL_AC_SCHEDULE_NAME = "TEMP_COOL_AC_{}"
+TEMP_HEAT_AC_SCHEDULE_NAME = "TEMP_HEAT_AC_{}"
+PMV_SCHEDULE_NAME = "PMV_{}"
+TEMP_OP_SCHEDULE_NAME = "TEMP_OP_{}"
+ADAP_MIN_SCHEDULE_NAME = "ADAP_MIN_{}"
+ADAP_MAX_SCHEDULE_NAME = "ADAP_MAX_{}"
+EM_CONFORTO_SCHEDULE_NAME = "EM_CONFORTO_{}"
 MET_SCHEDULE_NAME = "METABOLISMO"
 WME_SCHEDULE_NAME = "WORK_EF"
 
@@ -81,22 +96,64 @@ class Simulation:
             elif schedule.Name == WME_SCHEDULE_NAME:
                 schedule.Schedule_Type_Limits_Name = "Any Number"
                 schedule.Hourly_Value = self.configs.wme
+            elif self.configs.module_type == ModuleType.FIXED_AC_WITHOUT_VENT:
+                if TEMP_COOL_AC_SCHEDULE_NAME.format("") in schedule.Name:
+                    schedule.Hourly_Value = self.configs.temp_ac_max
+                elif TEMP_HEAT_AC_SCHEDULE_NAME.format("") in schedule.Name:
+                    schedule.Hourly_Value = self.configs.temp_ac_min
 
         return idf
 
     def _add_schedules_idf(self, idf: IDF):
-        idf.newidfobject("ScheduleTypeLimits", Name="Any Number", Lower_Limit_Value=-1000000, Upper_Limit_Value=1000000, Numeric_Type="CONTINUOUS", Unit_Type="Dimensionless")
+        idf.newidfobject("ScheduleTypeLimits", Name="On/Off", Lower_Limit_Value=0, Upper_Limit_Value=1, Numeric_Type="DISCRETE", Unit_Type="Dimensionless")
+        idf.newidfobject("ScheduleTypeLimits", Name="Any Number")
+        idf.newidfobject("Schedule:Constant", Name=OUTDOOR_CO2_SCHEDULE_NAME, Schedule_Type_Limits_Name="Any Number", Hourly_Value=400)
+
+        for room in self.configs.rooms:
+            idf.newidfobject("Schedule:Constant", Name=JANELA_SCHEDULE_NAME.format(room), Schedule_Type_Limits_Name="On/Off", Hourly_Value=0)
+            idf.newidfobject("Schedule:Constant", Name=VENT_SCHEDULE_NAME.format(room), Schedule_Type_Limits_Name="On/Off", Hourly_Value=0)
+            idf.newidfobject("Schedule:Constant", Name=VEL_SCHEDULE_NAME.format(room), Schedule_Type_Limits_Name="On/Off", Hourly_Value=0)
+            idf.newidfobject("Schedule:Constant", Name=AC_SCHEDULE_NAME.format(room), Schedule_Type_Limits_Name="On/Off", Hourly_Value=0)
+            idf.newidfobject("Schedule:Constant", Name=DOAS_SCHEDULE_NAME.format(room), Schedule_Type_Limits_Name="On/Off", Hourly_Value=0)
+            idf.newidfobject("Schedule:Constant", Name=TEMP_COOL_AC_SCHEDULE_NAME.format(room), Schedule_Type_Limits_Name="Any Number", Hourly_Value=self.configs.temp_ac_max)
+            idf.newidfobject("Schedule:Constant", Name=TEMP_HEAT_AC_SCHEDULE_NAME.format(room), Schedule_Type_Limits_Name="Any Number", Hourly_Value=self.configs.temp_ac_min)
+            idf.newidfobject("Schedule:Constant", Name=PMV_SCHEDULE_NAME.format(room), Schedule_Type_Limits_Name="Any Number", Hourly_Value=0)
+            idf.newidfobject("Schedule:Constant", Name=TEMP_OP_SCHEDULE_NAME.format(room), Schedule_Type_Limits_Name="Any Number", Hourly_Value=0)
+            idf.newidfobject("Schedule:Constant", Name=ADAP_MIN_SCHEDULE_NAME.format(room), Schedule_Type_Limits_Name="Any Number", Hourly_Value=0)
+            idf.newidfobject("Schedule:Constant", Name=ADAP_MAX_SCHEDULE_NAME.format(room), Schedule_Type_Limits_Name="Any Number", Hourly_Value=0)
+            idf.newidfobject("Schedule:Constant", Name=EM_CONFORTO_SCHEDULE_NAME.format(room), Schedule_Type_Limits_Name="On/Off", Hourly_Value=0)
+
         idf.newidfobject("Schedule:Constant", Name=MET_SCHEDULE_NAME, Schedule_Type_Limits_Name="Any Number", Hourly_Value=self.configs.met_as_watts)
         idf.newidfobject("Schedule:Constant", Name=WME_SCHEDULE_NAME, Schedule_Type_Limits_Name="Any Number", Hourly_Value=self.configs.wme)
 
         return idf
 
-    def _configure_zones_idf(self, idf: IDF):
-        for zone in idf.idfobjects["Zone"]:
-            zone.People_Name = MET_SCHEDULE_NAME
-            zone.Work_Eff_Name = WME_SCHEDULE_NAME
+    def _configure_people_object_idf(self, idf: IDF):
+        for people in idf.idfobjects["People"]:
+            people.Activity_Level_Schedule_Name = MET_SCHEDULE_NAME
+            people.Work_Eff_Name = WME_SCHEDULE_NAME
+            people.Air_Velocity_Schedule_Name = VEL_SCHEDULE_NAME.format(people.Name)
 
         return idf
 
     def _add_output_variables_idf(self, idf: IDF):
-        pass
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="People Occupant Count", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Site Outdoor Air Drybulb Temperature", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Mean Radiante Temperature", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Operative Temperature", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Air Temperature", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Air Relative Humidity", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Thermal Comfort Fanger Model PMV", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Thermal Comfort Clothing Value", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Air CO2 Concentration", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Schedule Value", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Packaged Terminal Heat Pump Total Heating Energy", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Packaged Terminal Heat Pump Total Cooling Energy", Reporting_Frequency="Timestep")
+        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Infiltration Air Change Rate", Reporting_Frequency="Timestep")
+
+        for room in self.configs.rooms:
+            idf.newidfobject("Output:Variable", Key_Value=f"DOAS_{room.upper()} OUTDOOR AIR INLET", Variable_Name="System Node Mass Flow Rate", Reporting_Frequency="Timestep")
+            
+        return idf
+        

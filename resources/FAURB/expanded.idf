@@ -343,11 +343,6 @@ Schedule:Constant,
     0;                        !- Hourly Value
 
 Schedule:Constant,
-    ADAPTATIVO_PYTHERMAL_SALA_AULA,    !- Name
-    Number,                   !- Schedule Type Limits Name
-    0;                        !- Hourly Value
-
-Schedule:Constant,
     TEMP_OP_MAX_ADAP_SALA_AULA,    !- Name
     Number,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
