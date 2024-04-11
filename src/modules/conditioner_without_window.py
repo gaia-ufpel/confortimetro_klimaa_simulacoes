@@ -73,9 +73,9 @@ class ConditionerWithoutWindow:
                 if self.ac_on_counter >= self.ac_on_max_timesteps:
                     status_ac = 0
                     self.ac_on_counter = 0
-                    vel, _ = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
-                else:
                     vel, status_ac = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
+                else:
+                    vel, _ = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
                 
                 if status_ac == 1:
                     # Executar com o modelo PMV

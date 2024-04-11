@@ -47,7 +47,7 @@ class Simulation:
         self.ep_api = EnergyPlusAPI()
         self.state = self.ep_api.state_manager.new_state()
 
-        self.conditioner = MODULES_MAPPER[self.configs.module_type](ep_api=self.ep_api, configs=SimulationConfig(**self.configs.__dict__))
+        self.conditioner = MODULES_MAPPER[self.configs.module_type](ep_api=self.ep_api, configs=configs)
 
     def run(self):
         # Modifying IDF file
@@ -55,9 +55,9 @@ class Simulation:
 
         # Expanding objects and creating expanded.idf
         if platform.system() == "Windows":
-            os.system(f'cd \"{self.configs.input_path}\" && cp \"{self.configs.idf_filename}\" in.idf && \"{os.path.join(self.configs.energy_path, EXPAND_OBJECTS_APP)}\"')
+            os.system(f'cd \"{self.configs.input_path}\" && cp \"{self.configs.idf_filename}\" in.idf && \"{PATH_SEP.join([self.configs.energy_path, EXPAND_OBJECTS_APP])}\"')
         else:
-            os.system(f'cd \"{self.configs.input_path}\" ; cp \"{self.configs.idf_filename}\" in.idf ; \"{os.path.join(self.configs.energy_path, EXPAND_OBJECTS_APP)}\"')
+            os.system(f'cd \"{self.configs.input_path}\" ; cp \"{self.configs.idf_filename}\" in.idf ; \"{PATH_SEP.join([self.configs.energy_path, EXPAND_OBJECTS_APP])}\"')
 
         # Moving expanded.idf to output folder
         os.rename(PATH_SEP.join([self.configs.input_path, "expanded.idf"]), self.configs.expanded_idf_path)
@@ -71,20 +71,18 @@ class Simulation:
         )
         self.ep_api.state_manager.reset_state(self.state)
 
-        # Parsing results to CSV
-        if platform.system() == "Windows":
-            os.system(f"cd \"{self.configs.output_path}\" && {PATH_SEP.join([self.configs.energy_path, TO_CSV_APP])}")
-        else:
-            os.system(f"cd \"{self.configs.output_path}\" ; {PATH_SEP.join([self.configs.energy_path, TO_CSV_APP])} eplusout.eso")
-
+        print("Simulação finalizada!")
         utils.summary_rooms_results_from_eso(self.configs.output_path, self.configs.rooms)
+        print("Resultados extraidos com sucesso!")
         utils.get_stats_from_simulation(self.configs.output_path, self.configs.rooms)
+        print("Estatísticas extraidas com sucesso!")
 
     def _modify_idf(self):
-        IDF.setiddname(os.path.join(self.configs.energy_path, "Energy+.idd"))
+        IDF.setiddname(PATH_SEP.join([self.configs.energy_path, "Energy+.idd"]))
         idf = IDF(self.configs.idf_path)
         
         idf = self._modify_schedules_idf(idf)
+        #idf = self._add_output_variables_idf(idf)
 
         idf.save(self.configs.idf_path)
 

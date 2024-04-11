@@ -330,12 +330,12 @@ Schedule:Constant,
 Schedule:Constant,
     TEMP_COOL_AC_SALA_AULA,    !- Name
     Temperature,              !- Schedule Type Limits Name
-    32;                       !- Hourly Value
+    24;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_SALA_AULA,    !- Name
     Temperature,              !- Schedule Type Limits Name
-    14;                       !- Hourly Value
+    22;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_SALA_AULA,            !- Name
@@ -390,12 +390,12 @@ Schedule:Constant,
 Schedule:Constant,
     TEMP_COOL_AC_RECEPCAO,    !- Name
     Temperature,              !- Schedule Type Limits Name
-    32;                       !- Hourly Value
+    24;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_RECEPCAO,    !- Name
     Temperature,              !- Schedule Type Limits Name
-    14;                       !- Hourly Value
+    22;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_RECEPCAO,             !- Name
@@ -455,12 +455,12 @@ Schedule:Constant,
 Schedule:Constant,
     TEMP_COOL_AC_ATELIE1,     !- Name
     Temperature,              !- Schedule Type Limits Name
-    32;                       !- Hourly Value
+    24;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_ATELIE1,     !- Name
     Temperature,              !- Schedule Type Limits Name
-    14;                       !- Hourly Value
+    22;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_ATELIE1,              !- Name
@@ -520,12 +520,12 @@ Schedule:Constant,
 Schedule:Constant,
     TEMP_COOL_AC_ATELIE2,     !- Name
     Temperature,              !- Schedule Type Limits Name
-    32;                       !- Hourly Value
+    24;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_ATELIE2,     !- Name
     Temperature,              !- Schedule Type Limits Name
-    14;                       !- Hourly Value
+    22;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_ATELIE2,              !- Name
@@ -585,12 +585,12 @@ Schedule:Constant,
 Schedule:Constant,
     TEMP_COOL_AC_ATELIE3,     !- Name
     Temperature,              !- Schedule Type Limits Name
-    32;                       !- Hourly Value
+    24;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_ATELIE3,     !- Name
     Temperature,              !- Schedule Type Limits Name
-    14;                       !- Hourly Value
+    22;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_ATELIE3,              !- Name
@@ -650,12 +650,12 @@ Schedule:Constant,
 Schedule:Constant,
     TEMP_COOL_AC_LINSE,       !- Name
     Temperature,              !- Schedule Type Limits Name
-    32;                       !- Hourly Value
+    24;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_LINSE,       !- Name
     Temperature,              !- Schedule Type Limits Name
-    14;                       !- Hourly Value
+    22;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_LINSE,                !- Name
@@ -715,12 +715,12 @@ Schedule:Constant,
 Schedule:Constant,
     TEMP_COOL_AC_SEC_LINSE,    !- Name
     Temperature,              !- Schedule Type Limits Name
-    32;                       !- Hourly Value
+    24;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_SEC_LINSE,    !- Name
     Temperature,              !- Schedule Type Limits Name
-    14;                       !- Hourly Value
+    22;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_SEC_LINSE,            !- Name
@@ -10449,6 +10449,216 @@ Output:Variable,
 
 Output:Variable,
     DOAS_ATELIE3 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    People Occupant Count,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Site Outdoor Air Drybulb Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Mean Radiante Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Operative Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Air Temperature,     !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Air Relative Humidity,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort Fanger Model PMV,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort Clothing Value,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Air CO2 Concentration,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Schedule Value,           !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Packaged Terminal Heat Pump Total Heating Energy,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Packaged Terminal Heat Pump Total Cooling Energy,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Infiltration Air Change Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_SALA_AULA OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE1 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE2 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE3 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_RECEPCAO OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_SEC_LINSE OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_LINSE OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    People Occupant Count,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Site Outdoor Air Drybulb Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Mean Radiante Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Operative Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Air Temperature,     !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Air Relative Humidity,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort Fanger Model PMV,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort Clothing Value,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Air CO2 Concentration,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Schedule Value,           !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Packaged Terminal Heat Pump Total Heating Energy,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Packaged Terminal Heat Pump Total Cooling Energy,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Infiltration Air Change Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_SALA_AULA OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE1 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE2 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE3 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_RECEPCAO OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_SEC_LINSE OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_LINSE OUTDOOR AIR INLET,    !- Key Value
     System Node Mass Flow Rate,    !- Variable Name
     Timestep;                 !- Reporting Frequency
 

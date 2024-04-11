@@ -29,7 +29,7 @@ class SimulationGUI(tk.Tk):
 
     def _build(self):
         self.title("Simulações Personalizadas com EnergyPlus e Python")
-        self.config(padx=10, pady=100)
+        self.config(padx=10, pady=10)
         self.configure(background="#cdb4db")
 
         self.style = ttk.Style()
@@ -50,6 +50,9 @@ class SimulationGUI(tk.Tk):
         # Run button
         self.run_button = ttk.Button(self, text="Executar", width=60, command=self.run)
         self.run_button.grid(row=2, column=0, columnspan=2)
+
+        results_frame = self._build_results_frame()
+        results_frame.grid(row=3, column=0, columnspan=2, padx=30, pady=30)
 
     def _build_path_config(self):
         paths_frame = ttk.Frame(master=self)
@@ -160,6 +163,16 @@ class SimulationGUI(tk.Tk):
         self.cbx_module.grid(row=13, column=1, columnspan=3, padx=5, pady=5)
 
         return simulation_frame
+    
+    def _build_results_frame(self):
+        results_frame = ttk.Frame(master=self)
+
+        # Results
+        ttk.Label(results_frame, text="Resultados:").grid(row=0, column=0)
+        self.results_text = tk.Text(results_frame, width=100, height=20)
+        self.results_text.grid(row=1, column=0, padx=5, pady=5)
+
+        return results_frame
 
     def browse_idf(self):
         filename = filedialog.askopenfilename(initialdir = ".", title = "Select IDF File", filetypes = (("IDF Files","*.idf"),("all files","*.*")))

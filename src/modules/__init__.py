@@ -1,5 +1,5 @@
-from modules.conditioner_all import ConditionerAll
-from modules.conditioner_ac import ConditionerAc
+from modules.conditioner_complete import ConditionerComplete
+from modules.conditioner_fixed_ac import ConditionerFixedAc
 from modules.conditioner_without_window import ConditionerWithoutWindow
 from modules.conditioner_without_vent import ConditionerWithoutVent
 from modules.conditioner_no_people import ConditionerNoPeople
@@ -7,8 +7,8 @@ from modules.conditioner_no_people import ConditionerNoPeople
 from utils.module_type import ModuleType
 
 MODULES_MAPPER = {
-    ModuleType.COMPLETE: ConditionerAll,
-    ModuleType.FIXED_AC_WITHOUT_VENT: ConditionerAc,
+    ModuleType.COMPLETE: ConditionerComplete,
+    ModuleType.FIXED_AC_WITHOUT_VENT: ConditionerFixedAc,
     ModuleType.CLOSED_WINDOW: ConditionerWithoutWindow,
     ModuleType.WITHOUT_VENT: ConditionerWithoutVent,
     ModuleType.NO_PEOPLE: ConditionerNoPeople
