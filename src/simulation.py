@@ -47,9 +47,10 @@ class Simulation:
         self.ep_api = EnergyPlusAPI()
         self.state = self.ep_api.state_manager.new_state()
 
-        self.conditioner = MODULES_MAPPER[self.configs.module_type](ep_api=self.ep_api, configs=configs)
-
     def run(self):
+        # Defining what module will execute
+        self.conditioner = MODULES_MAPPER[self.configs.module_type](ep_api=self.ep_api, configs=SimulationConfig(**self.configs.__dict__))
+
         # Modifying IDF file
         self._modify_idf()
 
@@ -72,8 +73,10 @@ class Simulation:
         self.ep_api.state_manager.reset_state(self.state)
 
         print("Simulação finalizada!")
+        print("Extraindo resultados...")
         utils.summary_rooms_results_from_eso(self.configs.output_path, self.configs.rooms)
         print("Resultados extraidos com sucesso!")
+        print("Extraindo estatísticas...")
         utils.get_stats_from_simulation(self.configs.output_path, self.configs.rooms)
         print("Estatísticas extraidas com sucesso!")
 
@@ -81,10 +84,17 @@ class Simulation:
         IDF.setiddname(PATH_SEP.join([self.configs.energy_path, "Energy+.idd"]))
         idf = IDF(self.configs.idf_path)
         
+        #idf = self._modify_simulation_name_idf(idf)
         idf = self._modify_schedules_idf(idf)
+        #idf = self._add_schedules_idf(idf)
         #idf = self._add_output_variables_idf(idf)
 
         idf.save(self.configs.idf_path)
+
+    def _modify_simulation_name_idf(self, idf: IDF) -> IDF:
+        idf.idfobjects["RunPeriod"].Name = self.configs.output_path.split(PATH_SEP)[-1]
+
+        return idf
 
     def _modify_schedules_idf(self, idf: IDF):
         for schedule in idf.idfobjects["Schedule:Constant"]:
@@ -135,23 +145,36 @@ class Simulation:
         return idf
 
     def _add_output_variables_idf(self, idf: IDF):
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="People Occupant Count", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Site Outdoor Air Drybulb Temperature", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Mean Radiante Temperature", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Operative Temperature", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Air Temperature", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Air Relative Humidity", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Thermal Comfort Fanger Model PMV", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Thermal Comfort Clothing Value", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Air CO2 Concentration", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Schedule Value", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Packaged Terminal Heat Pump Total Heating Energy", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Packaged Terminal Heat Pump Total Cooling Energy", Reporting_Frequency="Timestep")
-        idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name="Zone Infiltration Air Change Rate", Reporting_Frequency="Timestep")
+        output_variables_names = [
+            "People Occupant Count",
+            "Site Outdoor Air Drybulb Temperature",
+            "Zone Mean Radiante Temperature",
+            "Zone Operative Temperature",
+            "Zone Air Temperature",
+            "Zone Air Relative Humidity",
+            "Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature",
+            "Zone Thermal Comfort Fanger Model PMV",
+            "Zone Thermal Comfort Clothing Value",
+            "Zone Air CO2 Concentration",
+            "Schedule Value",
+            "Zone Packaged Terminal Heat Pump Total Heating Energy",
+            "Zone Packaged Terminal Heat Pump Total Cooling Energy",
+            "Zone Infiltration Air Change Rate"
+            "System Node Mass Flow Rate"
+        ]
 
-        for room in self.configs.rooms:
-            idf.newidfobject("Output:Variable", Key_Value=f"DOAS_{room.upper()} OUTDOOR AIR INLET", Variable_Name="System Node Mass Flow Rate", Reporting_Frequency="Timestep")
+        for output_variable in idf.idfobjects["Output:Variable"]:
+            for i, desired_output_variable in output_variables_names:
+                if desired_output_variable == output_variable.Variable_Name:
+                    output_variables_names.pop(i)
+
+        if "System Node Mass Flow Rate" in output_variables_names:
+            output_variables_names.remove("System Node Mass Flow Rate")
+            for room in self.configs.rooms:
+                idf.newidfobject("Output:Variable", Key_Value=f"DOAS_{room.upper()} OUTDOOR AIR INLET", Variable_Name="System Node Mass Flow Rate", Reporting_Frequency="Timestep")
+
+        for output_variable_name in output_variables_names:
+            idf.newidfobject("Output:Variable", Key_Value="*", Variable_Name=output_variable_name, Reporting_Frequency="Timestep")
             
         return idf
         

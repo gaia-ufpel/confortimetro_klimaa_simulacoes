@@ -26,6 +26,7 @@ class SimulationGUI(tk.Tk):
             self.configs = SimulationConfig.from_json(config_path)
 
         self.show_configs()
+        self.simulation_controller = Simulation(self.configs)
 
     def _build(self):
         self.title("Simulações Personalizadas com EnergyPlus e Python")
@@ -246,6 +247,11 @@ class SimulationGUI(tk.Tk):
         if not os.path.exists(self.configs.input_path):
             tk.messagebox.showerror("Erro", "Arquivo IDF não encontrado!")
             return None
+        
+        if os.path.exists(self.configs.output_path):
+            want_proceed = tk.messagebox.askokcancel("Alerta", "Uma pasta de saída com esse nome já existe, tem certeza que deseja continuar?")
+            if not want_proceed:
+                return None
 
         if not os.path.exists(self.configs.epw_path):
             tk.messagebox.showerror("Erro", "Arquivo EPW não encontrado!")
@@ -255,13 +261,11 @@ class SimulationGUI(tk.Tk):
             tk.messagebox.showerror("Erro", "Pasta do EnergyPlus não existe!")
             return None
 
-        simulation = Simulation(self.configs)
-
         self.run_button["state"] = tk.DISABLED
         self.run_button["cursor"] = "watch"
 
         try:
-            simulation.run()
+            self.simulation_controller.run()
         except Exception as ex:
             tk.messagebox.showerror("Erro", f"Erro ao rodar simulação: {ex}")
         finally:

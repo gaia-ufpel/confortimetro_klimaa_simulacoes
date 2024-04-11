@@ -87,34 +87,25 @@ class ConditionerComplete:
 
                 #logging.info(f'data: {self.ep_api.exchange.day_of_month(state)} - temp_ar: {temp_ar} - mrt: {mrt} - vel: {vel} - rh: {hum_rel} - met: {self.met} - clo: {clo} - pmv: {self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)}')
 
-                if status_janela == 0 and status_ac == 0 and temp_op > temp_min_adaptativo:
-                    status_janela = 1
-                    vel = 0.0
-                    
-                temp_op_max = self.get_temp_max_op(vel)
-                if status_janela == 1:
-                    # Executar com o modelo adaptativo ou adaptativo com implemento
-                    if vel == 0.0:
-                        # Executar com o modelo adaptativo
-                        if temp_op < temp_min_adaptativo or tdb > temp_ar or tdb < temp_ar - self.configs.temp_open_window_bound:
-                            status_janela = 0
-                    if temp_op > temp_max_adaptativo:
-                        if temp_op >= 25.0 and temp_op <= 27.2:
-                            vel, status_janela = self.get_best_velocity_with_adaptative(temp_op)
-                            temp_op_max = self.get_temp_max_op(vel)
-                        else:
-                            # Para transiçao entre o modelo adaptativo e o modelo pmv
-                            vel = 0
-                            status_janela = 0
-
-                if status_janela == 0:
-                    if status_ac == 1:
-                        vel, _ = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
+                if tdb <= temp_max_adaptativo and tdb >= temp_min_adaptativo:
+                    if temp_op <= temp_max_adaptativo and temp_op >= temp_min_adaptativo:
+                        status_janela = 1
+                        vel = 0.0
+                    elif temp_op > temp_max_adaptativo and temp_op >= 25.0 and temp_op <= 27.2:
+                        vel, status_janela = self.get_best_velocity_with_adaptative(temp_op)
+                        temp_op_max = self.get_temp_max_op(vel)
                     else:
+                        status_janela = 0
+                else:
+                    status_janela = 0
+                
+                if status_janela == 0:
+                    if status_ac == 0:
                         vel, status_ac = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
-
+                    else:
+                        vel, _ = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
+                
                 if status_ac == 1:
-                    # Executar com o modelo PMV
                     temp_cool_ac, temp_heat_ac = self.get_best_temperatures_with_pmv(mrt, vel, hum_rel, clo)
                     self.ac_on_counter += 1
                     

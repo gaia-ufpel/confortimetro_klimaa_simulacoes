@@ -1,6 +1,7 @@
 import pandas
 import os
 import esoreader
+import multiprocessing
 
 PORCENT2ADAPTATIVE = {
     "90%": 2.5,
@@ -39,20 +40,30 @@ def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_p
     eso = esoreader.read_from_path(os.path.join(output_path, "eplusout.eso"))
     variables = eso.find_variable("")
 
-    for room in rooms:
-        columns = ["Date/Time", "Site Outdoor Air Drybulb Temperature"]
-        df = eso.to_frame("Site Outdoor Air Drybulb Temperature")
-        
-        for variable in variables:
-            if room in variable[1]:
-                df = pandas.concat([df, eso.to_frame(variable[2])[variable[1]]], axis=1)
-                columns.append(f"{variable[1]}:{variable[2]}")
+    procs = []
 
-        df = df.drop(df.index[:288])
-        df.index = range(len(df))
-        df = pandas.concat([dates, df], axis=1)
-        df.columns = columns
-        df.to_excel(os.path.join(output_path, f"{room}.xlsx"), index=False)
+    for room in rooms:
+        p = multiprocessing.Process(target=_summary_rooms_results_from_eso_step, args=[room, output_path, eso, dates, variables])
+        procs.append(p)
+        p.start()
+
+    for p in procs:
+        p.join()
+
+def _summary_rooms_results_from_eso_step(room, output_path, eso, dates, variables):
+    columns = ["Date/Time", "Site Outdoor Air Drybulb Temperature"]
+    df = eso.to_frame("Site Outdoor Air Drybulb Temperature")
+    
+    for variable in variables:
+        if room in variable[1]:
+            df = pandas.concat([df, eso.to_frame(variable[2])[variable[1]]], axis=1)
+            columns.append(f"{variable[1]}:{variable[2]}")
+
+    df = df.drop(df.index[:288])
+    df.index = range(len(df))
+    df = pandas.concat([dates, df], axis=1)
+    df.columns = columns
+    df.to_excel(os.path.join(output_path, f"{room}.xlsx"), index=False)
 
 def get_stats_from_simulation(output_path, rooms):
     """
@@ -133,4 +144,5 @@ def get_stats_from_simulation(output_path, rooms):
     stats_df.to_excel(os.path.join(output_path, f"ESTATISTICAS.xlsx"), index=False)
 
 if __name__ == "__main__":
-    get_stats_from_simulation("./outputs/FAURB_ENTORNO_2", ["SALA_AULA", "LINSE", "SEC_LINSE", "RECEPCAO", "ATELIE1", "ATELIE2", "ATELIE3"])
+    summary_rooms_results_from_eso("./outputs/FAURB_ENTORNO_9", ["SALA_AULA", "LINSE", "SEC_LINSE", "RECEPCAO", "ATELIE1", "ATELIE2", "ATELIE3"])
+    get_stats_from_simulation("./outputs/FAURB_ENTORNO_9", ["SALA_AULA", "LINSE", "SEC_LINSE", "RECEPCAO", "ATELIE1", "ATELIE2", "ATELIE3"])
