@@ -3,7 +3,7 @@
     "_idf_path": "/mnt/sda1/gabriellb/Documentos/Faculdade/projetos/gaia/confortimetro_klimaa_simulacoes/resources/FAURB/FAURB_PTHP_ENTORNO.idf",
     "_met": 1.2,
     "epw_path": "./resources/BRA_RS_Camaqua.869890_INMET.epw",
-    "output_path": "./outputs/FAURB_ENTORNO_10",
+    "output_path": "./outputs/FAURB_ENTORNO_11",
     "energy_path": "/usr/local/EnergyPlus-9-4-0",
     "rooms": [
         "SALA_AULA",

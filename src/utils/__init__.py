@@ -2,6 +2,7 @@ import pandas
 import os
 import esoreader
 import multiprocessing
+import threading
 
 PORCENT2ADAPTATIVE = {
     "90%": 2.5,
@@ -40,30 +41,27 @@ def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_p
     eso = esoreader.read_from_path(os.path.join(output_path, "eplusout.eso"))
     variables = eso.find_variable("")
 
-    procs = []
+    threads = []
 
     for room in rooms:
-        p = multiprocessing.Process(target=_summary_rooms_results_from_eso_step, args=[room, output_path, eso, dates, variables])
-        procs.append(p)
-        p.start()
+        columns = ["Date/Time", "Site Outdoor Air Drybulb Temperature"]
+        df = eso.to_frame("Site Outdoor Air Drybulb Temperature")
+        
+        for variable in variables:
+            if room in variable[1]:
+                df = pandas.concat([df, eso.to_frame(variable[2])[variable[1]]], axis=1)
+                columns.append(f"{variable[1]}:{variable[2]}")
 
-    for p in procs:
-        p.join()
+        df = df.drop(df.index[:288])
+        df.index = range(len(df))
+        df = pandas.concat([dates, df], axis=1)
+        df.columns = columns
+        t = threading.Thread(target=lambda df, output_path, room: df.to_excel(os.path.join(output_path, f"{room}.xlsx"), index=False), args=[df, output_path, room])
+        t.start()
+        threads.append(t)
 
-def _summary_rooms_results_from_eso_step(room, output_path, eso, dates, variables):
-    columns = ["Date/Time", "Site Outdoor Air Drybulb Temperature"]
-    df = eso.to_frame("Site Outdoor Air Drybulb Temperature")
-    
-    for variable in variables:
-        if room in variable[1]:
-            df = pandas.concat([df, eso.to_frame(variable[2])[variable[1]]], axis=1)
-            columns.append(f"{variable[1]}:{variable[2]}")
-
-    df = df.drop(df.index[:288])
-    df.index = range(len(df))
-    df = pandas.concat([dates, df], axis=1)
-    df.columns = columns
-    df.to_excel(os.path.join(output_path, f"{room}.xlsx"), index=False)
+    for t in threads:
+        t.join()
 
 def get_stats_from_simulation(output_path, rooms):
     """
