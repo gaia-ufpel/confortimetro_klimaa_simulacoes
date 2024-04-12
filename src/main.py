@@ -1,10 +1,11 @@
 import os
 import json
 import threading
-from multiprocessing import Process
 import tkinter as tk
 from tkinter import Tk, Label, Entry, Button, filedialog, ttk, Frame
 from tkinter import messagebox
+from queue import Queue
+import time
 
 from simulation import Simulation
 from modules import MODULES_MAPPER
@@ -30,7 +31,7 @@ class SimulationGUI(tk.Tk):
 
     def _build(self):
         self.title("Simulações Personalizadas com EnergyPlus e Python")
-        self.config(padx=10, pady=10)
+        self.config(padx=10, pady=20)
         self.configure(background="#cdb4db")
 
         self.style = ttk.Style()
@@ -53,7 +54,7 @@ class SimulationGUI(tk.Tk):
         self.run_button.grid(row=2, column=0, columnspan=2)
 
         results_frame = self._build_results_frame()
-        results_frame.grid(row=3, column=0, columnspan=2, padx=30, pady=30)
+        #results_frame.grid(row=3, column=0, columnspan=2, padx=30, pady=30)
 
     def _build_path_config(self):
         paths_frame = ttk.Frame(master=self)
@@ -170,8 +171,8 @@ class SimulationGUI(tk.Tk):
 
         # Results
         ttk.Label(results_frame, text="Resultados:").grid(row=0, column=0)
-        self.results_text = tk.Text(results_frame, width=100, height=20)
-        self.results_text.grid(row=1, column=0, padx=5, pady=5)
+        self.results_text = tk.StringVar()
+        ttk.Label(results_frame, textvariable=self.results_text).grid(row=1, column=0, padx=5, pady=5)
 
         return results_frame
 
@@ -264,13 +265,20 @@ class SimulationGUI(tk.Tk):
         self.run_button["state"] = tk.DISABLED
         self.run_button["cursor"] = "watch"
 
-        try:
-            self.simulation_controller.run()
-        except Exception as ex:
-            tk.messagebox.showerror("Erro", f"Erro ao rodar simulação: {ex}")
-        finally:
-            self.run_button["state"] = tk.NORMAL
-            self.run_button["cursor"] = "arrow"
+        q = Queue()
+        thread = threading.Thread(target=self.simulation_controller.run, args=(q,))
+        thread.start()
+
+        data = ''
+        while True:
+            data = q.get()
+            if data == "EXIT":
+                break
+
+            self.results_text.set(data)
+
+        self.run_button["state"] = tk.NORMAL
+        self.run_button["cursor"] = "arrow"
 
 if __name__ == "__main__":
     window = SimulationGUI()

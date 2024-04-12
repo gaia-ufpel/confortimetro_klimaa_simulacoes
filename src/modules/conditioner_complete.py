@@ -85,9 +85,7 @@ class ConditionerComplete:
                     status_ac = 0
                     self.ac_on_counter = 0
 
-                #logging.info(f'data: {self.ep_api.exchange.day_of_month(state)} - temp_ar: {temp_ar} - mrt: {mrt} - vel: {vel} - rh: {hum_rel} - met: {self.met} - clo: {clo} - pmv: {self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)}')
-
-                if tdb <= temp_max_adaptativo and tdb >= temp_ar - self.configs.temp_open_window_bound:
+                if tdb <= temp_max_adaptativo and tdb >= temp_ar - self.configs.temp_open_window_bound and status_ac == 0:
                     if temp_op <= temp_max_adaptativo and temp_op >= temp_min_adaptativo:
                         status_janela = 1
                         vel = 0.0

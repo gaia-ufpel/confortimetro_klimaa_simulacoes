@@ -1,7 +1,6 @@
 import pandas
 import os
 import esoreader
-import multiprocessing
 import threading
 
 PORCENT2ADAPTATIVE = {

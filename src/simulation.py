@@ -1,6 +1,7 @@
 import sys
 import os
 import platform
+from queue import Queue
 from importlib import import_module
 from eppy.modeleditor import IDF
 
@@ -47,7 +48,7 @@ class Simulation:
         self.ep_api = EnergyPlusAPI()
         self.state = self.ep_api.state_manager.new_state()
 
-    def run(self):
+    def run(self, q: Queue):
         # Defining what module will execute
         self.conditioner = MODULES_MAPPER[self.configs.module_type](ep_api=self.ep_api, configs=SimulationConfig(**self.configs.__dict__))
 
@@ -66,19 +67,21 @@ class Simulation:
         self.configs.to_json(PATH_SEP.join([self.configs.output_path, "configs.json"]))
 
         # Running simulation
+        self.ep_api.runtime.callback_message(self.state, lambda text: q.put(text.decode()))
         self.ep_api.runtime.callback_begin_zone_timestep_after_init_heat_balance(self.state, self.conditioner)
         self.ep_api.runtime.run_energyplus(self.state,
             ['--weather', self.configs.epw_path, '--output-directory', self.configs.output_path, self.configs.expanded_idf_path]
         )
         self.ep_api.state_manager.reset_state(self.state)
 
-        print("Simulação finalizada!")
-        print("Extraindo resultados...")
+        q.put("Simulação finalizada!")
+        q.put("Extraindo resultados...")
         utils.summary_rooms_results_from_eso(self.configs.output_path, self.configs.rooms)
-        print("Resultados extraidos com sucesso!")
-        print("Extraindo estatísticas...")
+        q.put("Resultados extraidos com sucesso!")
+        q.put("Extraindo estatísticas...")
         utils.get_stats_from_simulation(self.configs.output_path, self.configs.rooms)
-        print("Estatísticas extraidas com sucesso!")
+        q.put("Estatísticas extraidas com sucesso!")
+        q.put("EXIT")
 
     def _modify_idf(self):
         IDF.setiddname(PATH_SEP.join([self.configs.energy_path, "Energy+.idd"]))
