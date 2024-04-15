@@ -2,6 +2,7 @@ import pythermalcomfort
 from ladybug_comfort.pmv import predicted_mean_vote
 import logging
 import datetime
+import math
 from utils.simulation_config import SimulationConfig
 
 class ConditionerWithoutVent:
@@ -80,27 +81,23 @@ class ConditionerWithoutVent:
 
                 if self.ac_on_counter >= self.ac_on_max_timesteps:
                     status_janela = 0
-                    vel = 0.0
                     status_ac = 0
                     self.ac_on_counter = 0
 
-                #logging.info(f'data: {self.ep_api.exchange.day_of_month(state)} - temp_ar: {temp_ar} - mrt: {mrt} - vel: {vel} - rh: {hum_rel} - met: {self.met} - clo: {clo} - pmv: {self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)}')
-
-                if status_janela == 0 and status_ac == 0:
-                    if temp_op > temp_min_adaptativo:
+                if tdb <= temp_max_adaptativo and tdb >= temp_ar - self.configs.temp_open_window_bound and status_ac == 0:
+                    if temp_op <= temp_max_adaptativo and temp_op >= temp_min_adaptativo:
                         status_janela = 1
-                if status_janela == 1:
-                    # Executar com o modelo adaptativo ou adaptativo com implemento
-                    if temp_op < temp_min_adaptativo or tdb > temp_ar:
-                            status_janela = 0
-                    elif tdb < temp_ar - self.configs.temp_open_window_bound:
+                    else:
                         status_janela = 0
+                else:
+                    status_janela = 0
+                
+                pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
                 if status_janela == 0:
-                    if not self.is_comfortable(temp_op, temp_neutra_adaptativo, 0, status_janela):
+                    if pmv > self.configs.pmv_upperbound or pmv < self.configs.pmv_lowerbound:
                         status_ac = 1
-
+                
                 if status_ac == 1:
-                    # Executar com o modelo PMV
                     temp_cool_ac, temp_heat_ac = self.get_best_temperatures_with_pmv(mrt, vel, hum_rel, clo)
                     self.ac_on_counter += 1
                     
@@ -132,7 +129,7 @@ class ConditionerWithoutVent:
                 if (tdb < temp_max_adaptativo and self.ep_api.exchange.month(state) not in self.periodo_inverno and tdb >= temp_ar - self.configs.temp_open_window_bound and temp_op > temp_min_adaptativo):
                     if not self.janela_sem_pessoas_bloqueada:
                         status_janela = 1
-                    elif temp_op >= (temp_min_adaptativo + temp_max_adaptativo) / 2:
+                    elif temp_op >= temp_neutra_adaptativo:
                         status_janela = 1
                         self.janela_sem_pessoas_bloqueada = False
 
@@ -186,9 +183,17 @@ class ConditionerWithoutVent:
             clo=pythermalcomfort.utilities.clo_dynamic(clo, met=self.configs.met),
             wme=self.configs.wme
         )['pmv']
+
+    def get_temp_max_op(self, vel):
+        return -0.3535 * vel ** 2 + 2.2758 * vel + 24.995
     
-    def is_comfortable(self, temp_op:float, adaptativo:float, pmv:float, status_janela:int):
-        if adaptativo >= temp_op - self.configs.adaptative_bound and adaptativo <= temp_op + self.configs.adaptative_bound and status_janela == 1:
+    def get_vel_adap(self, temp_op):
+        return 0.055 * temp_op ** 2 - 2.331 * temp_op + 23.935 + 0.1
+    
+    def is_comfortable(self, temp_op:float, adaptativo:float, temp_op_max:float, pmv:float, status_janela:int, vel:float):
+        if adaptativo >= temp_op - self.configs.adaptative_bound and adaptativo <= temp_op + self.configs.adaptative_bound and status_janela == 1 and vel == 0.0:
+            return 1
+        elif temp_op <= temp_op_max and vel > 0.0 and status_janela == 1:
             return 1
         elif pmv <= self.configs.pmv_upperbound + self.configs.pmv_comfort_bound and pmv >= self.configs.pmv_lowerbound - self.configs.pmv_comfort_bound and status_janela == 0:
             return 1

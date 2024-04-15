@@ -126,7 +126,7 @@ def get_stats_from_simulation(output_path, rooms):
         row['Resfriamento'] = len(df[(df[people_column.format(room)] != 0) & (df[cooling_column.format(room)] != 0)]) / row['Número ocupação']
         row['Ar condicionado ligado'] = row['Aquecimento'] + row['Resfriamento']
         row['Ventilador ligado'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1)]) / row['Número ocupação']
-        row['Ventilador ligado e ar ligado'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1) & (df[ac_column.format(room)] == 1)]) / row['Número ocupação']
+        row['Ventilador ligado e ar ligado'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1) & (df[cooling_column.format(room)] != 0)]) / row['Número ocupação']
         row['Ventilador ligado, ar desligado e janela fechada'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1) & (df[ac_column.format(room)] == 0) & (df[janela_column.format(room)] == 0)]) / row['Número ocupação']
         row['Janela aberta'] = len(df[(df[people_column.format(room)] != 0) & (df[janela_column.format(room)] == 1)]) / row['Número ocupação']
         row['Janela aberta e ventilador ligado'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1) & (df[janela_column.format(room)] == 1)]) / row['Número ocupação']

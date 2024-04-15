@@ -74,13 +74,13 @@ class Simulation:
         )
         self.ep_api.state_manager.reset_state(self.state)
 
-        q.put("Simulação finalizada!")
-        q.put("Extraindo resultados...")
+        print("Simulação finalizada!")
+        print("Extraindo resultados...")
         utils.summary_rooms_results_from_eso(self.configs.output_path, self.configs.rooms)
-        q.put("Resultados extraidos com sucesso!")
-        q.put("Extraindo estatísticas...")
+        print("Resultados extraidos com sucesso!")
+        print("Extraindo estatísticas...")
         utils.get_stats_from_simulation(self.configs.output_path, self.configs.rooms)
-        q.put("Estatísticas extraidas com sucesso!")
+        print("Estatísticas extraidas com sucesso!")
         q.put("EXIT")
 
     def _modify_idf(self):
