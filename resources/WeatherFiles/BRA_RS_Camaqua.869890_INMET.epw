@@ -1,9 +1,9 @@
-LOCATION,Camaquã,RS,BRA,INMET,869890,-30.81,-51.83,-3.0,108.0
+LOCATION,Camaquï¿½,RS,BRA,INMET,869890,-30.81,-51.83,-3.0,108.0
 DESIGN CONDITIONS,0
 TYPICAL/EXTREME PERIODS,6,Summer - Week Nearest Max Temperature For Period,Extreme,12/22,12/28,Summer - Week Nearest Average Temperature For Period,Typical,12/15,12/21,Winter - Week Nearest Min Temperature For Period,Extreme,6/15,6/21,Winter - Week Nearest Average Temperature For Period,Typical,7/27,8/ 2,Autumn - Week Nearest Average Temperature For Period,Typical,4/19,4/25,Spring - Week Nearest Average Temperature For Period,Typical,9/29,10/ 5
 GROUND TEMPERATURES,3,.5,,,,22.90,21.94,20.11,18.38,15.12,13.42,12.97,13.86,15.89,18.40,20.86,22.47,2,,,,21.62,21.37,20.32,19.16,16.65,15.06,14.28,14.47,15.63,17.37,19.32,20.84,4,,,,20.29,20.44,19.97,19.31,17.65,16.41,15.62,15.43,15.94,16.97,18.29,19.48
 HOLIDAYS/DAYLIGHT SAVINGS,No,0,0,0
-COMMENTS 1,"INMET Arquivo elaborado por M.Roriz - ANTAC - GT Conforto e Energia; Dados básicos registrados pelo INMET (2001-2010)"
+COMMENTS 1,"INMET Arquivo elaborado por M.Roriz - ANTAC - GT Conforto e Energia; Dados bï¿½sicos registrados pelo INMET (2001-2010)"
 COMMENTS 2,"Downloaded from Climate.OneBuilding.Org -- Ground temps represent undisturbed earth temperatures - calculated from this weather data."
 DATA PERIODS,1,1,Data,Sunday,1/ 1,12/31
 2008,1,1,1,0,?9?9?9?9E0?9?9?9*9*9?9?9?9?9?9?9?9?9*9*_*9*9,19.5,19.1,97,100180,0,0,369,0,0,0,0,0,0,0,320,0.0,5,5,999.0,999,9,999999999,0,0.0000,0,88,999.000,0.0,1.0

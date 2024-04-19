@@ -110,7 +110,7 @@ class Simulation:
             elif schedule.Name == WME_SCHEDULE_NAME:
                 schedule.Schedule_Type_Limits_Name = "Any Number"
                 schedule.Hourly_Value = self.configs.wme
-            elif self.configs.module_type == ModuleType.FIXED_AC_WITHOUT_VENT:
+            elif self.configs.module_type == ModuleType.FIXED_AC_WITHOUT_FAN:
                 if TEMP_COOL_AC_SCHEDULE_NAME.format("") in schedule.Name:
                     schedule.Hourly_Value = self.configs.temp_ac_max
                 elif TEMP_HEAT_AC_SCHEDULE_NAME.format("") in schedule.Name:

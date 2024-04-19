@@ -14,7 +14,7 @@ SimulationControl,
 
 Building,
     FAUrb PTHP,               !- Name
-    0,                        !- North Axis
+    21,                       !- North Axis
     City,                     !- Terrain
     0.04,                     !- Loads Convergence Tolerance Value
     0.4,                      !- Temperature Convergence Tolerance Value
@@ -100,10 +100,10 @@ RunPeriod,
     Simulacao,                !- Name
     1,                        !- Begin Month
     1,                        !- Begin Day of Month
-    2015,                     !- Begin Year
+    ,                     !- Begin Year
     12,                       !- End Month
     31,                       !- End Day of Month
-    2015,                     !- End Year
+    ,                     !- End Year
     SUNDAY;                   !- Day of Week for Start Day
 
 RunPeriodControl:SpecialDays,
@@ -278,6 +278,11 @@ Schedule:Constant,
     400;                      !- Hourly Value
 
 Schedule:Constant,
+    CO2_LIMITE,               !- Name
+    Any Number,               !- Schedule Type Limits Name
+    1000;                     !- Hourly Value
+
+Schedule:Constant,
     METABOLISMO,              !- Name
     Any Number,               !- Schedule Type Limits Name
     125.496;                  !- Hourly Value
@@ -334,11 +339,6 @@ Schedule:Constant,
 
 Schedule:Constant,
     PMV_SALA_AULA,            !- Name
-    Number,                   !- Schedule Type Limits Name
-    0;                        !- Hourly Value
-
-Schedule:Constant,
-    ADAPTATIVO_PYTHERMAL_SALA_AULA,    !- Name
     Number,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
@@ -7572,6 +7572,210 @@ Shading:Building:Detailed,
     11.3,                     !- Vertex 6 Ycoordinate
     3.4;                      !- Vertex 6 Zcoordinate
 
+Shading:Building:Detailed,
+    C70E7E,                   !- Name
+    ,                         !- Transmittance Schedule Name
+    4,                        !- Number of Vertices
+    40,                       !- Vertex 1 Xcoordinate
+    38.5,                     !- Vertex 1 Ycoordinate
+    0,                        !- Vertex 1 Zcoordinate
+    40,                       !- Vertex 2 Xcoordinate
+    28.5,                     !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    -4,                       !- Vertex 3 Xcoordinate
+    28.5,                     !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    -4,                       !- Vertex 4 Xcoordinate
+    38.5,                     !- Vertex 4 Ycoordinate
+    0;                        !- Vertex 4 Zcoordinate
+
+Shading:Building:Detailed,
+    75ECA8,                   !- Name
+    ,                         !- Transmittance Schedule Name
+    4,                        !- Number of Vertices
+    40,                       !- Vertex 1 Xcoordinate
+    28.5,                     !- Vertex 1 Ycoordinate
+    4,                        !- Vertex 1 Zcoordinate
+    40,                       !- Vertex 2 Xcoordinate
+    28.5,                     !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    40,                       !- Vertex 3 Xcoordinate
+    38.5,                     !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    40,                       !- Vertex 4 Xcoordinate
+    38.5,                     !- Vertex 4 Ycoordinate
+    4;                        !- Vertex 4 Zcoordinate
+
+Shading:Building:Detailed,
+    DD3009,                   !- Name
+    ,                         !- Transmittance Schedule Name
+    4,                        !- Number of Vertices
+    -4,                       !- Vertex 1 Xcoordinate
+    28.5,                     !- Vertex 1 Ycoordinate
+    4,                        !- Vertex 1 Zcoordinate
+    -4,                       !- Vertex 2 Xcoordinate
+    28.5,                     !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    40,                       !- Vertex 3 Xcoordinate
+    28.5,                     !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    40,                       !- Vertex 4 Xcoordinate
+    28.5,                     !- Vertex 4 Ycoordinate
+    4;                        !- Vertex 4 Zcoordinate
+
+Shading:Building:Detailed,
+    AB05BA,                   !- Name
+    ,                         !- Transmittance Schedule Name
+    4,                        !- Number of Vertices
+    -4,                       !- Vertex 1 Xcoordinate
+    38.5,                     !- Vertex 1 Ycoordinate
+    4,                        !- Vertex 1 Zcoordinate
+    -4,                       !- Vertex 2 Xcoordinate
+    38.5,                     !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    -4,                       !- Vertex 3 Xcoordinate
+    28.5,                     !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    -4,                       !- Vertex 4 Xcoordinate
+    28.5,                     !- Vertex 4 Ycoordinate
+    4;                        !- Vertex 4 Zcoordinate
+
+Shading:Building:Detailed,
+    5C9DFC,                   !- Name
+    ,                         !- Transmittance Schedule Name
+    4,                        !- Number of Vertices
+    40,                       !- Vertex 1 Xcoordinate
+    38.5,                     !- Vertex 1 Ycoordinate
+    4,                        !- Vertex 1 Zcoordinate
+    40,                       !- Vertex 2 Xcoordinate
+    38.5,                     !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    -4,                       !- Vertex 3 Xcoordinate
+    38.5,                     !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    -4,                       !- Vertex 4 Xcoordinate
+    38.5,                     !- Vertex 4 Ycoordinate
+    4;                        !- Vertex 4 Zcoordinate
+
+Shading:Building:Detailed,
+    43FFB0,                   !- Name
+    ,                         !- Transmittance Schedule Name
+    4,                        !- Number of Vertices
+    -4,                       !- Vertex 1 Xcoordinate
+    38.5,                     !- Vertex 1 Ycoordinate
+    4,                        !- Vertex 1 Zcoordinate
+    -4,                       !- Vertex 2 Xcoordinate
+    28.5,                     !- Vertex 2 Ycoordinate
+    4,                        !- Vertex 2 Zcoordinate
+    40,                       !- Vertex 3 Xcoordinate
+    28.5,                     !- Vertex 3 Ycoordinate
+    4,                        !- Vertex 3 Zcoordinate
+    40,                       !- Vertex 4 Xcoordinate
+    38.5,                     !- Vertex 4 Ycoordinate
+    4;                        !- Vertex 4 Zcoordinate
+
+Shading:Building:Detailed,
+    26FEEF,                   !- Name
+    ,                         !- Transmittance Schedule Name
+    4,                        !- Number of Vertices
+    70,                       !- Vertex 1 Xcoordinate
+    38.5,                     !- Vertex 1 Ycoordinate
+    0,                        !- Vertex 1 Zcoordinate
+    70,                       !- Vertex 2 Xcoordinate
+    -28.5,                    !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    44,                       !- Vertex 3 Xcoordinate
+    -28.5,                    !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    44,                       !- Vertex 4 Xcoordinate
+    38.5,                     !- Vertex 4 Ycoordinate
+    0;                        !- Vertex 4 Zcoordinate
+
+Shading:Building:Detailed,
+    EA5665,                   !- Name
+    ,                         !- Transmittance Schedule Name
+    4,                        !- Number of Vertices
+    44,                       !- Vertex 1 Xcoordinate
+    38.5,                     !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    44,                       !- Vertex 2 Xcoordinate
+    -28.5,                    !- Vertex 2 Ycoordinate
+    6,                        !- Vertex 2 Zcoordinate
+    70,                       !- Vertex 3 Xcoordinate
+    -28.5,                    !- Vertex 3 Ycoordinate
+    6,                        !- Vertex 3 Zcoordinate
+    70,                       !- Vertex 4 Xcoordinate
+    38.5,                     !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+Shading:Building:Detailed,
+    A9D2D4,                   !- Name
+    ,                         !- Transmittance Schedule Name
+    4,                        !- Number of Vertices
+    44,                       !- Vertex 1 Xcoordinate
+    -28.5,                    !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    44,                       !- Vertex 2 Xcoordinate
+    -28.5,                    !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    70,                       !- Vertex 3 Xcoordinate
+    -28.5,                    !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    70,                       !- Vertex 4 Xcoordinate
+    -28.5,                    !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+Shading:Building:Detailed,
+    8A19E6,                   !- Name
+    ,                         !- Transmittance Schedule Name
+    4,                        !- Number of Vertices
+    70,                       !- Vertex 1 Xcoordinate
+    38.5,                     !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    70,                       !- Vertex 2 Xcoordinate
+    38.5,                     !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    44,                       !- Vertex 3 Xcoordinate
+    38.5,                     !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    44,                       !- Vertex 4 Xcoordinate
+    38.5,                     !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+Shading:Building:Detailed,
+    891B40,                   !- Name
+    ,                         !- Transmittance Schedule Name
+    4,                        !- Number of Vertices
+    70,                       !- Vertex 1 Xcoordinate
+    -28.5,                    !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    70,                       !- Vertex 2 Xcoordinate
+    -28.5,                    !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    70,                       !- Vertex 3 Xcoordinate
+    38.5,                     !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    70,                       !- Vertex 4 Xcoordinate
+    38.5,                     !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+Shading:Building:Detailed,
+    C0A710,                   !- Name
+    ,                         !- Transmittance Schedule Name
+    4,                        !- Number of Vertices
+    44,                       !- Vertex 1 Xcoordinate
+    38.5,                     !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    44,                       !- Vertex 2 Xcoordinate
+    38.5,                     !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    44,                       !- Vertex 3 Xcoordinate
+    -28.5,                    !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    44,                       !- Vertex 4 Xcoordinate
+    -28.5,                    !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
 SurfaceProperty:OtherSideConditionsModel,
     GroundCoupledOSCM,        !- Name
     GroundCoupledSurface;     !- Type of Modeling
@@ -10245,6 +10449,216 @@ Output:Variable,
 
 Output:Variable,
     DOAS_ATELIE3 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    People Occupant Count,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Site Outdoor Air Drybulb Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Mean Radiante Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Operative Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Air Temperature,     !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Air Relative Humidity,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort Fanger Model PMV,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort Clothing Value,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Air CO2 Concentration,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Schedule Value,           !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Packaged Terminal Heat Pump Total Heating Energy,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Packaged Terminal Heat Pump Total Cooling Energy,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Infiltration Air Change Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_SALA_AULA OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE1 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE2 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE3 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_RECEPCAO OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_SEC_LINSE OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_LINSE OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    People Occupant Count,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Site Outdoor Air Drybulb Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Mean Radiante Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Operative Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Air Temperature,     !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Air Relative Humidity,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort Fanger Model PMV,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort Clothing Value,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Air CO2 Concentration,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Schedule Value,           !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Packaged Terminal Heat Pump Total Heating Energy,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Packaged Terminal Heat Pump Total Cooling Energy,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Infiltration Air Change Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_SALA_AULA OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE1 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE2 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE3 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_RECEPCAO OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_SEC_LINSE OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_LINSE OUTDOOR AIR INLET,    !- Key Value
     System Node Mass Flow Rate,    !- Variable Name
     Timestep;                 !- Reporting Frequency
 
