@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 import pythermalcomfort
 from ladybug_comfort.pmv import predicted_mean_vote
+import multiprocessing
 
 from utils.simulation_config import SimulationConfig
 
@@ -15,8 +16,8 @@ class Conditioner:
 
         self.handlers_acquired = False
 
-        self.people_count_handler = {}
         self.tdb_handler = None
+        self.people_count_handler = {}
         self.temp_ar_handler = {}
         self.mrt_handler = {}
         self.hum_rel_handler = {}
@@ -37,8 +38,10 @@ class Conditioner:
         self.em_conforto_handler = {}
         self.status_doas_handler = {}
 
-        self.ac_on_counter = 0
-        self.ac_on_max_timesteps = ac_on_max_timesteps
+        self.ac_on_counter: dict[str, int] = {}
+        for room in self.configs.rooms:
+            self.ac_on_counter.update({ room : 0 })
+        self.ac_on_max_timesteps: int = ac_on_max_timesteps
         
         self.janela_sem_pessoas_bloqueada = False
 
@@ -54,8 +57,22 @@ class Conditioner:
         return logger
 
     def __call__(self, state):
-        raise NotImplementedError("Method __call__ must be implemented")
+        if self.ep_api.exchange.warmup_flag(state):
+            return
+        if not self.ep_api.exchange.api_data_fully_ready(state):
+            return
+        
+        # Pegando todos os handlers
+        if not self.handlers_acquired:
+            self.acquire_handlers(state)
+            self.handlers_acquired = True
+
+        for room in self.configs.rooms:
+            self.room_conditioner(state, room)
     
+    def room_conditioner(self, state, room):
+        raise NotImplementedError("Method room_conditioner must be implemented!")
+
     def get_best_velocity_with_adaptative(self, temp_op):
         status_janela = 1
         nova_vel = math.ceil(self.get_vel_adap(temp_op) / self.configs.air_speed_delta) * self.configs.air_speed_delta
