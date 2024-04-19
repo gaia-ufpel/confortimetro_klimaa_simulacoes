@@ -81,6 +81,9 @@ class Simulation:
         print("Extraindo estatísticas...")
         utils.get_stats_from_simulation(self.configs.output_path, self.configs.rooms)
         print("Estatísticas extraidas com sucesso!")
+        print("Dividindo resultados por período...")
+        utils.split_target_period_excel(PATH_SEP.join([self.configs.output_path, "ATELIE1.xlsx"]))
+        print("Resultados divididos com sucesso!")
         q.put("EXIT")
 
     def _modify_idf(self):
