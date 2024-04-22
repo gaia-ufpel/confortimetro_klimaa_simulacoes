@@ -60,7 +60,7 @@ class ConditionerClosedWindow(Conditioner):
             self.ep_api.exchange.set_actuator_value(state, self.status_janela_handler[room], 0)
             self.ep_api.exchange.set_actuator_value(state, self.temp_op_max_handler[room], 0)
             self.ep_api.exchange.set_actuator_value(state, self.pmv_handler[room], pmv)
-            em_conforto = self.is_comfortable(pmv)
+            em_conforto = self.is_comfortable(0.0, 0.0, 0.0, pmv, 0, vel)
             self.ep_api.exchange.set_actuator_value(state, self.em_conforto_handler[room], em_conforto)
         else:
             self.ac_on_counter[room] = 0

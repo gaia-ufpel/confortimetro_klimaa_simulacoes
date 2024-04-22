@@ -14,6 +14,7 @@ ladybug-comfort = "^0.18.14"
 pythermalcomfort = "^2.10.0"
 eppy = "^0.5.63"
 openpyxl = "^3.1.2"
+matplotlib = "^3.8.4"
 
 
 [build-system]

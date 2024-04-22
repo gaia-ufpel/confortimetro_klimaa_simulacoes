@@ -24,7 +24,7 @@ class ConditionerWithoutFan(Conditioner):
 
             # Valores iniciais
             status_janela = self.ep_api.exchange.get_actuator_value(state, self.status_janela_handler[room])
-            vel = self.ep_api.exchange.get_actuator_value(state, self.vel_handler[room])
+            vel = 0.0
             status_ac = self.ep_api.exchange.get_actuator_value(state, self.status_ac_handler[room])
             status_doas = 0
             temp_cool_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_cool_ac_handler[room])

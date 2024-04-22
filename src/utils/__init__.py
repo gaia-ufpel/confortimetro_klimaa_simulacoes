@@ -4,6 +4,7 @@ import sys
 import esoreader
 import threading
 from datetime import datetime
+import matplotlib.pyplot as plt
 
 PORCENT2ADAPTATIVE = {
     "90%": 2.5,
@@ -176,22 +177,37 @@ def split_target_period_excel(excel_path):
         days_summer.to_excel(writer, sheet_name="DIAS_VERAO", index=False)
         days_winter.to_excel(writer, sheet_name="DIAS_INVERNO", index=False)
 
+def plot_graphics(excel_path, sheet_name):
+    """
+    Cria gráficos para temperatura externa, temperaturas do adaptativo, pmv, temperatura operativa a partir de um arquivo .excel com várias tabelas com os períodos de verão, inverno, dias de verão e dias de inverno.
+    """
+
+    df = pandas.read_excel(excel_path, sheet_name=sheet_name)
+
+    # Cria uma figura
+    fig = plt.figure(figsize=(30, 10))
+    fig.suptitle("Gráficos de Temperatura", fontsize=16)
+    
+    # Cria um gráfico geral
+    ax = fig.add_subplot(111)
+
+    # Plota a linha da temperatura externa
+    ax.plot(df["Date/Time"], df["Site Outdoor Air Drybulb Temperature"], label="Temperatura Externa", color="red")
+
+    # Plota a linha da temperatura do adaptativo
+    ax.plot(df["Date/Time"], df["ADAP_MIN_ATELIE1:Schedule Value"], label="Temperatura Mínima do Adaptativo", color="blue")
+    ax.plot(df["Date/Time"], df["ADAP_MAX_ATELIE1:Schedule Value"], label="Temperatura Máxima do Adaptativo", color="blue")
+
+    # Plota a linha da temperatura operativa
+    ax.plot(df["Date/Time"], df["ATELIE1:Zone Operative Temperature"], label="Temperatura Operativa", color="green")
+
+    # Mostra os labels
+    plt.legend()
+    plt.grid()
+
+    plt.show()
+
+
+
 if __name__ == "__main__":
-    t = [
-        "FAURB_ENTORNO_12",
-        "FAURB_ENTORNO_ENTORNO_14",
-        "FAURB_ENTORNO_ENTORNO_15",
-        "FAURB_ENTORNO_ENTORNO_16",
-        "FAURB_ENTORNO_JANELA_FECHADA_4",
-        "FAURB_ENTORNO_JANELA_FECHADA_5",
-        "FAURB_ENTORNO_JANELA_FECHADA_6",
-        "FAURB_ENTORNO_SEM_VENTILACAO_1",
-        "FAURB_ENTORNO_SEM_VENTILACAO_2",
-        "FAURB_ENTORNO_SEM_VENTILACAO_3",
-        "FAURB_ENTORNO_SEM_VENTILACAO_4"
-    ]
-    #summary_rooms_results_from_eso("./outputs/FAURB_ENTORNO_9", ["SALA_AULA", "LINSE", "SEC_LINSE", "RECEPCAO", "ATELIE1", "ATELIE2", "ATELIE3"])
-    #get_stats_from_simulation("./outputs/FAURB_ENTORNO_9", ["SALA_AULA", "LINSE", "SEC_LINSE", "RECEPCAO", "ATELIE1", "ATELIE2", "ATELIE3"])
-    # Separa o arquivo .xlsx passado por linha de comando em períodos de verão, inverno, dias de verão e dias de inverno
-    for i in t:
-        split_target_period_excel(os.path.join("outputs", i, "ATELIE1.xlsx"))
+    plot_graphics(sys.argv[1], "INVERNO")

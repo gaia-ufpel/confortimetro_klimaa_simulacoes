@@ -3,7 +3,7 @@
     "_idf_path": "./resources/EnergyFiles/FAURB/FAURB_PTHP_ENTORNO.idf",
     "_met": 1.2,
     "epw_path": "./resources/WeatherFiles/BRA_RS_Camaqua.869890_INMET.epw",
-    "output_path": "./outputs/final/COMPLETO_0,5",
+    "output_path": "./outputs/final/SEM_VENTILADOR_0,7",
     "energy_path": "/usr/local/EnergyPlus-9-4-0",
     "rooms": [
         "SALA_AULA",
@@ -14,8 +14,8 @@
         "SEC_LINSE",
         "LINSE"
     ],
-    "pmv_upperbound": 0.5,
-    "pmv_lowerbound": -0.5,
+    "pmv_upperbound": 0.7,
+    "pmv_lowerbound": -0.7,
     "co2_limit": 900.0,
     "max_vel": 1.2,
     "adaptative_bound": 2.5,
@@ -28,5 +28,5 @@
     "temp_open_window_bound": 3.0,
     "air_speed_delta": 0.15,
     "pmv_comfort_bound": 0.2,
-    "module_type": "COMPLETE"
+    "module_type": "WITHOUT_FAN"
 }
