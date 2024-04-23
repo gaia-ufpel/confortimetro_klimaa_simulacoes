@@ -60,7 +60,7 @@ class ConditionerFixedAcWithoutFan(Conditioner):
                 self.ep_api.exchange.set_actuator_value(state, self.status_doas_handler[room], status_doas)
             self.ep_api.exchange.set_actuator_value(state, self.status_janela_handler[room], status_janela)
             self.ep_api.exchange.set_actuator_value(state, self.pmv_handler[room], pmv)
-            em_conforto = self.is_comfortable(temp_op, temp_neutra_adaptativo, pmv, status_janela, 0.0)
+            em_conforto = self.is_comfortable(temp_op, temp_neutra_adaptativo, 0.0, pmv, status_janela, 0.0)
             self.ep_api.exchange.set_actuator_value(state, self.em_conforto_handler[room], em_conforto)
         else:
             # Eliminando CO2 da sala
