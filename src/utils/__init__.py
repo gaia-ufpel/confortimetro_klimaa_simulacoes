@@ -57,6 +57,9 @@ def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_p
         df = eso.to_frame("Site Outdoor Air Drybulb Temperature")
         
         for variable in variables:
+            #if variable[1] == None:
+            #    df = pandas.concat([df, eso.to_frame(variable[2])], axis=1)
+            #    columns.append(f"{variable[2].split(':')[-1]}:{variable[2].split(':')[0]}")
             if room in variable[1]:
                 df = pandas.concat([df, eso.to_frame(variable[2])[variable[1]]], axis=1)
                 columns.append(f"{variable[1]}:{variable[2]}")
@@ -210,4 +213,5 @@ def plot_graphics(excel_path, sheet_name):
 
 
 if __name__ == "__main__":
-    plot_graphics(sys.argv[1], "INVERNO")
+    summary_rooms_results_from_eso("./outputs/teste", ["ATELIE1"])
+    #plot_graphics(sys.argv[1], "INVERNO")

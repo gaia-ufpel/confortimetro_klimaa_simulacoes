@@ -101,8 +101,8 @@ RunPeriod,
     1,                        !- Begin Month
     1,                        !- Begin Day of Month
     2015,                     !- Begin Year
-    12,                       !- End Month
-    31,                       !- End Day of Month
+    3,                        !- End Month
+    23,                       !- End Day of Month
     2015,                     !- End Year
     SUNDAY;                   !- Day of Week for Start Day
 
@@ -10452,215 +10452,33 @@ Output:Variable,
     System Node Mass Flow Rate,    !- Variable Name
     Timestep;                 !- Reporting Frequency
 
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    People Occupant Count,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
+Output:Meter,
+    Electricity:Zone:SALA_AULA,    !- Key Name
+    hourly;                   !- Reporting Frequency
 
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Site Outdoor Air Drybulb Temperature,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
+Output:Meter,
+    Electricity:Zone:RECEPCAO,    !- Key Name
+    hourly;                   !- Reporting Frequency
 
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Mean Radiante Temperature,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
+Output:Meter,
+    Electricity:Zone:SEC_LINSE,    !- Key Name
+    hourly;                   !- Reporting Frequency
 
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Operative Temperature,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
+Output:Meter,
+    Electricity:Zone:LINSE,    !- Key Name
+    hourly;                   !- Reporting Frequency
 
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Air Temperature,     !- Variable Name
-    Timestep;                 !- Reporting Frequency
+Output:Meter,
+    Electricity:Zone:ATELIE1,    !- Key Name
+    hourly;                   !- Reporting Frequency
 
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Air Relative Humidity,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
+Output:Meter,
+    Electricity:Zone:ATELIE2,    !- Key Name
+    hourly;                   !- Reporting Frequency
 
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Thermal Comfort Fanger Model PMV,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Thermal Comfort Clothing Value,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Air CO2 Concentration,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Schedule Value,           !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Packaged Terminal Heat Pump Total Heating Energy,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Packaged Terminal Heat Pump Total Cooling Energy,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Infiltration Air Change Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_SALA_AULA OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_ATELIE1 OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_ATELIE2 OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_ATELIE3 OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_RECEPCAO OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_SEC_LINSE OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_LINSE OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    People Occupant Count,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Site Outdoor Air Drybulb Temperature,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Mean Radiante Temperature,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Operative Temperature,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Air Temperature,     !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Air Relative Humidity,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Thermal Comfort Fanger Model PMV,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Thermal Comfort Clothing Value,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Air CO2 Concentration,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Schedule Value,           !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Packaged Terminal Heat Pump Total Heating Energy,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Packaged Terminal Heat Pump Total Cooling Energy,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    *,                        !- Key Value
-    Zone Infiltration Air Change Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_SALA_AULA OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_ATELIE1 OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_ATELIE2 OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_ATELIE3 OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_RECEPCAO OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_SEC_LINSE OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
-
-OUTPUT:VARIABLE,
-    DOAS_LINSE OUTDOOR AIR INLET,    !- Key Value
-    System Node Mass Flow Rate,    !- Variable Name
-    Timestep;                 !- Reporting Frequency
+Output:Meter,
+    Electricity:Zone:ATELIE3,    !- Key Name
+    hourly;                   !- Reporting Frequency
 
 Output:Diagnostics,
     DisplayUnusedSchedules;    !- Key 1
