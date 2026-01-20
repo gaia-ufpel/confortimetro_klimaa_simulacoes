@@ -1,6 +1,5 @@
 import pandas
 import os
-import sys
 import esoreader
 import threading
 from datetime import datetime
@@ -27,10 +26,8 @@ def summary_one_room_results_from_csv(csv_path, room):
     """
     Resumo dos resultados de uma sala em um arquivo .xlsx a partir de um arquivo .csv
     """
-
     df = pandas.read_csv(csv_path)
     base_path = csv_path[:-13]
-    #print(base_path)
 
     target_cols = ["Date/Time",
                    "Environment:Site Outdoor Air Drybulb Temperature [C](TimeStep)"
@@ -51,16 +48,16 @@ def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_p
     variables = eso.find_variable("")
 
     threads = []
-
     for room in rooms:
         columns = ["Date/Time", "Site Outdoor Air Drybulb Temperature"]
         df = eso.to_frame("Site Outdoor Air Drybulb Temperature")
         
         for variable in variables:
-            #if variable[1] == None:
-            #    df = pandas.concat([df, eso.to_frame(variable[2])], axis=1)
-            #    columns.append(f"{variable[2].split(':')[-1]}:{variable[2].split(':')[0]}")
-            if room in variable[1]:
+            if variable[1] is None:
+                if room in variable[2]:
+                    df = pandas.concat([df, eso.to_frame(variable[2])], axis=1)
+                    columns.append(f"{variable[2]}")
+            elif room in variable[1]:
                 df = pandas.concat([df, eso.to_frame(variable[2])[variable[1]]], axis=1)
                 columns.append(f"{variable[1]}:{variable[2]}")
 
@@ -115,26 +112,14 @@ def get_stats_from_simulation(output_path, rooms):
 
         df = pandas.read_excel(os.path.join(output_path, f"{room}.xlsx"))   
     
-        row = {'Nome do arquivo': None,
-                'Nome da sala': None,
-                'Número ocupação': None,
-                'Ar condicionado ligado': None,
-                'Aquecimento': None,
-                'Resfriamento': None,
-                'Ventilador ligado': None,
-                'Ventilador ligado e ar ligado': None,
-                'Ventilador ligado, ar desligado e janela fechada': None,
-                'Janela aberta': None,
-                'Janela aberta e ventilador ligado': None,
-                'DOAS ligado': None,
-                'Janela fechada, ar desligado e ventilador desligado': None,
-                'Desconforto': None,
-                'CO2 máximo': None,
-                'Janela aberta sem pessoas': None}
+        row = {'Nome do arquivo': id_arquivo, 'Nome da sala': room,
+               'Número ocupação': len(df[df[people_column.format(room)] != 0]), 'Ar condicionado ligado': None,
+               'Aquecimento': None, 'Resfriamento': None, 'Ventilador ligado': None,
+               'Ventilador ligado e ar ligado': None, 'Ventilador ligado, ar desligado e janela fechada': None,
+               'Janela aberta': None, 'Janela aberta e ventilador ligado': None, 'DOAS ligado': None,
+               'Janela fechada, ar desligado e ventilador desligado': None, 'Desconforto': None, 'CO2 máximo': None,
+               'Janela aberta sem pessoas': None}
 
-        row['Nome do arquivo'] = id_arquivo
-        row['Nome da sala'] = room
-        row['Número ocupação'] = len(df[df[people_column.format(room)] != 0])
         row['Aquecimento'] = len(df[(df[people_column.format(room)] != 0) & (df[heating_column.format(room)] != 0)]) / row['Número ocupação']
         row['Resfriamento'] = len(df[(df[people_column.format(room)] != 0) & (df[cooling_column.format(room)] != 0)]) / row['Número ocupação']
         row['Ar condicionado ligado'] = row['Aquecimento'] + row['Resfriamento']
@@ -158,7 +143,7 @@ def _split_target_period_dataframe(df):
     Separa o dataframe em períodos de verão, inverno, dias de verão e dias de inverno
     """
     summer_1 = df[(df["Date/Time"] >= TARGET_PERIODS["VERAO"][0]) & (df["PEOPLE_ATELIE1:People Occupant Count"] != 0)]
-    summer_2 = df[((df["Date/Time"] <= TARGET_PERIODS["VERAO"][1])) & (df["PEOPLE_ATELIE1:People Occupant Count"] != 0)]
+    summer_2 = df[(df["Date/Time"] <= TARGET_PERIODS["VERAO"][1]) & (df["PEOPLE_ATELIE1:People Occupant Count"] != 0)]
     summer = pandas.concat([summer_1, summer_2])
     winter = df[((df["Date/Time"] >= TARGET_PERIODS["INVERNO"][0]) & (df["Date/Time"] <= TARGET_PERIODS["INVERNO"][1])) & (df["PEOPLE_ATELIE1:People Occupant Count"] != 0)]
     days_summer = df[((df["Date/Time"] >= TARGET_PERIODS["DIAS_VERAO"][0]) & (df["Date/Time"] <= TARGET_PERIODS["DIAS_VERAO"][1])) & (df["PEOPLE_ATELIE1:People Occupant Count"] != 0)]
@@ -209,8 +194,6 @@ def plot_graphics(excel_path, sheet_name):
     plt.grid()
 
     plt.show()
-
-
 
 if __name__ == "__main__":
     summary_rooms_results_from_eso("./outputs/teste", ["ATELIE1"])

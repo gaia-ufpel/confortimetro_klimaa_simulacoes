@@ -1,15 +1,13 @@
 import math
 import logging
-from datetime import datetime
 import pythermalcomfort
 from ladybug_comfort.pmv import predicted_mean_vote
-import multiprocessing
 
-from utils.simulation_config import SimulationConfig
+from src.utils.simulation_config import SimulationConfig
 
 class Conditioner:
     def __init__(self, ep_api, configs: SimulationConfig, ac_on_max_timesteps: int=12):
-        self.logger = self._setup_logging()
+        self.logger = logging.getLogger(__name__)
 
         self.ep_api = ep_api
         self.configs = configs
@@ -38,23 +36,12 @@ class Conditioner:
         self.em_conforto_handler = {}
         self.status_doas_handler = {}
 
-        self.ac_on_counter: dict[str, int] = {}
-        for room in self.configs.rooms:
-            self.ac_on_counter.update({ room : 0 })
+        self.ac_on_counter: dict[str, int] = {room : 0 for room in self.configs.rooms}
         self.ac_on_max_timesteps: int = ac_on_max_timesteps
         
         self.janela_sem_pessoas_bloqueada = False
 
         self.periodo_inverno = range(6, 10)
-
-    def _setup_logging(self):
-        logger = logging.getLogger(__name__)
-        logging.basicConfig(
-            filename = f'logs/simulation_{datetime.now().isoformat()}.log',
-            format='%(asctime)s %(message)s',
-            datefmt='%m/%d/%Y %I:%M:%S %p'
-        )
-        return logger
 
     def __call__(self, state):
         if self.ep_api.exchange.warmup_flag(state):
@@ -73,7 +60,7 @@ class Conditioner:
     def room_conditioner(self, state, room):
         raise NotImplementedError("Method room_conditioner must be implemented!")
 
-    def get_best_velocity_with_adaptative(self, temp_op):
+    def get_best_velocity_with_adaptative(self, temp_op) -> tuple[float, int]:
         status_janela = 1
         nova_vel = math.ceil(self.get_vel_adap(temp_op) / self.configs.air_speed_delta) * self.configs.air_speed_delta
 
@@ -83,8 +70,18 @@ class Conditioner:
 
         return nova_vel, status_janela
         
-    def get_best_velocity_with_pmv(self, temp_ar, mrt, vel, hum_rel, clo):
+    def get_best_velocity_with_pmv(self, temp_ar, mrt, vel, hum_rel, clo) -> tuple[float, int, float]:
         status_ac = 0
+        pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
+        if pmv > self.configs.pmv_upperbound:
+            clo = round(clo - self.configs.clo_delta, 2)
+            if clo < self.configs.clo_min:
+                clo = self.configs.clo_min
+        elif pmv < self.configs.pmv_lowerbound:
+            clo = round(clo + self.configs.clo_delta, 2)
+            if clo > self.configs.clo_max:
+                clo = self.configs.clo_max
+
         pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
         while pmv > self.configs.pmv_upperbound:
             vel = round(vel + self.configs.air_speed_delta, 2)
@@ -102,12 +99,22 @@ class Conditioner:
                 break
             pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
 
-        return vel, status_ac
+        return vel, status_ac, clo
 
-    def get_best_temperatures_with_pmv(self, mrt, vel, hum_rel, clo):
+    def get_best_temperatures_with_pmv(self, temp_ar, mrt, vel, hum_rel, clo):
         best_cool_temp = self.configs.temp_ac_max
         best_heat_temp = self.configs.temp_ac_min
-        
+
+        pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
+        if pmv > self.configs.pmv_upperbound:
+            clo = round(clo - self.configs.clo_delta, 2)
+            if clo < self.configs.clo_min:
+                clo = self.configs.clo_min
+        elif pmv < self.configs.pmv_lowerbound:
+            clo = round(clo + self.configs.clo_delta, 2)
+            if clo > self.configs.clo_max:
+                clo = self.configs.clo_max
+
         pmv = self.get_pmv(best_cool_temp, mrt, vel, hum_rel, clo)
         while pmv > self.configs.pmv_upperbound:
             best_cool_temp -= 1.0
@@ -124,7 +131,49 @@ class Conditioner:
                 break
             pmv = self.get_pmv(best_heat_temp, mrt, vel, hum_rel, clo)
 
-        return best_cool_temp, best_heat_temp
+        if best_cool_temp < best_heat_temp:
+            best_cool_temp = best_heat_temp + 1.0
+            if best_cool_temp < self.configs.temp_ac_min:
+                best_cool_temp = self.configs.temp_ac_min
+                best_heat_temp -= 1.0
+
+        return best_cool_temp, best_heat_temp, clo
+
+    """
+    def get_best_temperatures_with_pmv(self, mrt, vel, hum_rel, clo) -> tuple[float, float, float]:
+        best_cool_temp = self.configs.temp_ac_max
+        best_heat_temp = self.configs.temp_ac_min
+        
+        pmv = self.get_pmv(best_cool_temp, mrt, vel, hum_rel, clo)
+        while pmv > self.configs.pmv_upperbound:
+            if clo < self.configs.clo_max:
+                clo = round(clo + self.configs.clo_delta, 2)
+                if clo > self.configs.clo_max:
+                    clo = self.configs.clo_max
+                pmv = self.get_pmv(best_cool_temp, mrt, vel, hum_rel, clo)
+            else:
+                best_cool_temp -= 1.0
+                if best_cool_temp <= self.configs.temp_ac_min:
+                    best_cool_temp = self.configs.temp_ac_min
+                    break
+                pmv = self.get_pmv(best_cool_temp, mrt, vel, hum_rel, clo)
+
+        pmv = self.get_pmv(best_heat_temp, mrt, vel, hum_rel, clo)
+        while pmv < self.configs.pmv_lowerbound:
+            if clo > self.configs.clo_min:
+                clo = round(clo - self.configs.clo_delta, 2)
+                if clo < self.configs.clo_min:
+                    clo = self.configs.clo_min
+                pmv = self.get_pmv(best_heat_temp, mrt, vel, hum_rel, clo)
+            else:
+                best_heat_temp += 1.0
+                if best_heat_temp >= self.configs.temp_ac_max:
+                    best_heat_temp = self.configs.temp_ac_max
+                    break
+                pmv = self.get_pmv(best_heat_temp, mrt, vel, hum_rel, clo)
+
+        return best_cool_temp, best_heat_temp, clo
+    """
 
     def get_pmv(self, temp_ar, mrt, vel, rh, clo):
         return predicted_mean_vote(
@@ -138,13 +187,12 @@ class Conditioner:
         )['pmv']
     
     def is_comfortable(self, temp_op:float, adaptativo:float, temp_op_max:float, pmv:float, status_janela:int, vel:float):
-        if adaptativo >= temp_op - self.configs.adaptative_bound and adaptativo <= temp_op + self.configs.adaptative_bound and status_janela == 1 and vel == 0.0:
+        if temp_op - self.configs.adaptative_bound <= adaptativo <= temp_op + self.configs.adaptative_bound and status_janela == 1 and vel == 0.0:
             return 1
         elif temp_op <= temp_op_max and vel > 0.0 and status_janela == 1:
             return 1
-        elif pmv <= self.configs.pmv_upperbound + self.configs.pmv_comfort_bound and pmv >= self.configs.pmv_lowerbound - self.configs.pmv_comfort_bound and status_janela == 0:
+        elif self.configs.pmv_upperbound + self.configs.pmv_comfort_bound >= pmv >= self.configs.pmv_lowerbound - self.configs.pmv_comfort_bound and status_janela == 0:
             return 1
-
         return 0
     
     def acquire_handlers(self, state):
@@ -188,9 +236,14 @@ class Conditioner:
                 self.logger.error(f"Não foi possível pegar o tratador Zone Air CO2 Concentration da sala {room}")
             self.co2_handler.update({ room : handler })
             
-            handler = self.ep_api.exchange.get_variable_handle(state, "Zone Thermal Comfort Clothing Value", f"PEOPLE_{room.upper()}")
+            #handler = self.ep_api.exchange.get_variable_handle(state, "Zone Thermal Comfort Clothing Value", f"PEOPLE_{room.upper()}")
+            #if handler <= 0:
+            #    self.logger.error(f"Não foi possível pegar o tratador Zone Thermal Comfort Clothing Value da sala {room}")
+            #self.clo_handler.update({ room : handler })
+
+            handler = self.ep_api.exchange.get_actuator_handle(state, "Schedule:Constant", "Schedule Value", f"CLO_{room.upper()}")
             if handler <= 0:
-                self.logger.error(f"Não foi possível pegar o tratador Zone Thermal Comfort Clothing Value da sala {room}")
+               self.logger.error(f"Não foi possível pegar o tratador CLO da sala {room}")
             self.clo_handler.update({ room : handler })
             
             handler = self.ep_api.exchange.get_actuator_handle(state, "Schedule:Constant", "Schedule Value", f"JANELA_{room.upper()}")

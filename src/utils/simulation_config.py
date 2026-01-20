@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import json
 import os
 
-from utils.module_type import ModuleType
+from src.utils.module_type import ModuleType
 
 @dataclass
 class SimulationConfig:
@@ -22,6 +22,9 @@ class SimulationConfig:
     temp_ac_min: float = 16.0
     temp_ac_max: float = 30.0
     wme: float = 0.0
+    clo_max: float = 1.0
+    clo_min: float = 0.5
+    clo_delta: float = 0.1
 
     input_path: str = None
     expanded_idf_path: str = None

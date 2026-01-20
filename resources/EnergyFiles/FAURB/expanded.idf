@@ -101,8 +101,8 @@ RunPeriod,
     1,                        !- Begin Month
     1,                        !- Begin Day of Month
     2015,                     !- Begin Year
-    3,                        !- End Month
-    23,                       !- End Day of Month
+    12,                       !- End Month
+    31,                       !- End Day of Month
     2015,                     !- End Year
     SUNDAY;                   !- Day of Week for Start Day
 
@@ -238,6 +238,9 @@ ScheduleTypeLimits,
 ScheduleTypeLimits,
     Number;                   !- Name
 
+ScheduleTypeLimits,
+    Clo;                      !- Name
+
 Schedule:Compact,
     OCUPACAO,                 !- Name
     Fraction,                 !- Schedule Type Limits Name
@@ -271,6 +274,46 @@ Schedule:Compact,
     For: AllDays,             !- Field 2
     Until: 24:00,             !- Field 3
     25;                       !- Field 4
+
+Schedule:Constant,
+    CLO_SCHEDULE,             !- Name
+    Temperature,              !- Schedule Type Limits Name
+    0.7;                      !- Hourly Value
+
+Schedule:Constant,
+    CLO_SALA_AULA,            !- Name
+    Temperature,              !- Schedule Type Limits Name
+    0.7;                      !- Hourly Value
+
+Schedule:Constant,
+    CLO_ATELIE1,              !- Name
+    Temperature,              !- Schedule Type Limits Name
+    0.7;                      !- Hourly Value
+
+Schedule:Constant,
+    CLO_ATELIE2,              !- Name
+    Temperature,              !- Schedule Type Limits Name
+    0.7;                      !- Hourly Value
+
+Schedule:Constant,
+    CLO_ATELIE3,              !- Name
+    Temperature,              !- Schedule Type Limits Name
+    0.7;                      !- Hourly Value
+
+Schedule:Constant,
+    CLO_RECEPCAO,             !- Name
+    Temperature,              !- Schedule Type Limits Name
+    0.7;                      !- Hourly Value
+
+Schedule:Constant,
+    CLO_LINSE,                !- Name
+    Temperature,              !- Schedule Type Limits Name
+    0.7;                      !- Hourly Value
+
+Schedule:Constant,
+    CLO_SEC_LINSE,            !- Name
+    Temperature,              !- Schedule Type Limits Name
+    0.7;                      !- Hourly Value
 
 Schedule:Constant,
     Outdoor CO2 Schedule,     !- Name
@@ -7796,9 +7839,9 @@ People,
     ZoneAveraged,             !- Mean Radiant Temperature Calculation Type
     ,                         !- Surface NameAngle Factor List Name
     WORK_EF,                  !- Work Efficiency Schedule Name
-    DynamicClothingModelASHRAE55,    !- Clothing Insulation Calculation Method
+    ClothingInsulationSchedule,    !- Clothing Insulation Calculation Method
     ,                         !- Clothing Insulation Calculation Method Schedule Name
-    ,                         !- Clothing Insulation Schedule Name
+    CLO_SALA_AULA,            !- Clothing Insulation Schedule Name
     VEL_SALA_AULA,            !- Air Velocity Schedule Name
     Fanger,                   !- Thermal Comfort Model 1 Type
     AdaptiveASH55;            !- Thermal Comfort Model 2 Type
@@ -7819,9 +7862,9 @@ People,
     ZoneAveraged,             !- Mean Radiant Temperature Calculation Type
     ,                         !- Surface NameAngle Factor List Name
     WORK_EF,                  !- Work Efficiency Schedule Name
-    DynamicClothingModelASHRAE55,    !- Clothing Insulation Calculation Method
+    ClothingInsulationSchedule,    !- Clothing Insulation Calculation Method
     ,                         !- Clothing Insulation Calculation Method Schedule Name
-    ,                         !- Clothing Insulation Schedule Name
+    CLO_RECEPCAO,             !- Clothing Insulation Schedule Name
     VEL_RECEPCAO,             !- Air Velocity Schedule Name
     Fanger,                   !- Thermal Comfort Model 1 Type
     AdaptiveASH55;            !- Thermal Comfort Model 2 Type
@@ -7842,9 +7885,9 @@ People,
     ZoneAveraged,             !- Mean Radiant Temperature Calculation Type
     ,                         !- Surface NameAngle Factor List Name
     WORK_EF,                  !- Work Efficiency Schedule Name
-    DynamicClothingModelASHRAE55,    !- Clothing Insulation Calculation Method
+    ClothingInsulationSchedule,    !- Clothing Insulation Calculation Method
     ,                         !- Clothing Insulation Calculation Method Schedule Name
-    ,                         !- Clothing Insulation Schedule Name
+    CLO_ATELIE1,              !- Clothing Insulation Schedule Name
     VEL_ATELIE1,              !- Air Velocity Schedule Name
     Fanger,                   !- Thermal Comfort Model 1 Type
     AdaptiveASH55;            !- Thermal Comfort Model 2 Type
@@ -7865,9 +7908,9 @@ People,
     ZoneAveraged,             !- Mean Radiant Temperature Calculation Type
     ,                         !- Surface NameAngle Factor List Name
     WORK_EF,                  !- Work Efficiency Schedule Name
-    DynamicClothingModelASHRAE55,    !- Clothing Insulation Calculation Method
+    ClothingInsulationSchedule,    !- Clothing Insulation Calculation Method
     ,                         !- Clothing Insulation Calculation Method Schedule Name
-    ,                         !- Clothing Insulation Schedule Name
+    CLO_SEC_LINSE,            !- Clothing Insulation Schedule Name
     VEL_SEC_LINSE,            !- Air Velocity Schedule Name
     Fanger,                   !- Thermal Comfort Model 1 Type
     AdaptiveASH55;            !- Thermal Comfort Model 2 Type
@@ -7888,9 +7931,9 @@ People,
     ZoneAveraged,             !- Mean Radiant Temperature Calculation Type
     ,                         !- Surface NameAngle Factor List Name
     WORK_EF,                  !- Work Efficiency Schedule Name
-    DynamicClothingModelASHRAE55,    !- Clothing Insulation Calculation Method
+    ClothingInsulationSchedule,    !- Clothing Insulation Calculation Method
     ,                         !- Clothing Insulation Calculation Method Schedule Name
-    ,                         !- Clothing Insulation Schedule Name
+    CLO_LINSE,                !- Clothing Insulation Schedule Name
     VEL_LINSE,                !- Air Velocity Schedule Name
     Fanger,                   !- Thermal Comfort Model 1 Type
     AdaptiveASH55;            !- Thermal Comfort Model 2 Type
@@ -7911,9 +7954,9 @@ People,
     ZoneAveraged,             !- Mean Radiant Temperature Calculation Type
     ,                         !- Surface NameAngle Factor List Name
     WORK_EF,                  !- Work Efficiency Schedule Name
-    DynamicClothingModelASHRAE55,    !- Clothing Insulation Calculation Method
+    ClothingInsulationSchedule,    !- Clothing Insulation Calculation Method
     ,                         !- Clothing Insulation Calculation Method Schedule Name
-    ,                         !- Clothing Insulation Schedule Name
+    CLO_ATELIE2,              !- Clothing Insulation Schedule Name
     VEL_ATELIE2,              !- Air Velocity Schedule Name
     Fanger,                   !- Thermal Comfort Model 1 Type
     AdaptiveASH55;            !- Thermal Comfort Model 2 Type
@@ -7934,9 +7977,9 @@ People,
     ZoneAveraged,             !- Mean Radiant Temperature Calculation Type
     ,                         !- Surface NameAngle Factor List Name
     WORK_EF,                  !- Work Efficiency Schedule Name
-    DynamicClothingModelASHRAE55,    !- Clothing Insulation Calculation Method
+    ClothingInsulationSchedule,    !- Clothing Insulation Calculation Method
     ,                         !- Clothing Insulation Calculation Method Schedule Name
-    ,                         !- Clothing Insulation Schedule Name
+    CLO_ATELIE3,              !- Clothing Insulation Schedule Name
     VEL_ATELIE3,              !- Air Velocity Schedule Name
     Fanger,                   !- Thermal Comfort Model 1 Type
     AdaptiveASH55;            !- Thermal Comfort Model 2 Type
@@ -8109,91 +8152,91 @@ ElectricEquipment,
     SALA_AULA,                !- Zone or ZoneList Name
     VENT_SALA_AULA,           !- Schedule Name
     EquipmentLevel,           !- Design Level Calculation Method
-    50,                       !- Design Level
+    27,                       !- Design Level
     ,                         !- Watts per Zone Floor Area
     ,                         !- Watts per Person
     ,                         !- Fraction Latent
     ,                         !- Fraction Radiant
     ,                         !- Fraction Lost
-    General;                  !- EndUse Subcategory
+    Ventilador;               !- EndUse Subcategory
 
 ElectricEquipment,
     VENTILADOR_SEC_LINSE,     !- Name
     SEC_LINSE,                !- Zone or ZoneList Name
     VENT_SEC_LINSE,           !- Schedule Name
     EquipmentLevel,           !- Design Level Calculation Method
-    50,                       !- Design Level
+    27,                       !- Design Level
     ,                         !- Watts per Zone Floor Area
     ,                         !- Watts per Person
     ,                         !- Fraction Latent
     ,                         !- Fraction Radiant
     ,                         !- Fraction Lost
-    General;                  !- EndUse Subcategory
+    Ventilador;               !- EndUse Subcategory
 
 ElectricEquipment,
     VENTILADOR_LINSE,         !- Name
     LINSE,                    !- Zone or ZoneList Name
     VENT_LINSE,               !- Schedule Name
     EquipmentLevel,           !- Design Level Calculation Method
-    50,                       !- Design Level
+    27,                       !- Design Level
     ,                         !- Watts per Zone Floor Area
     ,                         !- Watts per Person
     ,                         !- Fraction Latent
     ,                         !- Fraction Radiant
     ,                         !- Fraction Lost
-    General;                  !- EndUse Subcategory
+    Ventilador;               !- EndUse Subcategory
 
 ElectricEquipment,
     VENTILADOR_ATELIE1,       !- Name
     ATELIE1,                  !- Zone or ZoneList Name
     VENT_ATELIE1,             !- Schedule Name
     EquipmentLevel,           !- Design Level Calculation Method
-    50,                       !- Design Level
+    27,                       !- Design Level
     ,                         !- Watts per Zone Floor Area
     ,                         !- Watts per Person
     ,                         !- Fraction Latent
     ,                         !- Fraction Radiant
     ,                         !- Fraction Lost
-    General;                  !- EndUse Subcategory
+    Ventilador;               !- EndUse Subcategory
 
 ElectricEquipment,
     VENTILADOR_ATELIE2,       !- Name
     ATELIE2,                  !- Zone or ZoneList Name
     VENT_ATELIE2,             !- Schedule Name
     EquipmentLevel,           !- Design Level Calculation Method
-    50,                       !- Design Level
+    27,                       !- Design Level
     ,                         !- Watts per Zone Floor Area
     ,                         !- Watts per Person
     ,                         !- Fraction Latent
     ,                         !- Fraction Radiant
     ,                         !- Fraction Lost
-    General;                  !- EndUse Subcategory
+    Ventilador;               !- EndUse Subcategory
 
 ElectricEquipment,
     VENTILADOR_ATELIE3,       !- Name
     ATELIE3,                  !- Zone or ZoneList Name
     VENT_ATELIE3,             !- Schedule Name
     EquipmentLevel,           !- Design Level Calculation Method
-    50,                       !- Design Level
+    27,                       !- Design Level
     ,                         !- Watts per Zone Floor Area
     ,                         !- Watts per Person
     ,                         !- Fraction Latent
     ,                         !- Fraction Radiant
     ,                         !- Fraction Lost
-    General;                  !- EndUse Subcategory
+    Ventilador;               !- EndUse Subcategory
 
 ElectricEquipment,
     VENTILADOR_RECEPCAO,      !- Name
     RECEPCAO,                 !- Zone or ZoneList Name
     VENT_RECEPCAO,            !- Schedule Name
     EquipmentLevel,           !- Design Level Calculation Method
-    50,                       !- Design Level
+    27,                       !- Design Level
     ,                         !- Watts per Zone Floor Area
     ,                         !- Watts per Person
     ,                         !- Fraction Latent
     ,                         !- Fraction Radiant
     ,                         !- Fraction Lost
-    General;                  !- EndUse Subcategory
+    Ventilador;               !- EndUse Subcategory
 
 AirflowNetwork:SimulationControl,
     controle,                 !- Name
@@ -10453,32 +10496,8 @@ Output:Variable,
     Timestep;                 !- Reporting Frequency
 
 Output:Meter,
-    Electricity:Zone:SALA_AULA,    !- Key Name
-    hourly;                   !- Reporting Frequency
-
-Output:Meter,
-    Electricity:Zone:RECEPCAO,    !- Key Name
-    hourly;                   !- Reporting Frequency
-
-Output:Meter,
-    Electricity:Zone:SEC_LINSE,    !- Key Name
-    hourly;                   !- Reporting Frequency
-
-Output:Meter,
-    Electricity:Zone:LINSE,    !- Key Name
-    hourly;                   !- Reporting Frequency
-
-Output:Meter,
-    Electricity:Zone:ATELIE1,    !- Key Name
-    hourly;                   !- Reporting Frequency
-
-Output:Meter,
-    Electricity:Zone:ATELIE2,    !- Key Name
-    hourly;                   !- Reporting Frequency
-
-Output:Meter,
-    Electricity:Zone:ATELIE3,    !- Key Name
-    hourly;                   !- Reporting Frequency
+    InteriorEquipment:Electricity:Zone:*,    !- Key Name
+    Timestep;                 !- Reporting Frequency
 
 Output:Diagnostics,
     DisplayUnusedSchedules;    !- Key 1

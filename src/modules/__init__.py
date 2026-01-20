@@ -1,9 +1,9 @@
-from modules.conditioner_complete import ConditionerComplete
-from modules.conditioner_fixed_ac_without_fan import ConditionerFixedAcWithoutFan
-from modules.conditioner_closed_window import ConditionerClosedWindow
-from modules.conditioner_without_fan import ConditionerWithoutFan
+from src.modules.conditioner_complete import ConditionerComplete
+from src.modules.conditioner_fixed_ac_without_fan import ConditionerFixedAcWithoutFan
+from src.modules.conditioner_closed_window import ConditionerClosedWindow
+from src.modules.conditioner_without_fan import ConditionerWithoutFan
 
-from utils.module_type import ModuleType
+from src.utils.module_type import ModuleType
 
 MODULES_MAPPER = {
     ModuleType.COMPLETE: ConditionerComplete,
