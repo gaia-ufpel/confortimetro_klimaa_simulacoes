@@ -32,13 +32,13 @@ class ConditionerClosedWindow(Conditioner):
                 self.ac_on_counter[room] = 0
 
             if status_ac == 0:
-                vel, status_ac = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
+                vel, status_ac, clo = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
             else:
-                vel, _ = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
+                vel, _, clo = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
             
             if status_ac == 1:
                 # Executar com o modelo PMV
-                temp_cool_ac, temp_heat_ac = self.get_best_temperatures_with_pmv(mrt, vel, hum_rel, clo)
+                temp_cool_ac, temp_heat_ac, clo = self.get_best_temperatures_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
                 self.ac_on_counter[room] += 1
                 
             status_doas = 0
@@ -50,6 +50,7 @@ class ConditionerClosedWindow(Conditioner):
             #logging.info(f'data: {self.ep_api.exchange.day_of_month(state)} - temp_ar: {temp_ar} - mrt: {mrt} - vel: {vel} - rh: {hum_rel} - met: {self.met} - clo: {clo} - pmv: {self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)}')
 
             # Mandando para o Energy os valores atualizados
+            self.ep_api.exchange.set_actuator_value(state, self.clo_handler[room], clo)
             self.ep_api.exchange.set_actuator_value(state, self.status_vent_handler[room], 1 if vel > 0 else 0)
             self.ep_api.exchange.set_actuator_value(state, self.vel_handler[room], vel)
             self.ep_api.exchange.set_actuator_value(state, self.status_ac_handler[room], status_ac)

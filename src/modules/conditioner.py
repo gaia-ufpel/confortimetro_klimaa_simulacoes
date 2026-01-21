@@ -69,20 +69,89 @@ class Conditioner:
             status_janela = 0
 
         return nova_vel, status_janela
+    
+    def get_best_clo_for_comfort(self, temp_ar, mrt, vel, hum_rel, clo) -> tuple[float, bool]:
+        """
+        Testa diferentes valores de clo para encontrar o melhor valor que 
+        pode trazer conforto térmico antes de tentar outras variações.
+        
+        Args:
+            temp_ar: Temperatura do ar
+            mrt: Temperatura radiante média
+            vel: Velocidade do ar
+            hum_rel: Umidade relativa
+            clo: Valor atual de clo
+            
+        Returns:
+            tuple: (melhor_clo, conforto_alcancado)
+                - melhor_clo: O valor de clo que proporciona melhor conforto
+                - conforto_alcancado: True se o conforto foi alcançado apenas com clo
+        """
+        pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
+        
+        # Se já está confortável, retorna o clo atual
+        if self.configs.pmv_lowerbound <= pmv <= self.configs.pmv_upperbound:
+            return clo, True
+        
+        best_clo = clo
+        best_pmv = pmv
+        best_pmv_distance = abs(pmv)  # Distância do PMV neutro (0)
+        
+        # Determinar direção de busca baseado no PMV atual
+        if pmv > self.configs.pmv_upperbound:
+            # Muito quente - tentar reduzir clo
+            test_clo = clo
+            while test_clo >= self.configs.clo_min:
+                test_pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, test_clo)
+                test_distance = abs(test_pmv)
+                
+                # Se encontrou conforto, retorna imediatamente
+                if self.configs.pmv_lowerbound <= test_pmv <= self.configs.pmv_upperbound:
+                    return test_clo, True
+                
+                # Guarda o melhor valor encontrado
+                if test_distance < best_pmv_distance:
+                    best_pmv_distance = test_distance
+                    best_clo = test_clo
+                    best_pmv = test_pmv
+                
+                test_clo = round(test_clo - self.configs.clo_delta, 2)
+                
+        elif pmv < self.configs.pmv_lowerbound:
+            # Muito frio - tentar aumentar clo
+            test_clo = clo
+            while test_clo <= self.configs.clo_max:
+                test_pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, test_clo)
+                test_distance = abs(test_pmv)
+                
+                # Se encontrou conforto, retorna imediatamente
+                if self.configs.pmv_lowerbound <= test_pmv <= self.configs.pmv_upperbound:
+                    return test_clo, True
+                
+                # Guarda o melhor valor encontrado
+                if test_distance < best_pmv_distance:
+                    best_pmv_distance = test_distance
+                    best_clo = test_clo
+                    best_pmv = test_pmv
+                
+                test_clo = round(test_clo + self.configs.clo_delta, 2)
+        
+        # Retorna o melhor clo encontrado, mesmo que não tenha alcançado conforto
+        return best_clo, False
         
     def get_best_velocity_with_pmv(self, temp_ar, mrt, vel, hum_rel, clo) -> tuple[float, int, float]:
         status_ac = 0
+        
+        # ETAPA 1: Tentar ajustar clo primeiro
+        clo, comfort_achieved = self.get_best_clo_for_comfort(temp_ar, mrt, vel, hum_rel, clo)
+        
+        # Se o conforto foi alcançado apenas com ajuste de clo, retorna
+        if comfort_achieved:
+            return vel, status_ac, clo
+        
+        # ETAPA 2: Se clo não foi suficiente, ajustar velocidade do ar
         pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
-        if pmv > self.configs.pmv_upperbound:
-            clo = round(clo - self.configs.clo_delta, 2)
-            if clo < self.configs.clo_min:
-                clo = self.configs.clo_min
-        elif pmv < self.configs.pmv_lowerbound:
-            clo = round(clo + self.configs.clo_delta, 2)
-            if clo > self.configs.clo_max:
-                clo = self.configs.clo_max
-
-        pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
+        
         while pmv > self.configs.pmv_upperbound:
             vel = round(vel + self.configs.air_speed_delta, 2)
             if vel > self.configs.max_vel:
@@ -105,16 +174,13 @@ class Conditioner:
         best_cool_temp = self.configs.temp_ac_max
         best_heat_temp = self.configs.temp_ac_min
 
-        pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
-        if pmv > self.configs.pmv_upperbound:
-            clo = round(clo - self.configs.clo_delta, 2)
-            if clo < self.configs.clo_min:
-                clo = self.configs.clo_min
-        elif pmv < self.configs.pmv_lowerbound:
-            clo = round(clo + self.configs.clo_delta, 2)
-            if clo > self.configs.clo_max:
-                clo = self.configs.clo_max
-
+        # ETAPA 1: Tentar ajustar clo primeiro
+        clo, comfort_achieved = self.get_best_clo_for_comfort(temp_ar, mrt, vel, hum_rel, clo)
+        
+        # Mesmo que conforto tenha sido alcançado, ainda precisamos calcular as temperaturas
+        # para o caso de o AC ser ligado
+        
+        # ETAPA 2: Calcular melhores temperaturas do AC
         pmv = self.get_pmv(best_cool_temp, mrt, vel, hum_rel, clo)
         while pmv > self.configs.pmv_upperbound:
             best_cool_temp -= 1.0

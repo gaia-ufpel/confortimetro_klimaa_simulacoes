@@ -43,13 +43,16 @@ class ConditionerWithoutFan(Conditioner):
             else:
                 status_janela = 0
             
+            # Primeiro, testar se ajuste de clo é suficiente para conforto
+            clo, comfort_achieved = self.get_best_clo_for_comfort(temp_ar, mrt, vel, hum_rel, clo)
             pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
+            
             if status_janela == 0:
-                if pmv > self.configs.pmv_upperbound or pmv < self.configs.pmv_lowerbound:
+                if not comfort_achieved and (pmv > self.configs.pmv_upperbound or pmv < self.configs.pmv_lowerbound):
                     status_ac = 1
             
             if status_ac == 1:
-                temp_cool_ac, temp_heat_ac = self.get_best_temperatures_with_pmv(mrt, vel, hum_rel, clo)
+                temp_cool_ac, temp_heat_ac, clo = self.get_best_temperatures_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
                 self.ac_on_counter[room] += 1
                 
             status_doas = 0
@@ -59,6 +62,7 @@ class ConditionerWithoutFan(Conditioner):
             pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
 
             # Mandando para o Energy os valores atualizados
+            self.ep_api.exchange.set_actuator_value(state, self.clo_handler[room], clo)
             self.ep_api.exchange.set_actuator_value(state, self.status_vent_handler[room], 1 if vel > 0 else 0)
             self.ep_api.exchange.set_actuator_value(state, self.vel_handler[room], vel)
             self.ep_api.exchange.set_actuator_value(state, self.status_ac_handler[room], status_ac)
