@@ -3,12 +3,13 @@ Confortímetro Klimaa Web Interface
 Flask web application for EnergyPlus simulation management
 """
 
-import os
 import logging
-from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session
-from flask_socketio import SocketIO, emit
-from simulation_integration import WebSimulationManager, FileUploadManager
+from flask_socketio import SocketIO, emit, join_room
+try:
+    from .simulation_integration import WebSimulationManager, FileUploadManager
+except ImportError:  # Running ``python app.py`` from src/web.
+    from simulation_integration import WebSimulationManager, FileUploadManager
 import threading
 import os
 from flask import send_file
@@ -23,29 +24,31 @@ logger = logging.getLogger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-change-this'
+app.config['SECRET_KEY'] = os.environ.get('CONFORTIMETRO_SECRET_KEY', os.urandom(32))
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 
 # Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app)
 
 # Initialize managers
 sim_manager = WebSimulationManager(socketio)
 file_manager = FileUploadManager()
 
+def current_session_id():
+    if 'session_id' not in session:
+        session['session_id'] = sim_manager.create_session()
+    return session['session_id']
+
 @app.route('/')
 def index():
     """Main application page"""
-    if 'session_id' not in session:
-        session['session_id'] = sim_manager.create_session()
+    current_session_id()
     return render_template('index.html')
 
 @app.route('/api/config', methods=['GET'])
 def get_config():
     """Get current configuration"""
-    session_id = session.get('session_id')
-    if not session_id:
-        return jsonify({'error': 'No session found'}), 400
+    session_id = current_session_id()
     
     config = sim_manager.get_config(session_id)
     if config is None:
@@ -70,9 +73,7 @@ def get_config():
 @app.route('/api/config', methods=['POST'])
 def update_config():
     """Update simulation configuration"""
-    session_id = session.get('session_id')
-    if not session_id:
-        return jsonify({'error': 'No session found'}), 400
+    session_id = current_session_id()
     
     config_data = request.get_json()
     if not config_data:
@@ -87,9 +88,7 @@ def update_config():
 @app.route('/api/simulation/start', methods=['POST'])
 def start_simulation():
     """Start simulation"""
-    session_id = session.get('session_id')
-    if not session_id:
-        return jsonify({'error': 'No session found'}), 400
+    session_id = current_session_id()
     
     success = sim_manager.start_simulation(session_id)
     if success:
@@ -100,9 +99,7 @@ def start_simulation():
 @app.route('/api/simulation/stop', methods=['POST'])
 def stop_simulation():
     """Stop simulation"""
-    session_id = session.get('session_id')
-    if not session_id:
-        return jsonify({'error': 'No session found'}), 400
+    session_id = current_session_id()
     
     success = sim_manager.stop_simulation(session_id)
     if success:
@@ -113,9 +110,7 @@ def stop_simulation():
 @app.route('/api/simulation/status', methods=['GET'])
 def get_simulation_status():
     """Get simulation status"""
-    session_id = session.get('session_id')
-    if not session_id:
-        return jsonify({'error': 'No session found'}), 400
+    session_id = current_session_id()
     
     status = sim_manager.get_simulation_status(session_id)
     return jsonify({'status': status})
@@ -146,9 +141,7 @@ def upload_file():
 @app.route('/api/simulation/download', methods=['GET'])
 def download_simulation_outputs():
     """Create and return a zip of the simulation outputs for this session."""
-    session_id = session.get('session_id')
-    if not session_id:
-        return jsonify({'error': 'No session found'}), 400
+    session_id = current_session_id()
 
     # Create zip using simulation manager
     zip_result = sim_manager.zip_outputs(session_id)
@@ -176,11 +169,9 @@ def download_simulation_outputs():
 @socketio.on('connect')
 def handle_connect():
     """Handle client connection"""
-    session_id = session.get('session_id')
-    if not session_id:
-        session['session_id'] = sim_manager.create_session()
-        session_id = session['session_id']
+    session_id = current_session_id()
     
+    join_room(session_id)
     emit('connected', {'session_id': session_id})
     logger.info(f"Client connected: {session_id}")
 
@@ -194,14 +185,6 @@ def handle_disconnect():
 def handle_ping():
     """Handle client ping for keepalive"""
     emit('pong')
-
-@socketio.on('join_session')
-def handle_join_session(data):
-    """Handle client joining a specific session"""
-    session_id = data.get('session_id')
-    if session_id:
-        session['session_id'] = session_id
-        emit('session_joined', {'session_id': session_id})
 
 # Error handlers
 @app.errorhandler(413)

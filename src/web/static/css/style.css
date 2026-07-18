@@ -1,84 +1,14 @@
-/* Modernized CSS for Confortímetro Klimaa Web Interface */
+:root { --log-bg: #101827; }
 
-:root{
-    --primary-600: #2563eb;
-    --primary-500: #3b82f6;
-    --accent: #06b6d4;
-    --success: #16a34a;
-    --danger: #ef4444;
-    --muted: #6b7280;
-    --bg: #f6f8fb;
-    --surface: #ffffff;
-    --text: #0f172a;
-    --soft-border: #e6eef8;
-}
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 
-*{box-sizing:border-box}
-body{
-    font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-    background:var(--bg);
-    color:var(--text);
-    -webkit-font-smoothing:antialiased;
-    -moz-osx-font-smoothing:grayscale;
-}
+.log-panel { background: var(--log-bg); border-radius: var(--radius-box); color: #e5edf8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; height: 26rem; overflow: auto; padding: 1rem; }
+.message-item { border-left: 3px solid; border-radius: .4rem; margin-bottom: .5rem; padding: .55rem .75rem; }
+.message-item.info { border-color: var(--color-info); background: color-mix(in srgb, var(--color-info) 12%, transparent); }
+.message-item.success { border-color: var(--color-success); background: color-mix(in srgb, var(--color-success) 12%, transparent); }
+.message-item.warning { border-color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 12%, transparent); }
+.message-item.error { border-color: var(--color-error); background: color-mix(in srgb, var(--color-error) 12%, transparent); }
+.message-timestamp { color: #9ca9bb; font-size: .75rem; margin-top: .2rem; }
 
-/* Navbar */
-.navbar{background:linear-gradient(90deg,var(--primary-600),var(--accent));}
-.navbar .navbar-brand{color:#fff;font-weight:700}
-.brand-icon{font-size:1.3rem}
-
-/* Cards */
-.card{border:none;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.99),#fbfdff);box-shadow:0 8px 24px rgba(12,20,28,0.06);transition:transform .12s ease,box-shadow .12s ease}
-.card:hover{transform:translateY(-6px);box-shadow:0 18px 40px rgba(12,20,28,0.08)}
-.card-header{background:transparent;padding:.8rem 1rem;border-bottom:1px solid rgba(15,23,42,0.04)}
-
-/* Form elements */
-.form-label{font-weight:600;color:var(--text);margin-bottom:.4rem}
-.form-control,.form-select{border-radius:8px;border:1px solid var(--soft-border);padding:.55rem .75rem}
-.form-control:focus,.form-select:focus{box-shadow:0 8px 24px rgba(59,130,246,0.06);border-color:var(--primary-600);outline:0}
-
-/* Buttons */
-.btn{border-radius:10px;font-weight:700;padding:.5rem .85rem;transition:transform .08s ease,box-shadow .08s ease}
-.btn:active{transform:translateY(0)}
-.btn-lg{padding:.75rem 1.25rem}
-.btn-primary{background:linear-gradient(90deg,var(--primary-600),var(--primary-500));color:#fff;border:none}
-.btn-success{background:linear-gradient(90deg,var(--success),#13a34a);color:#fff;border:none}
-.btn-danger{background:linear-gradient(90deg,var(--danger),#d04444);color:#fff;border:none}
-
-/* Status badges */
-.status-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.35rem .6rem;border-radius:999px;font-weight:700}
-.status-ready{background:rgba(22,163,74,0.08);color:var(--success)}
-.status-running{background:rgba(245,158,11,0.08);color:#c77407}
-.status-error{background:rgba(239,68,68,0.08);color:var(--danger)}
-
-/* Messages / Log */
-#messages-container{background:#071126;color:#e7f4ff;border-radius:10px;font-family:'Roboto Mono',ui-monospace,monospace;padding:.75rem}
-.message-item{padding:.5rem;border-left:4px solid transparent;margin-bottom:.45rem;border-radius:6px}
-.message-item.info{border-left-color:var(--primary-600);background:rgba(59,130,246,0.03)}
-.message-item.success{border-left-color:var(--success);background:rgba(22,163,74,0.03)}
-.message-item.warning{border-left-color:#f59e0b;background:rgba(245,158,11,0.03)}
-.message-item.error{border-left-color:var(--danger);background:rgba(239,68,68,0.03)}
-.message-timestamp{color:var(--muted);font-size:.82rem}
-.message-content{margin-left:.5rem}
-
-/* Progress */
-.progress{height:8px;border-radius:8px;overflow:hidden}
-.progress-bar{background:linear-gradient(90deg,var(--primary-600),var(--primary-500))}
-
-/* File upload */
-.file-upload-area{border:2px dashed rgba(15,23,42,0.06);border-radius:10px;padding:1.25rem;text-align:center}
-.file-upload-area:hover{border-color:var(--primary-600);background:rgba(59,130,246,0.02)}
-
-/* Spinner */
-.loading-spinner{width:1rem;height:1rem;border-radius:50%;border:2px solid rgba(0,0,0,0.06);border-top-color:var(--primary-600);animation:spin .9s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* Responsive tweaks */
-@media (max-width:768px){main{padding:.6rem}.brand-icon{display:none}#messages-container{height:320px!important}}
-
-/* Scrollbar */
-#messages-container::-webkit-scrollbar{width:10px}
-#messages-container::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.06);border-radius:10px}
-
-/* small utilities */
-.text-muted{color:var(--muted)!important}
+@media (max-width: 640px) { .log-panel { height: 20rem; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }

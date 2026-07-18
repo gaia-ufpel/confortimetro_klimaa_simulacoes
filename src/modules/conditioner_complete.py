@@ -32,6 +32,12 @@ class ConditionerComplete(Conditioner):
             temp_cool_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_cool_ac_handler[room])
             temp_heat_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_heat_ac_handler[room])
 
+            clo, comfort_achieved = self.get_best_clo_for_comfort(temp_ar, mrt, vel, hum_rel, clo)
+            if comfort_achieved:
+                vel = 0.0
+                status_ac = 0
+                self.ac_on_counter[room] = 0
+
             if self.ac_on_counter[room] >= self.ac_on_max_timesteps:
                 # Desligando o ar condicionado se passar do limite de tempo
                 status_janela = 0
@@ -47,7 +53,11 @@ class ConditionerComplete(Conditioner):
                     vel = 0.0
                 elif temp_op > temp_max_adaptativo and 25.0 <= temp_op <= 27.2:
                     # Se a temperatura operativa estiver acima de 25 graus e a temperatura externa estiver entre os limites, a janela é aberta
-                    vel, status_janela = self.get_best_velocity_with_adaptative(temp_op)
+                    if comfort_achieved:
+                        status_janela = 1
+                        vel = 0.0
+                    else:
+                        vel, status_janela = self.get_best_velocity_with_adaptative(temp_op)
                     temp_op_max = self.get_temp_max_op(vel)
                 else:
                     # Se a temperatura operativa estiver abaixo de 25 graus, a janela é fechada
@@ -56,7 +66,7 @@ class ConditionerComplete(Conditioner):
                 # Fechando a janela se a temperatura externa estiver fora dos limites
                 status_janela = 0
             
-            if status_janela == 0:
+            if status_janela == 0 and not comfort_achieved:
                 # Se a janela estiver fechada, o ar condicionado é ligado
                 if status_ac == 0:
                     # Se o ar condicionado estiver desligado, a velocidade é ajustada

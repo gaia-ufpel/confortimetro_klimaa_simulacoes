@@ -43,7 +43,11 @@ print_status "Usando Python $PYTHON_VERSION"
 # Check if virtual environment exists
 VENV_DIR="$PROJECT_ROOT/venv_web"
 
-if [ ! -d "$VENV_DIR" ]; then
+if [ ! -f "$VENV_DIR/bin/activate" ]; then
+    if [ -d "$VENV_DIR" ]; then
+        print_warning "Ambiente virtual incompleto; recriando..."
+        rm -rf "$VENV_DIR"
+    fi
     print_status "Criando ambiente virtual..."
     python3 -m venv "$VENV_DIR"
 fi

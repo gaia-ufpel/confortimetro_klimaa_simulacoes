@@ -8,7 +8,7 @@ import os
 from queue import Queue
 
 # Adicionar o diretório raiz ao path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 def test_simulation_import():
     """Testar se a simulação pode ser importada sem erros."""

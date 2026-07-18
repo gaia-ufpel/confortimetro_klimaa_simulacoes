@@ -27,6 +27,7 @@ class ConfortimetroApp {
         
         // Setup auto-save
         this.setupAutoSave();
+        this.updateSimulationStatus('Pronto para executar', 'ready');
     }
 
     // Helper to wrap fetch with timeout to avoid UI hanging
@@ -88,8 +89,7 @@ class ConfortimetroApp {
         });
         
         this.socket.on('simulation_finished', (data) => {
-            this.onSimulationFinished();
-            this.addMessage(data.message, 'success');
+            this.onSimulationFinished(data.status);
         });
         
         // Keepalive
@@ -133,10 +133,10 @@ class ConfortimetroApp {
     updateConnectionStatus(connected) {
         const statusElement = document.getElementById('connection-status');
         if (connected) {
-            statusElement.className = 'badge bg-success';
+            statusElement.className = 'badge badge-success gap-1';
             statusElement.innerHTML = '<i class="bi bi-wifi"></i> Conectado';
         } else {
-            statusElement.className = 'badge bg-danger';
+            statusElement.className = 'badge badge-error gap-1';
             statusElement.innerHTML = '<i class="bi bi-wifi-off"></i> Desconectado';
         }
     }
@@ -283,8 +283,9 @@ class ConfortimetroApp {
         }
         
         this.showLoading('Iniciando simulação...');
-        
+
         try {
+            await this.updateConfiguration();
             const response = await this.fetchWithTimeout('/api/simulation/start', { method: 'POST' }, 45000);
             
             if (response.ok) {
@@ -328,9 +329,9 @@ class ConfortimetroApp {
         this.isSimulationRunning = true;
         
         // Update UI
-        document.getElementById('run-btn').style.display = 'none';
-        document.getElementById('stop-btn').style.display = 'inline-block';
-        document.getElementById('progress-container').style.display = 'block';
+        document.getElementById('run-btn').hidden = true;
+        document.getElementById('stop-btn').hidden = false;
+        document.getElementById('progress-container').hidden = false;
         
         this.updateSimulationStatus('Simulação em execução...', 'running');
         
@@ -345,22 +346,23 @@ class ConfortimetroApp {
         this.onSimulationFinished();
     }
     
-    onSimulationFinished() {
+    onSimulationFinished(status = 'completed') {
         this.isSimulationRunning = false;
         
         // Update UI
-        document.getElementById('run-btn').style.display = 'inline-block';
-        document.getElementById('stop-btn').style.display = 'none';
-        document.getElementById('progress-container').style.display = 'none';
+        document.getElementById('run-btn').hidden = false;
+        document.getElementById('stop-btn').hidden = true;
+        document.getElementById('progress-container').hidden = true;
         
-        this.updateSimulationStatus('Pronto para executar', 'ready');
+        const failed = status === 'error';
+        this.updateSimulationStatus(failed ? 'Simulação falhou' : 'Pronto para executar', failed ? 'error' : 'ready');
         
         // Re-enable configuration inputs
         document.querySelectorAll('input, select').forEach(element => {
             element.disabled = false;
         });
         
-        this.showToast('Simulação concluída!', 'success');
+        this.showToast(failed ? 'Simulação falhou' : status === 'stopped' ? 'Simulação interrompida' : 'Simulação concluída!', failed ? 'error' : status === 'stopped' ? 'warning' : 'success');
     }
     
     updateSimulationStatus(message, type) {
@@ -371,13 +373,13 @@ class ConfortimetroApp {
             error: 'bi-exclamation-triangle-fill'
         };
         const classMap = {
-            ready: 'bg-secondary',
-            running: 'bg-warning',
-            error: 'bg-danger'
+            ready: 'badge-neutral',
+            running: 'badge-warning',
+            error: 'badge-error'
         };
         
         statusElement.innerHTML = `
-            <span class="badge ${classMap[type] || 'bg-secondary'}">
+            <span class="badge gap-1 ${classMap[type] || 'badge-neutral'}">
                 <i class="bi ${iconMap[type] || 'bi-circle-fill'} me-1"></i>
                 ${message}
             </span>
@@ -445,16 +447,9 @@ class ConfortimetroApp {
     }
     
     clearMessages() {
-        if (confirm('Deseja realmente limpar todas as mensagens?')) {
-            this.messages = [];
-            document.getElementById('messages-container').innerHTML = `
-                <div class="text-muted">
-                    <i class="bi bi-info-circle me-2"></i>
-                    Log limpo. Aguardando novas mensagens...
-                </div>
-            `;
-            this.updateMessageCount();
-        }
+        this.messages = [];
+        document.getElementById('messages-container').innerHTML = '<div class="text-base-content/60"><i class="bi bi-info-circle me-2"></i>Log limpo. Aguardando novas mensagens...</div>';
+        this.updateMessageCount();
     }
     
     exportMessages() {
@@ -489,53 +484,22 @@ class ConfortimetroApp {
     
     showLoading(text = 'Carregando...') {
         document.getElementById('loading-text').textContent = text;
-        const modal = new bootstrap.Modal(document.getElementById('loadingModal'));
-        modal.show();
+        document.getElementById('loadingModal').showModal();
     }
     
     hideLoading() {
-        const modal = bootstrap.Modal.getInstance(document.getElementById('loadingModal'));
-        if (modal) {
-            modal.hide();
-        }
+        const modal = document.getElementById('loadingModal');
+        if (modal.open) modal.close();
     }
     
     showToast(message, type = 'info') {
-        // Create toast element
-        const toastContainer = document.querySelector('.toast-container') || (() => {
-            const container = document.createElement('div');
-            container.className = 'toast-container position-fixed top-0 end-0 p-3';
-            document.body.appendChild(container);
-            return container;
-        })();
-        
-        const toastId = 'toast-' + Date.now();
-        const bgClass = type === 'success' ? 'bg-success' : 
-                       type === 'error' ? 'bg-danger' : 
-                       type === 'warning' ? 'bg-warning' : 'bg-primary';
-        
-        const toastHTML = `
-            <div id="${toastId}" class="toast ${bgClass} text-white" role="alert">
-                <div class="toast-body d-flex align-items-center">
-                    <i class="bi bi-${type === 'success' ? 'check-circle' : 
-                                      type === 'error' ? 'x-circle' : 
-                                      type === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
-                    ${message}
-                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="toast"></button>
-                </div>
-            </div>
-        `;
-        
-        toastContainer.insertAdjacentHTML('beforeend', toastHTML);
-        
-        const toastElement = document.getElementById(toastId);
-        const toast = new bootstrap.Toast(toastElement);
-        toast.show();
-        
-        // Remove toast element after it's hidden
-        toastElement.addEventListener('hidden.bs.toast', () => {
-            toastElement.remove();
-        });
+        const toast = document.createElement('div');
+        const alertType = type === 'error' ? 'alert-error' : `alert-${type}`;
+        toast.className = `alert ${alertType} shadow-lg`;
+        toast.setAttribute('role', 'status');
+        toast.textContent = message;
+        document.querySelector('.toast').appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
     }
     
     hasUnsavedChanges() {
@@ -558,8 +522,6 @@ function handleFileUpload(input, type) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('type', type);
-    
-    app.showLoading(`Uploading ${type.toUpperCase()} file...`);
     
     app.showLoading(`Uploading ${type.toUpperCase()} file...`);
     app.fetchWithTimeout('/api/upload', { method: 'POST', body: formData }, 60000)

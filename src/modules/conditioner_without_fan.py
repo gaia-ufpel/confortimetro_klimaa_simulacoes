@@ -19,7 +19,7 @@ class ConditionerWithoutFan(Conditioner):
         if people_count > 0.0:
             mrt = self.ep_api.exchange.get_variable_value(state, self.mrt_handler[room])
             hum_rel = self.ep_api.exchange.get_variable_value(state, self.hum_rel_handler[room]) # Umidade relativa
-            clo = self.ep_api.exchange.get_variable_value(state, self.clo_handler[room]) # Roupagem
+            clo = self.ep_api.exchange.get_actuator_value(state, self.clo_handler[room]) # Roupagem
             temp_op_max = self.ep_api.exchange.get_actuator_value(state, self.temp_op_max_handler[room])
 
             # Valores iniciais
@@ -29,6 +29,11 @@ class ConditionerWithoutFan(Conditioner):
             status_doas = 0
             temp_cool_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_cool_ac_handler[room])
             temp_heat_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_heat_ac_handler[room])
+
+            clo, comfort_achieved = self.get_best_clo_for_comfort(temp_ar, mrt, vel, hum_rel, clo)
+            if comfort_achieved:
+                status_ac = 0
+                self.ac_on_counter[room] = 0
 
             if self.ac_on_counter[room] >= self.ac_on_max_timesteps:
                 status_janela = 0
@@ -43,8 +48,6 @@ class ConditionerWithoutFan(Conditioner):
             else:
                 status_janela = 0
             
-            # Primeiro, testar se ajuste de clo é suficiente para conforto
-            clo, comfort_achieved = self.get_best_clo_for_comfort(temp_ar, mrt, vel, hum_rel, clo)
             pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
             
             if status_janela == 0:

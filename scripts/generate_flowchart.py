@@ -1,4 +1,5 @@
 from graphviz import Digraph
+from pathlib import Path
 
 
 def generate_flowchart():
@@ -53,7 +54,8 @@ def generate_flowchart():
     dot.edge('R', 'T')
 
     # Renderiza e salva o arquivo
-    dot.render('room_conditioner_flowchart', format='png', cleanup=True)
+    output = Path(__file__).resolve().parents[1] / "documentation/assets/room_conditioner_flowchart"
+    dot.render(str(output), format='png', cleanup=True)
 
 
 # Executa a geração do diagrama

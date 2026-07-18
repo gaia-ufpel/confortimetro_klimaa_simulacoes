@@ -7,11 +7,7 @@ import os
 from pathlib import Path
 import sys
 
-# Add parent directories to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from app import app, socketio
+from src.web.app import app, socketio
 
 @pytest.fixture
 def client():

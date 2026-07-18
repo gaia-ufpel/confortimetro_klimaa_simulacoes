@@ -2,6 +2,7 @@ import subprocess
 import sys
 import os
 import platform
+from ctypes import c_void_p
 from queue import Queue
 from importlib import import_module
 import shutil
@@ -28,6 +29,7 @@ class Simulation:
     
     def __init__(self, configs: SimulationConfig):
         self.conditioner = None  # type: Optional[object]
+        self.stop_requested = False
         self.configs = configs
         self.logger = logging.getLogger("simulation")
 
@@ -74,6 +76,10 @@ class Simulation:
             # Etapa 5: Executar simulação EnergyPlus
             q.put("Executando simulação EnergyPlus...")
             self._run_energyplus()
+
+            if self.stop_requested:
+                q.put("Simulação interrompida")
+                return
             
             # Etapa 6: Processar resultados
             q.put("Processando resultados...")
@@ -143,6 +149,9 @@ class Simulation:
     def _run_energyplus(self):
         """Executar simulação EnergyPlus."""
         try:
+            if self.stop_requested:
+                self.logger.info("Simulação cancelada antes de iniciar o EnergyPlus")
+                return
             # Registrar callback do condicionador
             self.ep_api.runtime.callback_begin_zone_timestep_after_init_heat_balance(
                 self.state, self.conditioner
@@ -163,6 +172,21 @@ class Simulation:
         except Exception as e:
             self.logger.error(f"Erro na simulação EnergyPlus: {e}")
             raise
+
+    def stop(self):
+        """Solicitar que o EnergyPlus encerre a execução atual."""
+        self.stop_requested = True
+        runtime = self.ep_api.runtime
+        stop = getattr(runtime, "stop_simulation", None)
+        if stop:
+            stop(self.state)
+            return
+
+        # EnergyPlus 9.4 exports stopSimulation but omits its Python wrapper.
+        stop = runtime.api.stopSimulation
+        stop.argtypes = [c_void_p]
+        stop.restype = None
+        stop(self.state)
     
     def _process_results(self, q: Queue):
         """Processar resultados da simulação."""

@@ -35,7 +35,7 @@ def test_update_config(client):
         'temp_ac_max': 25.0,
         'met': 1.2,
         'wme': 0.1,
-        'module_type': 'AC_ONLY',
+        'module_type': 'WITHOUT_FAN',
         'rooms': ['ROOM1', 'ROOM2']
     }
     

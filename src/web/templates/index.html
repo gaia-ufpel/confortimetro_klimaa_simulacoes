@@ -1,210 +1,73 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Confortímetro Klimaa — Interface Web</title>
-
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
+    <title>Confortímetro Klimaa</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
-<body class="bg-light">
-
-<nav class="navbar navbar-expand-lg navbar-dark bg-gradient shadow-sm">
-    <div class="container">
-        <a class="navbar-brand d-flex align-items-center gap-2" href="#">
-            <span class="brand-icon">🌡️</span>
-            <div>
-                <div class="fw-bold">Confortímetro Klimaa</div>
-                <small class="text-muted">Simulações EnergyPlus — Interface Web</small>
-            </div>
-        </a>
-
-        <div class="ms-auto d-flex align-items-center gap-3">
-            <span id="connection-status" class="status-badge status-ready">
-                <i class="bi bi-wifi me-1"></i>
-                <span class="d-none d-md-inline">Conectado</span>
-            </span>
-            <small id="session-info" class="text-muted">Sessão: —</small>
+<body class="min-h-screen bg-base-200 text-base-content">
+<header class="navbar border-b border-base-300 bg-base-100 px-4 shadow-sm sm:px-8">
+    <div class="flex-1 gap-3">
+        <span class="grid size-10 place-items-center rounded-xl bg-primary text-xl text-primary-content" aria-hidden="true">🌡️</span>
+        <div>
+            <a class="text-lg font-bold" href="#">Confortímetro Klimaa</a>
+            <p class="text-xs text-base-content/60">Simulações EnergyPlus</p>
         </div>
     </div>
-</nav>
-
-<main class="container my-4">
-    <div class="row g-4">
-        <!-- Left: Configuration -->
-        <section class="col-lg-4">
-            <div class="card mb-4">
-                <div class="card-header d-flex align-items-center justify-content-between">
-                    <div>
-                        <h6 class="mb-0"><i class="bi bi-folder2-open text-primary me-2"></i> Caminhos</h6>
-                        <small class="text-muted">IDF, EPW e diretórios</small>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="idf-path" class="form-label">Arquivo IDF</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="idf-path" placeholder="Caminho para o arquivo .idf">
-                            <button class="btn btn-outline-secondary" type="button" onclick="openFileSelector('idf')"><i class="bi bi-folder2-open"></i></button>
-                            <input type="file" id="idf-file" accept=".idf" style="display:none;" onchange="handleFileUpload(this,'idf')">
-                        </div>
-                        <div class="form-text">Formato .idf — selecione ou faça upload</div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="epw-path" class="form-label">Arquivo Climático (EPW)</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="epw-path" placeholder="Caminho para o arquivo .epw">
-                            <button class="btn btn-outline-secondary" type="button" onclick="openFileSelector('epw')"><i class="bi bi-cloud-upload"></i></button>
-                            <input type="file" id="epw-file" accept=".epw" style="display:none;" onchange="handleFileUpload(this,'epw')">
-                        </div>
-                        <div class="form-text">Você pode também fazer upload direto do arquivo EPW.</div>
-                    </div>
-
-                    <!-- output-path removed: server will use a temporary folder per session -->
-
-                    <div class="mb-0">
-                        <label for="energy-path" class="form-label">Caminho do EnergyPlus</label>
-                        <input type="text" class="form-control" id="energy-path" placeholder="Caminho da instalação do EnergyPlus">
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-gear me-2 text-success"></i> Parâmetros</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-6">
-                            <label class="form-label">PMV Min</label>
-                            <input type="number" step="0.1" class="form-control" id="pmv-lowerbound" value="-0.5">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">PMV Max</label>
-                            <input type="number" step="0.1" class="form-control" id="pmv-upperbound" value="0.5">
-                        </div>
-
-                        <div class="col-6">
-                            <label class="form-label">Temp. AC Min (°C)</label>
-                            <input type="number" step="0.1" class="form-control" id="temp-ac-min" value="18.0">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Temp. AC Max (°C)</label>
-                            <input type="number" step="0.1" class="form-control" id="temp-ac-max" value="26.0">
-                        </div>
-
-                        <div class="col-6">
-                            <label class="form-label">MET</label>
-                            <input type="number" step="0.1" class="form-control" id="met" value="1.0">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">WME</label>
-                            <input type="number" step="0.1" class="form-control" id="wme" value="0.0">
-                        </div>
-
-                        <div class="col-12">
-                            <label class="form-label">Tipo de Módulo</label>
-                            <select class="form-select" id="module-type">
-                                <option value="COMPLETE">Completo</option>
-                                <option value="FIXED_AC_WITHOUT_FAN">AC Fixo sem Ventilador</option>
-                                <option value="VENT_ONLY">Somente Ventilação</option>
-                                <option value="NO_CONDITIONING">Sem Condicionamento</option>
-                            </select>
-                        </div>
-
-                        <div class="col-12">
-                            <label class="form-label">Ambientes</label>
-                            <input type="text" class="form-control" id="rooms" value="ATELIE1" placeholder="ATELIE1, SALA2">
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Right: Control & Log -->
-        <section class="col-lg-8">
-            <div class="card mb-4">
-                <div class="card-body d-flex flex-column gap-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-0"><i class="bi bi-play-circle text-warning me-2"></i> Controle de Simulação</h6>
-                            <small class="text-muted">Inicie, pare e acompanhe suas simulações</small>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-outline-secondary btn-sm" onclick="loadConfiguration()"><i class="bi bi-cloud-arrow-down"></i> Carregar</button>
-                            <button class="btn btn-outline-primary btn-sm" onclick="saveConfiguration()"><i class="bi bi-save"></i> Salvar</button>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-center gap-3 mt-2">
-                        <button id="run-btn" class="btn btn-lg btn-success shadow" onclick="startSimulation()"><i class="bi bi-play-fill me-2"></i>Executar Simulação</button>
-                        <button id="stop-btn" class="btn btn-lg btn-danger shadow" onclick="stopSimulation()" style="display:none;"><i class="bi bi-stop-fill me-2"></i>Parar Simulação</button>
-                        <button id="download-btn" class="btn btn-lg btn-primary shadow" onclick="downloadOutputs()" style="display:inline-block;"><i class="bi bi-download me-2"></i>Baixar Resultados</button>
-                    </div>
-
-                    <div class="d-flex justify-content-center">
-                        <div id="simulation-status" class="mt-3"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header d-flex align-items-center justify-content-between">
-                    <div>
-                        <h6 class="mb-0"><i class="bi bi-terminal text-info me-2"></i> Log de Simulação</h6>
-                        <small class="text-muted">Mensagens em tempo real</small>
-                    </div>
-                    <div class="d-flex gap-2 align-items-center">
-                        <select id="message-filter" class="form-select form-select-sm" style="width:auto;" onchange="filterMessages()">
-                            <option value="all">Todas</option>
-                            <option value="info">Info</option>
-                            <option value="success">Sucesso</option>
-                            <option value="warning">Aviso</option>
-                            <option value="error">Erro</option>
-                        </select>
-                        <button class="btn btn-outline-secondary btn-sm" onclick="exportMessages()"><i class="bi bi-download"></i></button>
-                        <button class="btn btn-outline-danger btn-sm" onclick="clearMessages()"><i class="bi bi-trash"></i></button>
-                    </div>
-                </div>
-
-                <div class="card-body p-0">
-                    <div id="messages-container" class="p-3" style="height:420px; overflow:auto;">
-                        <div class="text-muted"><i class="bi bi-info-circle me-2"></i>Aguardando mensagens...</div>
-                    </div>
-                </div>
-
-                <div class="card-footer bg-light d-flex justify-content-between">
-                    <small class="text-muted"><span id="message-count">0 mensagens</span></small>
-                    <small class="text-muted"><i class="bi bi-clock me-1"></i><span id="last-update">Nunca</span></small>
-                </div>
-            </div>
-        </section>
+    <div class="flex-none items-center gap-3">
+        <span id="connection-status" class="badge badge-success gap-1" aria-live="polite"><i class="bi bi-wifi"></i><span class="hidden sm:inline">Conectado</span></span>
+        <span id="session-info" class="hidden text-xs text-base-content/60 sm:inline">Sessão: —</span>
     </div>
+</header>
+
+<main class="mx-auto grid max-w-7xl gap-5 p-4 lg:grid-cols-3 lg:p-8">
+    <aside class="space-y-5 lg:col-span-1">
+        <section class="card border border-base-300 bg-base-100 shadow-sm">
+            <div class="card-body gap-5">
+                <div><h1 class="card-title text-base"><i class="bi bi-folder2-open text-primary"></i> Arquivos e caminhos</h1><p class="text-sm text-base-content/60">Informe os arquivos usados na simulação.</p></div>
+                <div class="form-control"><label class="label" for="idf-path"><span class="label-text font-medium">Arquivo IDF</span></label><div class="join w-full"><input type="text" class="input join-item w-full" id="idf-path" placeholder="Caminho do arquivo .idf"><button class="btn join-item" type="button" aria-label="Enviar arquivo IDF" onclick="openFileSelector('idf')"><i class="bi bi-upload"></i></button></div><p class="mt-1 text-xs text-base-content/60">Formato .idf — escolha um arquivo ou informe o caminho.</p><input type="file" id="idf-file" accept=".idf" hidden onchange="handleFileUpload(this,'idf')"></div>
+                <div class="form-control"><label class="label" for="epw-path"><span class="label-text font-medium">Arquivo climático (EPW)</span></label><div class="join w-full"><input type="text" class="input join-item w-full" id="epw-path" placeholder="Caminho do arquivo .epw"><button class="btn join-item" type="button" aria-label="Enviar arquivo EPW" onclick="openFileSelector('epw')"><i class="bi bi-upload"></i></button></div><p class="mt-1 text-xs text-base-content/60">Formato .epw — representa as condições climáticas.</p><input type="file" id="epw-file" accept=".epw" hidden onchange="handleFileUpload(this,'epw')"></div>
+                <div class="form-control"><label class="label" for="energy-path"><span class="label-text font-medium">Instalação do EnergyPlus</span></label><input type="text" class="input w-full" id="energy-path" placeholder="Caminho da instalação"></div>
+            </div>
+        </section>
+
+        <section class="card border border-base-300 bg-base-100 shadow-sm">
+            <div class="card-body gap-4"><div><h2 class="card-title text-base"><i class="bi bi-sliders text-secondary"></i> Parâmetros</h2><p class="text-sm text-base-content/60">Defina a faixa de conforto e o modelo.</p></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="form-control"><span class="label-text mb-1">PMV mínimo</span><input type="number" step="0.1" class="input w-full" id="pmv-lowerbound" value="-0.5"></label>
+                    <label class="form-control"><span class="label-text mb-1">PMV máximo</span><input type="number" step="0.1" class="input w-full" id="pmv-upperbound" value="0.5"></label>
+                    <label class="form-control"><span class="label-text mb-1">AC mín. (°C)</span><input type="number" step="0.1" class="input w-full" id="temp-ac-min" value="18.0"></label>
+                    <label class="form-control"><span class="label-text mb-1">AC máx. (°C)</span><input type="number" step="0.1" class="input w-full" id="temp-ac-max" value="26.0"></label>
+                    <label class="form-control"><span class="label-text mb-1">MET</span><input type="number" step="0.1" class="input w-full" id="met" value="1.0"></label>
+                    <label class="form-control"><span class="label-text mb-1">WME</span><input type="number" step="0.1" class="input w-full" id="wme" value="0.0"></label>
+                </div>
+                <label class="form-control"><span class="label-text mb-1">Tipo de módulo</span><select class="select w-full" id="module-type"><option value="COMPLETE">Completo</option><option value="FIXED_AC_WITHOUT_FAN">AC fixo sem ventilador</option><option value="CLOSED_WINDOW">Janela fechada</option><option value="WITHOUT_FAN">Sem ventilador</option></select></label>
+                <label class="form-control"><span class="label-text mb-1">Ambientes</span><input type="text" class="input w-full" id="rooms" value="ATELIE1" placeholder="ATELIE1, SALA2"><span class="mt-1 text-xs text-base-content/60">Separe vários ambientes por vírgula.</span></label>
+            </div>
+        </section>
+    </aside>
+
+    <section class="space-y-5 lg:col-span-2">
+        <section class="card border border-base-300 bg-base-100 shadow-sm"><div class="card-body gap-5">
+            <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start"><div><h2 class="card-title"><i class="bi bi-play-circle text-primary"></i> Controle da simulação</h2><p class="text-sm text-base-content/60">Revise a configuração e execute quando estiver pronto.</p></div><div class="flex gap-2"><button class="btn btn-ghost btn-sm" onclick="loadConfiguration()"><i class="bi bi-arrow-clockwise"></i> Carregar</button><button class="btn btn-outline btn-sm" onclick="saveConfiguration()"><i class="bi bi-save"></i> Salvar</button></div></div>
+            <div class="rounded-box bg-base-200 p-4"><div class="flex flex-col items-center justify-between gap-3 sm:flex-row"><div id="simulation-status" aria-live="polite"></div><div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><button id="run-btn" class="btn btn-primary" onclick="startSimulation()"><i class="bi bi-play-fill"></i> Executar simulação</button><button id="stop-btn" class="btn btn-error" onclick="stopSimulation()" hidden><i class="bi bi-stop-fill"></i> Parar simulação</button><button id="download-btn" class="btn btn-outline" onclick="downloadOutputs()"><i class="bi bi-download"></i> Baixar resultados</button></div></div><progress id="progress-container" class="progress progress-primary mt-4 w-full" hidden></progress></div>
+        </div></section>
+
+        <section class="card border border-base-300 bg-base-100 shadow-sm"><div class="card-body gap-4">
+            <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><div><h2 class="card-title"><i class="bi bi-terminal text-secondary"></i> Log da simulação</h2><p class="text-sm text-base-content/60">Mensagens recebidas em tempo real.</p></div><div class="flex gap-2"><select id="message-filter" class="select select-sm" aria-label="Filtrar mensagens" onchange="filterMessages()"><option value="all">Todas</option><option value="info">Informações</option><option value="success">Sucessos</option><option value="warning">Avisos</option><option value="error">Erros</option></select><button class="btn btn-square btn-ghost btn-sm" aria-label="Exportar mensagens" onclick="exportMessages()"><i class="bi bi-download"></i></button><button class="btn btn-square btn-ghost btn-sm text-error" aria-label="Limpar mensagens" onclick="document.getElementById('clear-log-dialog').showModal()"><i class="bi bi-trash"></i></button></div></div>
+            <div id="messages-container" class="log-panel" aria-live="polite"><div class="text-base-content/60"><i class="bi bi-info-circle me-2"></i>Aguardando mensagens...</div></div>
+            <div class="flex justify-between text-xs text-base-content/60"><span id="message-count">0 mensagens</span><span><i class="bi bi-clock"></i> <span id="last-update">Nunca</span></span></div>
+        </div></section>
+    </section>
 </main>
 
-<!-- Loading Modal -->
-<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-sm modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-body text-center py-4">
-                <div class="spinner-border text-primary mb-3" role="status"></div>
-                <div id="loading-text">Processando...</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Toast container -->
-<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1055;"></div>
-
-<!-- Scripts -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
+<dialog id="loadingModal" class="modal"><div class="modal-box w-auto text-center"><span class="loading loading-spinner loading-md text-primary"></span><p id="loading-text" class="mt-3">Processando...</p></div></dialog>
+<dialog id="clear-log-dialog" class="modal"><div class="modal-box"><h3 class="font-bold text-lg">Limpar mensagens?</h3><p class="py-3 text-base-content/70">Esta ação remove o log exibido nesta sessão.</p><div class="modal-action"><form method="dialog"><button class="btn btn-ghost">Cancelar</button><button class="btn btn-error ms-2" value="confirm" onclick="clearMessages()">Limpar log</button></form></div></div></dialog>
+<div class="toast toast-top toast-end z-50" aria-live="polite"></div>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js" defer></script>
 <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
 </body>

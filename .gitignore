@@ -5,6 +5,8 @@ backups
 logs
 
 __pycache__
+.mypy_cache/
+.pytest_cache/
 .vscode
 
 *.zip
@@ -12,3 +14,5 @@ __pycache__
 *.lock
 .idea
 .venv
+venv_web/
+uploads/
