@@ -184,15 +184,26 @@ class IDFProcessor:
             # Adicionar tipos de limite de schedule se não existirem
             self._ensure_schedule_type_limits(idf)
             
-            # Schedule de CO2 externo
-            idf.newidfobject(
-                "Schedule:Constant",
-                Name=self.OUTDOOR_CO2_SCHEDULE_NAME,
-                Schedule_Type_Limits_Name="Any Number",
-                Hourly_Value=400
-            )
-            
-            schedules_added = 1  # CO2 schedule
+            existing_schedules = {
+                schedule.Name: schedule
+                for schedule in idf.idfobjects.get("Schedule:Constant", [])
+            }
+
+            def add_or_update(name, schedule_type, value):
+                schedule = existing_schedules.get(name)
+                if schedule is None:
+                    idf.newidfobject(
+                        "Schedule:Constant",
+                        Name=name,
+                        Schedule_Type_Limits_Name=schedule_type,
+                        Hourly_Value=value,
+                    )
+                    return True
+                schedule.Schedule_Type_Limits_Name = schedule_type
+                schedule.Hourly_Value = value
+                return False
+
+            schedules_added = add_or_update(self.OUTDOOR_CO2_SCHEDULE_NAME, "Any Number", 400)
             
             # Schedules específicos por sala
             for room in self.configs.rooms:
@@ -212,13 +223,7 @@ class IDFProcessor:
                 ]
                 
                 for schedule_name, schedule_type, value in room_schedules:
-                    idf.newidfobject(
-                        "Schedule:Constant",
-                        Name=schedule_name,
-                        Schedule_Type_Limits_Name=schedule_type,
-                        Hourly_Value=value
-                    )
-                    schedules_added += 1
+                    schedules_added += add_or_update(schedule_name, schedule_type, value)
             
             # Schedules globais
             global_schedules = [
@@ -227,13 +232,7 @@ class IDFProcessor:
             ]
             
             for schedule_name, schedule_type, value in global_schedules:
-                idf.newidfobject(
-                    "Schedule:Constant",
-                    Name=schedule_name,
-                    Schedule_Type_Limits_Name=schedule_type,
-                    Hourly_Value=value
-                )
-                schedules_added += 1
+                schedules_added += add_or_update(schedule_name, schedule_type, value)
             
             self.logger.info(f"Added {schedules_added} new schedules")
             return idf
@@ -289,7 +288,7 @@ class IDFProcessor:
             for people in idf.idfobjects.get("People", []):
                 people.Activity_Level_Schedule_Name = self.MET_SCHEDULE_NAME
                 people.Work_Efficiency_Schedule_Name = self.WME_SCHEDULE_NAME
-                people.Air_Velocity_Schedule_Name = self.VEL_SCHEDULE_NAME.format(people.Name)
+                people.Air_Velocity_Schedule_Name = self.VEL_SCHEDULE_NAME.format(people.Zone_or_ZoneList_Name)
                 people_configured += 1
                 
                 self.logger.debug(f"Configured people object: {people.Name}")

@@ -132,7 +132,8 @@ def get_stats_from_simulation(output_path, rooms):
         row['Janela fechada, ar desligado e ventilador desligado'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 0) & (df[janela_column.format(room)] == 0) & (df[ac_column.format(room)] == 0)]) / row['Número ocupação']
         row['Desconforto'] = len(df[(df[people_column.format(room)] != 0) & (df[em_conforto_column.format(room)] == 0)]) / row['Número ocupação']
         row['CO2 máximo'] = df[co2_column.format(room)].max()
-        row['Janela aberta sem pessoas'] = len(df[(df[people_column.format(room)] == 0) & (df[janela_column.format(room)] == 1)]) / len(df[df[people_column.format(room)] == 0])
+        without_people = df[df[people_column.format(room)] == 0]
+        row['Janela aberta sem pessoas'] = len(without_people[without_people[janela_column.format(room)] == 1]) / len(without_people) if len(without_people) else 0
 
         stats_df = pandas.concat([stats_df, pandas.DataFrame(row, index=[len(stats_df)])])
 

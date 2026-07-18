@@ -87,9 +87,6 @@ class ConditionerComplete(Conditioner):
 
             pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
 
-            if room == 'RECEPCAO':
-                print(f'room: {room} - data: {self.ep_api.exchange.day_of_month(state)} - temp_ar: {temp_ar} - mrt: {mrt} - vel: {vel} - ac_min: {temp_cool_ac} - ac_max: {temp_heat_ac} - rh: {hum_rel} - clo: {clo} - pmv: {pmv}')
-
             # Mandando para o Energy os valores atualizados
             self.ep_api.exchange.set_actuator_value(state, self.clo_handler[room], clo)
             self.ep_api.exchange.set_actuator_value(state, self.status_vent_handler[room], 1 if vel > 0 else 0)
@@ -123,9 +120,6 @@ class ConditionerComplete(Conditioner):
                     self.janela_sem_pessoas_bloqueada = False
 
             self.ac_on_counter[room] = 0
-
-            if room == 'RECEPCAO':
-                print(f'room: {room} - data: {self.ep_api.exchange.day_of_month(state)} - temp_ar: {temp_ar}')
 
             # Desligando tudo se não há ocupação
             self.ep_api.exchange.set_actuator_value(state, self.status_vent_handler[room], 0)

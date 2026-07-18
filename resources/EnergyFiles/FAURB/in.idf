@@ -97,7 +97,7 @@ SizingPeriod:DesignDay,
     FullResetAtBeginEnvironment;    !- Begin Environment Reset Mode
 
 RunPeriod,
-    Simulacao,                !- Name
+    faurb_pthp_pelotas_clo_20260718,    !- Name
     1,                        !- Begin Month
     1,                        !- Begin Day of Month
     2015,                     !- Begin Year
@@ -348,21 +348,21 @@ Schedule:Constant,
 Schedule:Constant,
     JANELA_SALA_AULA,         !- Name
     On/Off,                   !- Schedule Type Limits Name
-    1;                        !- Hourly Value
+    0;                        !- Hourly Value
 
 Schedule:Constant,
     VENT_SALA_AULA,           !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     VEL_SALA_AULA,            !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     AC_SALA_AULA,             !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -372,17 +372,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     TEMP_COOL_AC_SALA_AULA,    !- Name
-    Temperature,              !- Schedule Type Limits Name
-    24;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    30;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_SALA_AULA,    !- Name
-    Temperature,              !- Schedule Type Limits Name
-    22;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    18;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_SALA_AULA,            !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -392,17 +392,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     ADAP_MIN_SALA_AULA,       !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     ADAP_MAX_SALA_AULA,       !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     EM_CONFORTO_SALA_AULA,    !- Name
-    Number,                   !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -412,17 +412,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     VENT_RECEPCAO,            !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     VEL_RECEPCAO,             !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     AC_RECEPCAO,              !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -432,17 +432,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     TEMP_COOL_AC_RECEPCAO,    !- Name
-    Temperature,              !- Schedule Type Limits Name
-    24;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    30;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_RECEPCAO,    !- Name
-    Temperature,              !- Schedule Type Limits Name
-    22;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    18;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_RECEPCAO,             !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -457,17 +457,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     ADAP_MIN_RECEPCAO,        !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     ADAP_MAX_RECEPCAO,        !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     EM_CONFORTO_RECEPCAO,     !- Name
-    Number,                   !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -477,17 +477,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     VENT_ATELIE1,             !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     VEL_ATELIE1,              !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     AC_ATELIE1,               !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -497,17 +497,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     TEMP_COOL_AC_ATELIE1,     !- Name
-    Temperature,              !- Schedule Type Limits Name
-    24;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    30;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_ATELIE1,     !- Name
-    Temperature,              !- Schedule Type Limits Name
-    22;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    18;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_ATELIE1,              !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -522,17 +522,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     ADAP_MIN_ATELIE1,         !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     ADAP_MAX_ATELIE1,         !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     EM_CONFORTO_ATELIE1,      !- Name
-    Number,                   !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -542,17 +542,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     VENT_ATELIE2,             !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     VEL_ATELIE2,              !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     AC_ATELIE2,               !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -562,17 +562,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     TEMP_COOL_AC_ATELIE2,     !- Name
-    Temperature,              !- Schedule Type Limits Name
-    24;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    30;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_ATELIE2,     !- Name
-    Temperature,              !- Schedule Type Limits Name
-    22;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    18;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_ATELIE2,              !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -587,17 +587,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     ADAP_MIN_ATELIE2,         !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     ADAP_MAX_ATELIE2,         !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     EM_CONFORTO_ATELIE2,      !- Name
-    Number,                   !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -607,17 +607,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     VENT_ATELIE3,             !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     VEL_ATELIE3,              !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     AC_ATELIE3,               !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -627,17 +627,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     TEMP_COOL_AC_ATELIE3,     !- Name
-    Temperature,              !- Schedule Type Limits Name
-    24;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    30;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_ATELIE3,     !- Name
-    Temperature,              !- Schedule Type Limits Name
-    22;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    18;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_ATELIE3,              !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -652,17 +652,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     ADAP_MIN_ATELIE3,         !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     ADAP_MAX_ATELIE3,         !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     EM_CONFORTO_ATELIE3,      !- Name
-    Number,                   !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -672,17 +672,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     VENT_LINSE,               !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     VEL_LINSE,                !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     AC_LINSE,                 !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -692,17 +692,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     TEMP_COOL_AC_LINSE,       !- Name
-    Temperature,              !- Schedule Type Limits Name
-    24;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    30;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_LINSE,       !- Name
-    Temperature,              !- Schedule Type Limits Name
-    22;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    18;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_LINSE,                !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -717,17 +717,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     ADAP_MIN_LINSE,           !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     ADAP_MAX_LINSE,           !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     EM_CONFORTO_LINSE,        !- Name
-    Number,                   !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -737,17 +737,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     VENT_SEC_LINSE,           !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     VEL_SEC_LINSE,            !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     AC_SEC_LINSE,             !- Name
-    Any Number,               !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -757,17 +757,17 @@ Schedule:Constant,
 
 Schedule:Constant,
     TEMP_COOL_AC_SEC_LINSE,    !- Name
-    Temperature,              !- Schedule Type Limits Name
-    24;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    30;                       !- Hourly Value
 
 Schedule:Constant,
     TEMP_HEAT_AC_SEC_LINSE,    !- Name
-    Temperature,              !- Schedule Type Limits Name
-    22;                       !- Hourly Value
+    Any Number,               !- Schedule Type Limits Name
+    18;                       !- Hourly Value
 
 Schedule:Constant,
     PMV_SEC_LINSE,            !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
@@ -782,17 +782,52 @@ Schedule:Constant,
 
 Schedule:Constant,
     ADAP_MIN_SEC_LINSE,       !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     ADAP_MAX_SEC_LINSE,       !- Name
-    Number,                   !- Schedule Type Limits Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Schedule:Constant,
     EM_CONFORTO_SEC_LINSE,    !- Name
-    Number,                   !- Schedule Type Limits Name
+    On/Off,                   !- Schedule Type Limits Name
+    0;                        !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    TEMP_OP_SALA_AULA,        !- Name
+    Any Number,               !- Schedule Type Limits Name
+    0;                        !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    TEMP_OP_ATELIE1,          !- Name
+    Any Number,               !- Schedule Type Limits Name
+    0;                        !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    TEMP_OP_ATELIE2,          !- Name
+    Any Number,               !- Schedule Type Limits Name
+    0;                        !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    TEMP_OP_ATELIE3,          !- Name
+    Any Number,               !- Schedule Type Limits Name
+    0;                        !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    TEMP_OP_RECEPCAO,         !- Name
+    Any Number,               !- Schedule Type Limits Name
+    0;                        !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    TEMP_OP_SEC_LINSE,        !- Name
+    Any Number,               !- Schedule Type Limits Name
+    0;                        !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    TEMP_OP_LINSE,            !- Name
+    Any Number,               !- Schedule Type Limits Name
     0;                        !- Hourly Value
 
 Material,
@@ -10492,6 +10527,51 @@ Output:Variable,
 
 Output:Variable,
     DOAS_ATELIE3 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Mean Radiante Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_SALA_AULA OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE1 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE2 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_ATELIE3 OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_RECEPCAO OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_SEC_LINSE OUTDOOR AIR INLET,    !- Key Value
+    System Node Mass Flow Rate,    !- Variable Name
+    Timestep;                 !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    DOAS_LINSE OUTDOOR AIR INLET,    !- Key Value
     System Node Mass Flow Rate,    !- Variable Name
     Timestep;                 !- Reporting Frequency
 
