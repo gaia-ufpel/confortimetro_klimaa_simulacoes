@@ -20,7 +20,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_FIELDS = (
     "epw_path", "energy_path", "rooms", "pmv_upperbound", "pmv_lowerbound",
     "co2_limit", "max_vel", "adaptative_bound", "temp_ac_min", "temp_ac_max",
-    "wme", "clo_max", "clo_min", "clo_delta", "temp_open_window_bound",
+    "wme", "clo_max", "clo_min", "clo_delta", "clo_priority", "temp_open_window_bound",
     "air_speed_delta", "pmv_comfort_bound", "module_type",
 )
 

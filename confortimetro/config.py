@@ -145,6 +145,7 @@ class SimulationConfig:
     clo_max: float = 1.0
     clo_min: float = 0.5
     clo_delta: float = 0.1
+    clo_priority: bool = True
 
     input_path: str = None
     expanded_idf_path: str = None

@@ -144,6 +144,13 @@ class SimulationConfigPanel(ttk.Frame):
         self.clo_delta_entry = ttk.Entry(self, width=10)
         self.clo_delta_entry.grid(row=7, column=2, padx=5, pady=2)
         self.clo_delta_entry.bind('<FocusOut>', self._on_config_changed)
+
+        # Prioridade do Clo sobre os equipamentos
+        self.clo_priority_var = tk.BooleanVar(value=True)
+        self.clo_priority_check = ttk.Checkbutton(
+            self, text="Ajustar Clo antes dos equipamentos",
+            variable=self.clo_priority_var, command=self._on_config_changed)
+        self.clo_priority_check.grid(row=7, column=3, padx=5, pady=2, sticky="w")
     
     def _build_rooms_module_section(self):
         """Build rooms and module configuration section."""
@@ -191,6 +198,7 @@ class SimulationConfigPanel(ttk.Frame):
                 'clo_min': float(self.clo_min_entry.get()) if self.clo_min_entry.get() else 0.0,
                 'clo_max': float(self.clo_max_entry.get()) if self.clo_max_entry.get() else 0.0,
                 'clo_delta': float(self.clo_delta_entry.get()) if self.clo_delta_entry.get() else 0.0,
+                'clo_priority': bool(self.clo_priority_var.get()),
                 'rooms': [room.strip() for room in self.rooms_entry.get().split(',') if room.strip()],
                 'module_type': ModuleType[self.selected_module.get()] if self.selected_module.get() else None
             }
@@ -243,6 +251,8 @@ class SimulationConfigPanel(ttk.Frame):
         
         self.clo_delta_entry.delete(0, tk.END)
         self.clo_delta_entry.insert(0, str(config.get('clo_delta', '')))
+
+        self.clo_priority_var.set(bool(config.get('clo_priority', True)))
         
         rooms = config.get('rooms', [])
         self.rooms_entry.delete(0, tk.END)

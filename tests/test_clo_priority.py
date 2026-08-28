@@ -4,7 +4,7 @@ from confortimetro.control.base import Conditioner
 from confortimetro.control.closed_window import ConditionerClosedWindow
 
 
-def make_conditioner(pmv_by_clo):
+def make_conditioner(pmv_by_clo, clo_priority=True):
     conditioner = Conditioner.__new__(Conditioner)
     conditioner.configs = SimpleNamespace(
         clo_min=0.5,
@@ -12,6 +12,7 @@ def make_conditioner(pmv_by_clo):
         clo_delta=0.25,
         pmv_lowerbound=-0.5,
         pmv_upperbound=0.5,
+        clo_priority=clo_priority,
     )
     conditioner.get_pmv = lambda *_args: pmv_by_clo[_args[-1]]
     return conditioner
@@ -77,3 +78,11 @@ def test_comfortable_clo_turns_off_fan_and_ac_but_keeps_doas_control():
     assert exchange.actuators["vel"] == exchange.actuators["ac"] == 0
     assert exchange.actuators["doas"] == 1
     assert conditioner.ac_on_counter["room"] == 0
+
+
+def test_clo_priority_disabled_keeps_the_legacy_single_step_adjustment():
+    conditioner = make_conditioner({0.5: 0.2, 0.75: 0.6, 1.0: 1.2}, clo_priority=False)
+
+    assert conditioner.get_best_clo_for_comfort(25, 25, 0, 50, 1.0) == (1.0, False)
+    # Muito quente com clo 1.0: o modo antigo desce um único passo de clo_delta.
+    assert conditioner._step_clo(25, 25, 0, 50, 1.0) == 0.75

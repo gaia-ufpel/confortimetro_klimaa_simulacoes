@@ -98,6 +98,7 @@ Validar sem simular:
 | `met_as_watts` | derivado | Não defina manualmente. |
 | `wme` | 0.0 | Trabalho mecânico externo. |
 | `clo_min` / `clo_max` / `clo_delta` | 0.5 / 1.0 / 0.1 | Faixa e passo de vestimenta. |
+| `clo_priority` | true | `true`: varre a grade de clo antes de acionar ventilador/AC. `false`: comportamento antigo — o clo só é ajustado um passo por vez junto com os equipamentos. |
 | `pmv_lowerbound` / `pmv_upperbound` | -0.5 / 0.5 | Faixa de PMV aceitável. |
 | `pmv_comfort_bound` | 0.2 | Margem de conforto usada nas decisões do controlador. |
 | `adaptative_bound` | 2.5 | Banda do modelo adaptativo: `2.5` = 90% de aceitação, `3.5` = 80%. |

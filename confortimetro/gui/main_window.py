@@ -328,6 +328,7 @@ class MainWindow(tk.Tk):
             'clo_min': self.configs.clo_min,
             'clo_max': self.configs.clo_max,
             'clo_delta': self.configs.clo_delta,
+            'clo_priority': self.configs.clo_priority,
             'rooms': self.configs.rooms,
             'module_type': self.configs.module_type
         }

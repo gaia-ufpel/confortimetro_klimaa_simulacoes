@@ -220,6 +220,7 @@ class ConfortimetroApp {
             met: parseFloat(document.getElementById('met').value),
             wme: parseFloat(document.getElementById('wme').value),
             module_type: document.getElementById('module-type').value,
+            clo_priority: document.getElementById('clo-priority').checked,
             rooms: document.getElementById('rooms').value.split(',').map(s => s.trim()).filter(s => s)
         };
     }
@@ -235,6 +236,7 @@ class ConfortimetroApp {
         document.getElementById('met').value = config.met || 1.0;
         document.getElementById('wme').value = config.wme || 0.0;
         document.getElementById('module-type').value = config.module_type || 'COMPLETE';
+        document.getElementById('clo-priority').checked = config.clo_priority !== false;
         document.getElementById('rooms').value = (config.rooms || ['ATELIE1']).join(', ');
     }
     

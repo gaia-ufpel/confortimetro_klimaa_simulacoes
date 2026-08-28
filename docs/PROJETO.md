@@ -122,6 +122,7 @@ públicos.
 | `met_as_watts` | derivado | Escrito no schedule `METABOLISMO`. Não editar. |
 | `wme` | 0.0 | Trabalho mecânico externo (schedule `WORK_EF`). |
 | `clo_min` / `clo_max` / `clo_delta` | 0.5 / 1.0 / 0.1 | Grade de vestimenta varrida a cada timestep. |
+| `clo_priority` | true | `true`: varre a grade de clo antes de acionar ventilador/AC. `false`: comportamento antigo — o clo só é ajustado um passo por vez junto com os equipamentos. |
 | `pmv_lowerbound` / `pmv_upperbound` | −0.5 / 0.5 | Faixa de PMV aceita como conforto. |
 | `pmv_comfort_bound` | 0.2 | Margem extra do critério de conforto com janela fechada. |
 | `adaptative_bound` | 2.5 | Semibanda adaptativa: 2.5 = 90% de aceitação, 3.5 = 80%. |
@@ -159,6 +160,9 @@ Sala **ocupada**:
 
 1. `get_best_clo_for_comfort` varre a grade `clo_min…clo_max` e aplica o clo com
    PMV mais próximo de zero; devolve também se esse PMV caiu na faixa de conforto.
+   Com `clo_priority=false` essa etapa é pulada (devolve o clo atual e
+   `False`) e o clo volta a ser ajustado um passo de cada vez dentro de
+   `get_best_velocity_with_pmv` / `get_best_temperatures_with_pmv`, como antes.
 2. Se está confortável: ventilador e AC desligados, contador de AC zerado.
 3. Se o AC passou de `ac_on_max_timesteps`, tudo é desligado.
 4. Janela (exceto `CLOSED_WINDOW`): abre quando a temperatura externa está

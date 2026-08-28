@@ -136,8 +136,23 @@ class Conditioner:
 
         return nova_vel, status_janela
     
+    def _clo_priority(self) -> bool:
+        return getattr(self.configs, "clo_priority", True)
+
+    def _step_clo(self, temp_ar, mrt, vel, hum_rel, clo) -> float:
+        """Ajuste antigo do CLO: um passo na direção do conforto, sem varredura."""
+        pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
+        if pmv > self.configs.pmv_upperbound:
+            return max(round(clo - self.configs.clo_delta, 2), self.configs.clo_min)
+        if pmv < self.configs.pmv_lowerbound:
+            return min(round(clo + self.configs.clo_delta, 2), self.configs.clo_max)
+        return clo
+
     def get_best_clo_for_comfort(self, temp_ar, mrt, vel, hum_rel, clo) -> tuple[float, bool]:
         """Escolhe o CLO configurado cujo PMV fica mais próximo de zero."""
+        if not self._clo_priority():
+            # Modo antigo: o CLO só é ajustado junto com os equipamentos.
+            return clo, False
         if self.configs.clo_delta <= 0:
             raise ValueError("clo_delta deve ser maior que zero")
         if self.configs.clo_min > self.configs.clo_max:
@@ -163,6 +178,9 @@ class Conditioner:
     def get_best_velocity_with_pmv(self, temp_ar, mrt, vel, hum_rel, clo) -> tuple[float, int, float]:
         status_ac = 0
 
+        if not self._clo_priority():
+            clo = self._step_clo(temp_ar, mrt, vel, hum_rel, clo)
+
         pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
         
         while pmv > self.configs.pmv_upperbound:
@@ -186,6 +204,9 @@ class Conditioner:
     def get_best_temperatures_with_pmv(self, temp_ar, mrt, vel, hum_rel, clo):
         best_cool_temp = self.configs.temp_ac_max
         best_heat_temp = self.configs.temp_ac_min
+
+        if not self._clo_priority():
+            clo = self._step_clo(temp_ar, mrt, vel, hum_rel, clo)
 
         pmv = self.get_pmv(best_cool_temp, mrt, vel, hum_rel, clo)
         while pmv > self.configs.pmv_upperbound:
