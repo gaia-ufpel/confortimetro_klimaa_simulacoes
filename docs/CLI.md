@@ -85,7 +85,7 @@ Validar sem simular:
 | `_idf_path` | str | Caminho do IDF de entrada. **No JSON o nome tem underscore**; em `--set` use `idf_path` (é uma property). |
 | `epw_path` | str | Arquivo climático `.epw`. |
 | `output_path` | str | Diretório de saída. Criado se não existir. |
-| `energy_path` | str | Raiz da instalação do EnergyPlus. |
+| `energy_path` | str | Raiz da instalação do EnergyPlus. Detectado automaticamente quando o valor gravado no config não existe (veja abaixo). |
 | `input_path` | str | Derivado de `idf_path` (diretório do IDF). Não defina manualmente. |
 | `expanded_idf_path` | str | Derivado: `<input_path>/expanded.idf`. Não defina manualmente. |
 | `idf_filename` | str | Derivado. Não defina manualmente. |
@@ -223,3 +223,22 @@ Atenção: o recorte por período é gerado **apenas para `ATELIE1`**
 | `confortimetro/control/` | Controladores de conforto por timestep. |
 | `confortimetro/config.py` | Esquema de configuração. |
 | `confortimetro/results/` | Pós-processamento e planilhas. |
+
+## Detecção do EnergyPlus
+
+Quando o `energy_path` do config está vazio ou não aponta para uma instalação
+válida (a pasta precisa conter **`Energy+.idd`** e **`pyenergyplus/api.py`**),
+`find_energy_path()` procura sozinho, nesta ordem, e prefere sempre a versão
+9.4:
+
+1. variável de ambiente `ENERGYPLUS_DIR`;
+2. `energyplus` no `PATH`;
+3. diretórios padrão da plataforma — `C:\EnergyPlusV*` e
+   `%ProgramFiles%\EnergyPlusV*` no Windows, `/usr/local/EnergyPlus-*` e
+   `/opt/EnergyPlus-*` no Linux, `/Applications/EnergyPlus-*` no macOS;
+4. no Windows, as instalações registradas no desinstalador (registro).
+
+Instalação em lugar não convencional: exporte `ENERGYPLUS_DIR` ou passe
+`--set energy_path=...`. Na interface gráfica há o botão **🔍 Detectar** ao lado
+do campo, e o status embaixo dele diz se a instalação é válida e se a versão é a
+esperada.

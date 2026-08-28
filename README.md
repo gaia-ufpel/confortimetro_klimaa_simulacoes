@@ -34,7 +34,10 @@ das pendências conhecidas está na seção *Estado atual* de
 Na janela, valide os caminhos, escolha os parâmetros e clique em **Executar**.
 Os resultados são gravados no diretório `output_path` configurado.
 
-No Windows, use `bin\install.bat` e depois `bin\executar.bat` — passo a passo em
+No Windows, o usuário final instala pelo `ConfortimetroKlimaa-<versão>-setup.exe`
+publicado nas *Releases* (duplo-clique, sem Python e sem administrador); quem
+roda a partir do código usa `bin\install.bat` e depois `bin\executar.bat`.
+Passo a passo e como o instalador é gerado em
 [`docs/WINDOWS.md`](docs/WINDOWS.md).
 
 ## Linha de comando (headless)

@@ -2,9 +2,17 @@
 Path configuration panel component.
 """
 
+import os
 import tkinter as tk
 from tkinter import filedialog, ttk
 from typing import Protocol, Optional
+
+from confortimetro.config import (
+    REQUIRED_EP_VERSION,
+    energy_path_version,
+    find_energy_path,
+    is_energy_path,
+)
 
 
 class PathConfigCallback(Protocol):
@@ -107,7 +115,19 @@ class PathConfigPanel(ttk.Frame):
             width=12
         )
         browse_btn.grid(row=0, column=1)
-        
+
+        # O caminho do EnergyPlus ganha um botão de detecção automática: é o
+        # único campo cujo valor a máquina consegue descobrir sozinha.
+        if entry_var_name == "energy_path_entry":
+            detect_btn = ttk.Button(
+                input_frame,
+                text="🔍 Detectar",
+                style="Outline.TButton",
+                command=self.detect_energy_path,
+                width=12
+            )
+            detect_btn.grid(row=0, column=2, padx=(10, 0))
+
         # Store reference to entry
         setattr(self, entry_var_name, entry)
         
@@ -132,10 +152,43 @@ class PathConfigPanel(ttk.Frame):
         
         widget.bind('<Enter>', show_tooltip)
     
+    def detect_energy_path(self):
+        """Procura a instalação do EnergyPlus e preenche o campo."""
+        path = find_energy_path()
+        if path:
+            self.set_energy_path(path)
+            self._on_energy_changed()
+        else:
+            self.energy_path_entry_status.config(
+                text=f"❌ EnergyPlus {REQUIRED_EP_VERSION} não encontrado — "
+                     "instale-o ou informe a pasta em Procurar",
+                foreground="#ef4444"
+            )
+
+    def _validate_energy_path(self, path: str, status_label):
+        """Feedback do campo do EnergyPlus: precisa do IDD e do pyenergyplus."""
+        if not is_energy_path(path):
+            status_label.config(
+                text="❌ Não é uma instalação do EnergyPlus (falta Energy+.idd "
+                     "ou pyenergyplus) — aponte para a pasta raiz",
+                foreground="#ef4444"
+            )
+            return
+
+        version = energy_path_version(path)
+        if version == REQUIRED_EP_VERSION or not version:
+            status_label.config(
+                text=f"✅ EnergyPlus {version or 'detectado'}", foreground="#22c55e"
+            )
+        else:
+            status_label.config(
+                text=f"⚠️ Versão {version} encontrada; o programa espera a "
+                     f"{REQUIRED_EP_VERSION} e a simulação pode falhar",
+                foreground="#f59e0b"
+            )
+
     def _validate_path(self, entry):
         """Validate path and show visual feedback."""
-        import os
-        
         path = entry.get().strip()
         if not path:
             return
@@ -155,7 +208,9 @@ class PathConfigPanel(ttk.Frame):
             return
         
         # Validate based on entry type
-        if "file" in entry_name:
+        if entry_name == "energy_path_entry":
+            self._validate_energy_path(path, status_label)
+        elif "file" in entry_name:
             # File validation
             if os.path.isfile(path):
                 status_label.config(text="✅ Arquivo encontrado", foreground="#22c55e")
@@ -256,6 +311,7 @@ class PathConfigPanel(ttk.Frame):
         """Set energy path."""
         self.energy_path_entry.delete(0, tk.END)
         self.energy_path_entry.insert(0, path)
+        self._validate_path(self.energy_path_entry)
     
     def get_idf_path(self) -> str:
         """Get IDF path."""

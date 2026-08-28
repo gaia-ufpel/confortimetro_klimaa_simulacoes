@@ -15,8 +15,11 @@ python main.py                                                # GUI Tkinter
 ./bin/run_web.sh                                                  # interface web
 ```
 
-No Windows: `bin\install.bat` e `bin\executar.bat` (ver
-[`docs/WINDOWS.md`](docs/WINDOWS.md)). Nada de caminho com
+No Windows o usuário final usa o instalador
+`ConfortimetroKlimaa-<versão>-setup.exe` (gerado por
+`.github/workflows/windows-build.yml` com PyInstaller + Inno Setup, a partir de
+`packaging/`); a partir do código, `bin\install.bat` e `bin\executar.bat`
+(ver [`docs/WINDOWS.md`](docs/WINDOWS.md)). Nada de caminho com
 `/` fixo nem `.venv/bin` no código — use `os.path.join` e
 `platform.system()`.
 

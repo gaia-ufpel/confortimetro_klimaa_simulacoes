@@ -25,3 +25,7 @@ __pycache__/
 
 # backups de IDF gerados pelo EnergyPlus/eppy
 backups/
+
+# empacotamento Windows
+dist/
+build/
