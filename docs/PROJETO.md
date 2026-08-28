@@ -5,8 +5,6 @@ controle, saídas, interfaces e manutenção. Complementos:
 
 - [`CLI.md`](CLI.md) — execução headless, flags e diagnóstico operacional.
 - [`WINDOWS.md`](WINDOWS.md) — instalação e execução no Windows.
-- [`history/`](history/) — registros de refatorações antigas; podem citar
-  arquivos que não existem mais.
 
 ## 1. Visão geral
 
@@ -302,7 +300,7 @@ desktop/CLI, não modifica o arquivo original.
 - **`output_path` é reutilizado** se já existir, misturando resultados.
 - **Simulação anual leva dezenas de minutos a horas**; valide antes com
   `--print-config`.
-- **Sempre execute a partir da raiz** (imports `src.*` e caminhos relativos).
+- **Sempre execute a partir da raiz** (os caminhos padrão da configuração são relativos; para importar de fora, `pip install -e .`).
 - **Sem streaming de progresso no CLI**: as mensagens saem da `Queue` no final;
   o sinal de vida é o stdout do próprio EnergyPlus.
 - **Servidor web roda com `debug=True`**: não exponha em rede pública sem
@@ -320,5 +318,44 @@ desktop/CLI, não modifica o arquivo original.
   `platform.system()`.
 - `outputs/`, `logs/`, `uploads/` e `backups/` ficam fora do versionamento de
   resultados.
-- Esta página e o `README.md` são a referência atual; `docs/history/`
-  é apenas histórico.
+- Esta página e o `README.md` são a referência atual do projeto.
+
+## 12. Estado atual (28/08/2026)
+
+Retrato do repositório no commit `2535046`, após a reorganização de pastas.
+
+### O que está pronto e verificado
+
+| Item | Situação |
+|---|---|
+| Pipeline de simulação | Funcional pelas três entradas (CLI, Tkinter, web), todas sobre o mesmo `Simulation.run(queue)`. |
+| Módulos de condicionamento | Os quatro implementados e registrados em `MODULES_MAPPER`. |
+| Relato de erros | Handlers ausentes, exceção no callback, código de saída do EnergyPlus, `eplusout.end`, séries truncadas e falha de escrita das planilhas abortam a execução com mensagem. |
+| Testes | `pytest tests` → 22 passando (conforto/clo, PMV rápido, relato de erros, rotas e contrato da web). |
+| Empacotamento | `pyproject.toml` com `pip install -e .`; dependências em `requirements.txt` e `requirements-web.txt`. |
+| Documentação | Esta página, `CLI.md` e `WINDOWS.md` conferidas contra o código. |
+
+Tamanho do código: ~4 500 linhas Python em `confortimetro/` e `tests/`.
+
+### Pendências conhecidas
+
+Nenhuma bloqueia o uso atual; estão em ordem aproximada de impacto.
+
+1. `ATELIE1` e as datas de 2015 continuam hardcoded no pós-processamento
+   (`results/periods.py` e os parâmetros padrão de `summary_rooms_results_from_eso`).
+2. `confortimetro/web/app.py` sobe com `debug=True` e `host='0.0.0.0'` — trocar
+   antes de expor o servidor fora da máquina local.
+3. O IDF de entrada é modificado no lugar pelo CLI e pela GUI; só a interface
+   web trabalha sobre cópia. Adotar a cópia por execução nos três caminhos
+   resolveria também a colisão entre execuções paralelas.
+4. Sem streaming de progresso no CLI: as mensagens da `Queue` só são impressas
+   ao final.
+5. Os meses de inverno (6 a 9) e o limite `ac_on_max_timesteps = 12` são
+   constantes de código, não configuração.
+
+### Fora do versionamento
+
+`.venv/`, `venv_web/`, `outputs/` (165 execuções acumuladas na máquina de
+desenvolvimento), `logs/`, `uploads/`, `docs/material/` (PDFs do EnergyPlus),
+`docs/backups/` (notebooks antigos) e os `in.idf`/`expanded.idf`/`*.err`
+gerados dentro de `examples/idf/`.
