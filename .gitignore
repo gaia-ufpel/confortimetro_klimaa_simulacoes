@@ -1,18 +1,27 @@
-documents
-resources/outros
-outputs
-backups
-logs
+# ambientes
+.venv/
+venv_web/
 
-__pycache__
+# saídas e arquivos gerados
+outputs/
+logs/
+uploads/
+examples/idf/**/in.idf
+examples/idf/**/expanded.idf
+examples/idf/**/*.err
+
+# material de apoio (PDFs do EnergyPlus, notebooks antigos)
+docs/material/
+docs/backups/
+
+# caches
+__pycache__/
 .mypy_cache/
 .pytest_cache/
 .vscode
-
-*.zip
-
-*.lock
 .idea
-.venv
-venv_web/
-uploads/
+*.zip
+*.lock
+
+# backups de IDF gerados pelo EnergyPlus/eppy
+backups/

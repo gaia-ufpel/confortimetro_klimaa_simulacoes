@@ -4,7 +4,7 @@ Confortímetro Klimaa - Simulações Personalizadas com EnergyPlus e Python
 Ponto de entrada principal da aplicação.
 """
 
-from src.gui.main_window import MainWindow
+from confortimetro.gui.main_window import MainWindow
 
 def main():
     """

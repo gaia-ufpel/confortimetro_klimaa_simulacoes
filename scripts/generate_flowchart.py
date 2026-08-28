@@ -54,7 +54,7 @@ def generate_flowchart():
     dot.edge('R', 'T')
 
     # Renderiza e salva o arquivo
-    output = Path(__file__).resolve().parents[1] / "documentation/assets/room_conditioner_flowchart"
+    output = Path(__file__).resolve().parents[1] / "docs/assets/room_conditioner_flowchart"
     dot.render(str(output), format='png', cleanup=True)
 
 
