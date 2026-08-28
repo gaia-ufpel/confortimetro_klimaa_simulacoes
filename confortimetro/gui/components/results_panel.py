@@ -6,6 +6,12 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext
 from typing import Protocol, Optional
 
+from ..theme import COLORS, FONTS, SPACE, RoundedButton
+
+
+# Marcadores do log: a fonte monoespaçada não tem emoji.
+_LOG_MARKS = {'info': '·', 'success': '✓', 'warning': '!', 'error': '×'}
+
 
 class ResultsPanelCallback(Protocol):
     """Protocol for results panel callbacks."""
@@ -19,114 +25,86 @@ class ResultsPanel(ttk.Frame):
     """Panel for displaying simulation results."""
     
     def __init__(self, parent, callback: Optional[ResultsPanelCallback] = None):
-        super().__init__(parent)
+        super().__init__(parent, style="Card.TFrame")
         self.callback = callback
         self._build_ui()
     
     def _build_ui(self):
-        """Build the UI components with modern styling."""
-        # Header with controls
-        header_frame = ttk.Frame(self)
-        header_frame.pack(fill="x", padx=0, pady=(0, 10))
-        
-        # Filter and control buttons
-        controls_frame = ttk.Frame(header_frame)
-        controls_frame.pack(side="right")
-        
-        # Message type filter
+        """Build the UI: toolbar, log area, status bar."""
+        toolbar = ttk.Frame(self, style="Card.TFrame")
+        toolbar.pack(fill="x", pady=(0, SPACE[2]))
+
+        ttk.Label(toolbar, text="Filtro", style="Label.TLabel").pack(
+            side="left", padx=(0, SPACE[2]))
+
         self.filter_var = tk.StringVar(value="all")
-        filter_frame = ttk.Frame(controls_frame)
-        filter_frame.pack(side="left", padx=(0, 10))
-        
-        ttk.Label(filter_frame, text="Filtro:", style="Body.TLabel").pack(side="left", padx=(0, 5))
-        
         filter_combo = ttk.Combobox(
-            filter_frame, 
+            toolbar,
             textvariable=self.filter_var,
             values=["all", "info", "success", "warning", "error"],
             state="readonly",
-            width=8,
-            style="Modern.TCombobox"
+            width=10,
+            style="Field.TCombobox"
         )
         filter_combo.pack(side="left")
         filter_combo.bind('<<ComboboxSelected>>', self._filter_messages)
-        
-        # Control buttons
-        button_frame = ttk.Frame(controls_frame)
-        button_frame.pack(side="right", padx=(10, 0))
-        
-        # Export button
-        ttk.Button(
-            button_frame, 
-            text="💾 Exportar",
-            style="Outline.TButton",
-            command=self._export_results
-        ).pack(side="left", padx=(0, 5))
-        
-        # Clear button
-        ttk.Button(
-            button_frame, 
-            text="🗑️ Limpar", 
-            style="Outline.TButton",
-            command=self._clear_results
-        ).pack(side="left")
-        
-        # Results text area with modern styling
-        text_frame = ttk.Frame(self)
-        text_frame.pack(fill="both", expand=True)
-        
+
+        RoundedButton(toolbar, text="Limpar", variant="ghost", width=100,
+                      command=self._clear_results).pack(side="right")
+        RoundedButton(toolbar, text="Exportar", variant="ghost", width=100,
+                      command=self._export_results).pack(
+                          side="right", padx=(0, SPACE[2]))
+
         self.results_text = scrolledtext.ScrolledText(
-            text_frame, 
-            state="disabled", 
-            width=100, 
-            height=15,
+            self,
+            state="disabled",
+            width=100,
+            height=10,
             wrap="word",
-            font=('Consolas', 9),
-            background="#ffffff",
-            foreground="#344e41",
+            font=FONTS["mono"],
+            background=COLORS["surface"],
+            foreground=COLORS["text"],
             relief="flat",
-            borderwidth=0
+            borderwidth=0,
+            highlightthickness=1,
+            highlightbackground=COLORS["line"],
+            highlightcolor=COLORS["line"],
+            padx=SPACE[3],
+            pady=SPACE[3]
         )
-        self.results_text.pack(fill="both", expand=True, padx=1, pady=1)
-        
-        # Configure text tags for different message types with modern colors
-        self.results_text.tag_configure("info", 
-                                       foreground="#3a5a40", 
-                                       font=('Consolas', 9))
-        self.results_text.tag_configure("warning", 
-                                       foreground="#a06b00", 
-                                       font=('Consolas', 9, 'bold'))
-        self.results_text.tag_configure("error", 
-                                       foreground="#b3261e", 
-                                       font=('Consolas', 9, 'bold'))
-        self.results_text.tag_configure("success", 
-                                       foreground="#588157", 
-                                       font=('Consolas', 9, 'bold'))
-        self.results_text.tag_configure("timestamp", 
-                                       foreground="#a3b18a", 
-                                       font=('Consolas', 8))
-        
-        # Status bar
-        status_frame = ttk.Frame(self)
-        status_frame.pack(fill="x", pady=(5, 0))
-        
-        self.status_var = tk.StringVar()
-        self.status_var.set("Pronto")
-        
-        ttk.Label(status_frame, text="Status:", style="Muted.TLabel").pack(side="left")
-        self.status_label = ttk.Label(status_frame, textvariable=self.status_var, style="Muted.TLabel")
-        self.status_label.pack(side="left", padx=(5, 0))
-        
-        # Message counter
-        self.counter_var = tk.StringVar()
-        self.counter_var.set("0 mensagens")
-        
-        ttk.Label(status_frame, textvariable=self.counter_var, style="Muted.TLabel").pack(side="right")
-        
+        self.results_text.pack(fill="both", expand=True)
+        # ScrolledText embute um tk.Scrollbar (não ttk), fora do tema.
+        self.results_text.vbar.configure(
+            background=COLORS["accent"], troughcolor=COLORS["surface_2"],
+            activebackground=COLORS["primary_h"], relief="flat", borderwidth=0,
+            highlightthickness=0, width=10)
+
+        self.results_text.tag_configure("info", foreground=COLORS["primary"],
+                                        font=FONTS["mono"])
+        self.results_text.tag_configure("warning", foreground=COLORS["warn"],
+                                        font=FONTS["mono_bold"])
+        self.results_text.tag_configure("error", foreground=COLORS["danger"],
+                                        font=FONTS["mono_bold"])
+        self.results_text.tag_configure("success", foreground=COLORS["ok"],
+                                        font=FONTS["mono_bold"])
+        self.results_text.tag_configure("timestamp", foreground=COLORS["accent"],
+                                        font=FONTS["mono_small"])
+
+        status_frame = ttk.Frame(self, style="Card.TFrame")
+        status_frame.pack(fill="x", pady=(SPACE[2], 0))
+
+        self.status_var = tk.StringVar(value="Pronto")
+        ttk.Label(status_frame, textvariable=self.status_var,
+                  style="Caption.TLabel").pack(side="left")
+
+        self.counter_var = tk.StringVar(value="0 mensagens")
+        ttk.Label(status_frame, textvariable=self.counter_var,
+                  style="Caption.TLabel").pack(side="right")
+
         # Store all messages for filtering
         self.all_messages = []
         self.message_count = {"info": 0, "warning": 0, "error": 0, "success": 0}
-    
+
     def append_message(self, message: str, message_type: str = "info"):
         """
         Append a message to the results area with enhanced formatting.
@@ -160,14 +138,8 @@ class ResultsPanel(ttk.Frame):
         time_str = timestamp.strftime("%H:%M:%S")
         
         # Add icon based on message type
-        icons = {
-            'info': 'ℹ️',
-            'success': '✅',
-            'warning': '⚠️',
-            'error': '❌'
-        }
-        icon = icons.get(message_type, 'ℹ️')
-        
+        icon = _LOG_MARKS.get(message_type, _LOG_MARKS['info'])
+
         # Insert timestamp
         self.results_text.insert(tk.END, f"[{time_str}] ", "timestamp")
         
@@ -198,13 +170,7 @@ class ResultsPanel(ttk.Frame):
             if filter_type == "all" or msg_data['type'] == filter_type:
                 time_str = msg_data['timestamp'].strftime("%H:%M:%S")
                 
-                icons = {
-                    'info': 'ℹ️',
-                    'success': '✅', 
-                    'warning': '⚠️',
-                    'error': '❌'
-                }
-                icon = icons.get(msg_data['type'], 'ℹ️')
+                icon = _LOG_MARKS.get(msg_data['type'], _LOG_MARKS['info'])
                 
                 self.results_text.insert(tk.END, f"[{time_str}] ", "timestamp")
                 self.results_text.insert(tk.END, f"{icon} {msg_data['message']}\n", msg_data['type'])
@@ -292,15 +258,6 @@ class ResultsPanel(ttk.Frame):
     def append_success(self, message: str):
         """Append a success message."""
         self.append_message(message, "success")
-    
-    def _clear_results(self):
-        """Clear all results."""
-        self.results_text.config(state="normal")
-        self.results_text.delete(1.0, tk.END)
-        self.results_text.config(state="disabled")
-        
-        if self.callback:
-            self.callback.on_results_cleared()
     
     def get_text(self) -> str:
         """Get all text from the results area."""

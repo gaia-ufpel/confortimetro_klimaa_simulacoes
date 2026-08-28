@@ -7,6 +7,7 @@ import tkinter as tk
 from tkinter import filedialog, ttk
 from typing import Protocol, Optional
 
+from ..theme import COLORS, SPACE, RoundedButton
 from confortimetro.config import (
     REQUIRED_EP_VERSION,
     energy_path_version,
@@ -39,103 +40,64 @@ class PathConfigPanel(ttk.Frame):
     """Panel for path configuration."""
     
     def __init__(self, parent, callback: Optional[PathConfigCallback] = None):
-        super().__init__(parent)
+        super().__init__(parent, style="Card.TFrame")
         self.callback = callback
         self._build_ui()
     
     def _build_ui(self):
-        """Build the UI components with modern styling."""
-        # Configure grid weights for responsive layout
+        """Build the UI components: one labeled path field per row."""
         self.grid_columnconfigure(0, weight=1)
-        
-        # Create path input fields with better styling
-        self._create_path_field(
-            row=0, 
-            label="📄 Arquivo IDF:",
-            entry_var_name="inputfile_entry",
-            browse_command=self._browse_idf,
-            change_callback=self._on_idf_changed,
-            tooltip="Arquivo de entrada do modelo EnergyPlus (.idf)"
+
+        fields = (
+            ("Arquivo IDF", "inputfile_entry", self._browse_idf,
+             self._on_idf_changed,
+             "Arquivo de entrada do modelo EnergyPlus (.idf)"),
+            ("Diretório de saída", "outputfolder_entry", self._browse_output,
+             self._on_output_changed,
+             "Pasta onde os resultados serão salvos"),
+            ("Arquivo climático (EPW)", "epwfile_entry", self._browse_weather,
+             self._on_epw_changed, "Arquivo de dados climáticos (.epw)"),
+            ("Caminho do EnergyPlus", "energy_path_entry", self._browse_energy,
+             self._on_energy_changed, "Diretório de instalação do EnergyPlus"),
         )
-        
-        self._create_path_field(
-            row=2,
-            label="📁 Diretório de Saída:",
-            entry_var_name="outputfolder_entry", 
-            browse_command=self._browse_output,
-            change_callback=self._on_output_changed,
-            tooltip="Pasta onde os resultados serão salvos"
-        )
-        
-        self._create_path_field(
-            row=4,
-            label="🌤️ Arquivo Climático (EPW):",
-            entry_var_name="epwfile_entry",
-            browse_command=self._browse_weather,
-            change_callback=self._on_epw_changed,
-            tooltip="Arquivo de dados climáticos (.epw)"
-        )
-        
-        self._create_path_field(
-            row=6,
-            label="⚡ Caminho do EnergyPlus:",
-            entry_var_name="energy_path_entry",
-            browse_command=self._browse_energy,
-            change_callback=self._on_energy_changed,
-            tooltip="Diretório de instalação do EnergyPlus"
-        )
-    
-    def _create_path_field(self, row, label, entry_var_name, browse_command, change_callback, tooltip=""):
-        """Create a styled path input field."""
-        # Label
-        label_widget = ttk.Label(self, text=label, style="Body.TLabel")
-        label_widget.grid(row=row, column=0, sticky="w", padx=(0, 10), pady=(10, 5))
-        
-        # Create tooltip if provided
+        for index, (label, name, browse, changed, tooltip) in enumerate(fields):
+            self._create_path_field(index, label, name, browse, changed, tooltip)
+
+    def _create_path_field(self, index, label, entry_var_name, browse_command,
+                           change_callback, tooltip=""):
+        """Create a path field: label above, entry + actions, status below."""
+        field = ttk.Frame(self, style="Card.TFrame")
+        field.grid(row=index, column=0, sticky="ew", pady=(0, SPACE[4]))
+        field.grid_columnconfigure(0, weight=1)
+
+        label_widget = ttk.Label(field, text=label, style="Label.TLabel")
+        label_widget.grid(row=0, column=0, columnspan=3, sticky="w",
+                          pady=(0, SPACE[1]))
         if tooltip:
             self._create_tooltip(label_widget, tooltip)
-        
-        # Input field container
-        input_frame = ttk.Frame(self)
-        input_frame.grid(row=row+1, column=0, sticky="ew", padx=(0, 10), pady=(0, 15))
-        input_frame.grid_columnconfigure(0, weight=1)
-        
-        # Entry field
-        entry = ttk.Entry(input_frame, style="Modern.TEntry", font=('Segoe UI', 9))
-        entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+
+        entry = ttk.Entry(field, style="Field.TEntry")
+        entry.grid(row=1, column=0, sticky="ew", padx=(0, SPACE[2]))
         entry.bind('<FocusOut>', change_callback)
         entry.bind('<KeyRelease>', lambda e: self._validate_path(entry))
-        
-        # Browse button
-        browse_btn = ttk.Button(
-            input_frame,
-            text="📂 Procurar",
-            style="Outline.TButton",
-            command=browse_command,
-            width=12
-        )
-        browse_btn.grid(row=0, column=1)
+
+        RoundedButton(field, text="Procurar", variant="ghost", width=110,
+                      command=browse_command).grid(row=1, column=1)
 
         # O caminho do EnergyPlus ganha um botão de detecção automática: é o
         # único campo cujo valor a máquina consegue descobrir sozinha.
         if entry_var_name == "energy_path_entry":
-            detect_btn = ttk.Button(
-                input_frame,
-                text="🔍 Detectar",
-                style="Outline.TButton",
-                command=self.detect_energy_path,
-                width=12
-            )
-            detect_btn.grid(row=0, column=2, padx=(10, 0))
+            RoundedButton(field, text="Detectar", variant="ghost", width=110,
+                          command=self.detect_energy_path).grid(
+                              row=1, column=2, padx=(SPACE[2], 0))
 
-        # Store reference to entry
         setattr(self, entry_var_name, entry)
-        
-        # Status indicator (will show validation feedback)
-        status_label = ttk.Label(input_frame, text="", font=('Segoe UI', 8))
-        status_label.grid(row=1, column=0, sticky="w", pady=(2, 0))
+
+        status_label = ttk.Label(field, text="", style="Caption.TLabel")
+        status_label.grid(row=2, column=0, columnspan=3, sticky="w",
+                          pady=(SPACE[1], 0))
         setattr(self, f"{entry_var_name}_status", status_label)
-    
+
     def _create_tooltip(self, widget, text):
         """Create a simple tooltip for a widget."""
         def show_tooltip(event):
@@ -143,8 +105,9 @@ class PathConfigPanel(ttk.Frame):
             tooltip.wm_overrideredirect(True)
             tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
             
-            label = ttk.Label(tooltip, text=text, style="Muted.TLabel", 
-                             background="#dad7cd", relief="solid", borderwidth=1)
+            label = ttk.Label(tooltip, text=text, style="Caption.TLabel",
+                              background=COLORS["bg"], relief="solid",
+                              borderwidth=1, padding=SPACE[2])
             label.pack()
             
             # Auto-hide after 3 seconds
@@ -162,7 +125,7 @@ class PathConfigPanel(ttk.Frame):
             self.energy_path_entry_status.config(
                 text=f"❌ EnergyPlus {REQUIRED_EP_VERSION} não encontrado — "
                      "instale-o ou informe a pasta em Procurar",
-                foreground="#b3261e"
+                foreground=COLORS["danger"]
             )
 
     def _validate_energy_path(self, path: str, status_label):
@@ -171,20 +134,20 @@ class PathConfigPanel(ttk.Frame):
             status_label.config(
                 text="❌ Não é uma instalação do EnergyPlus (falta Energy+.idd "
                      "ou pyenergyplus) — aponte para a pasta raiz",
-                foreground="#b3261e"
+                foreground=COLORS["danger"]
             )
             return
 
         version = energy_path_version(path)
         if version == REQUIRED_EP_VERSION or not version:
             status_label.config(
-                text=f"✅ EnergyPlus {version or 'detectado'}", foreground="#588157"
+                text=f"✅ EnergyPlus {version or 'detectado'}", foreground=COLORS["ok"]
             )
         else:
             status_label.config(
                 text=f"⚠️ Versão {version} encontrada; o programa espera a "
                      f"{REQUIRED_EP_VERSION} e a simulação pode falhar",
-                foreground="#a06b00"
+                foreground=COLORS["warn"]
             )
 
     def _validate_path(self, entry):
@@ -213,18 +176,18 @@ class PathConfigPanel(ttk.Frame):
         elif "file" in entry_name:
             # File validation
             if os.path.isfile(path):
-                status_label.config(text="✅ Arquivo encontrado", foreground="#588157")
-                entry.config(style="Modern.TEntry")
+                status_label.config(text="✅ Arquivo encontrado", foreground=COLORS["ok"])
+                entry.config(style="Field.TEntry")
             else:
-                status_label.config(text="❌ Arquivo não encontrado", foreground="#b3261e")
+                status_label.config(text="❌ Arquivo não encontrado", foreground=COLORS["danger"])
                 # Could add error styling here
         else:
             # Directory validation  
             if os.path.isdir(path):
-                status_label.config(text="✅ Diretório válido", foreground="#588157")
-                entry.config(style="Modern.TEntry")
+                status_label.config(text="✅ Diretório válido", foreground=COLORS["ok"])
+                entry.config(style="Field.TEntry")
             else:
-                status_label.config(text="❌ Diretório não encontrado", foreground="#b3261e")
+                status_label.config(text="❌ Diretório não encontrado", foreground=COLORS["danger"])
     
     def _browse_idf(self):
         """Browse for IDF file."""

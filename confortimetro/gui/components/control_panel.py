@@ -6,6 +6,8 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Protocol, Optional
 
+from ..theme import SPACE, RoundedButton, StatusPill
+
 
 class ControlPanelCallback(Protocol):
     """Protocol for control panel callbacks."""
@@ -31,90 +33,39 @@ class ControlPanel(ttk.Frame):
     """Panel for simulation controls."""
     
     def __init__(self, parent, callback: Optional[ControlPanelCallback] = None):
-        super().__init__(parent)
+        super().__init__(parent, style="Card.TFrame")
         self.callback = callback
         self.is_running = False
         self._build_ui()
     
     def _build_ui(self):
-        """Build the UI components with modern styling."""
-        # Main control buttons with improved layout
-        button_frame = ttk.Frame(self)
-        button_frame.pack(fill="x", padx=0, pady=0)
-        
-        # Button container for centering
-        button_container = ttk.Frame(button_frame)
-        button_container.pack(anchor="center", pady=20)
-        
-        # Run/Stop button - Primary action
-        self.run_button = ttk.Button(
-            button_container, 
-            text="▶️ Executar Simulação", 
-            width=25,
-            style="Primary.TButton",
-            command=self._on_run_clicked
-        )
-        self.run_button.pack(side="left", padx=10)
-        
-        # Secondary actions frame
-        secondary_frame = ttk.Frame(button_container)
-        secondary_frame.pack(side="left", padx=(30, 0))
-        
-        # Save config button
-        self.save_button = ttk.Button(
-            secondary_frame, 
-            text="💾 Salvar", 
-            width=15,
-            style="Outline.TButton",
-            command=self._on_save_clicked
-        )
-        self.save_button.pack(side="top", pady=(0, 5))
-        
-        # Load config button
-        self.load_button = ttk.Button(
-            secondary_frame, 
-            text="📂 Carregar", 
-            width=15,
-            style="Outline.TButton",
-            command=self._on_load_clicked
-        )
-        self.load_button.pack(side="top")
-        
-        # Status and progress section
-        status_frame = ttk.Frame(self)
-        status_frame.pack(fill="x", padx=20, pady=(0, 20))
-        
-        # Status indicator
-        status_container = ttk.Frame(status_frame)
-        status_container.pack(anchor="center")
-        
-        # Status label with icon
-        status_label_frame = ttk.Frame(status_container)
-        status_label_frame.pack(pady=(0, 10))
-        
-        self.status_icon = ttk.Label(status_label_frame, text="✅", font=('Segoe UI', 12))
-        self.status_icon.pack(side="left", padx=(0, 5))
-        
-        self.progress_var = tk.StringVar()
-        self.progress_var.set("Pronto para executar")
-        
-        self.status_label = ttk.Label(
-            status_label_frame, 
-            textvariable=self.progress_var,
-            style="Body.TLabel",
-            font=('Segoe UI', 10, 'bold')
-        )
-        self.status_label.pack(side="left")
-        
-        # Progress bar with modern styling
+        """Build the topbar row: actions on the left, status on the right."""
+        row = ttk.Frame(self, style="Card.TFrame")
+        row.pack(fill="x")
+
+        self.run_button = RoundedButton(
+            row, text="Executar simulação", variant="primary", width=200,
+            command=self._on_run_clicked)
+        self.run_button.pack(side="left")
+
+        self.save_button = RoundedButton(
+            row, text="Salvar", variant="ghost", width=110,
+            command=self._on_save_clicked)
+        self.save_button.pack(side="left", padx=(SPACE[2], 0))
+
+        self.load_button = RoundedButton(
+            row, text="Carregar", variant="ghost", width=110,
+            command=self._on_load_clicked)
+        self.load_button.pack(side="left", padx=(SPACE[2], 0))
+
+        self.status_pill = StatusPill(row, "Pronto para executar", "info")
+        self.status_pill.pack(side="right")
+
+        # Só aparece durante a execução — barra parada não informa nada.
         self.progress_bar = ttk.Progressbar(
-            status_container, 
-            mode='indeterminate',
-            length=300,
-            style="Modern.Horizontal.TProgressbar"
-        )
-        self.progress_bar.pack(pady=5)
-    
+            self, mode="indeterminate",
+            style="Modern.Horizontal.TProgressbar")
+
     def _on_run_clicked(self):
         """Handle run button click."""
         if self.is_running:
@@ -137,63 +88,38 @@ class ControlPanel(ttk.Frame):
     def set_running_state(self, is_running: bool):
         """
         Set the running state of the simulation with visual feedback.
-        
+
         Args:
             is_running: Whether simulation is currently running
         """
         self.is_running = is_running
-        
+
         if is_running:
-            # Update button for stop action
-            self.run_button.config(
-                text="⏹️ Parar Simulação", 
-                style="Danger.TButton"
-            )
-            
-            # Disable secondary buttons
-            self.save_button.config(state="disabled")
-            self.load_button.config(state="disabled")
-            
-            # Update status
-            self.progress_bar.start(10)  # Start animation
-            self.progress_var.set("Executando simulação...")
-            self.status_icon.config(text="⚙️")
-            
+            self.run_button.configure(text="Parar simulação", variant="danger")
+            self.save_button.configure(state="disabled")
+            self.load_button.configure(state="disabled")
+            self.progress_bar.pack(fill="x", pady=(SPACE[3], 0))
+            self.progress_bar.start(10)
+            self.set_status("Executando simulação...", "running")
         else:
-            # Update button for run action
-            self.run_button.config(
-                text="▶️ Executar Simulação", 
-                style="Primary.TButton"
-            )
-            
-            # Enable secondary buttons
-            self.save_button.config(state="normal")
-            self.load_button.config(state="normal")
-            
-            # Update status
-            self.progress_bar.stop()  # Stop animation
-            self.progress_var.set("Pronto para executar")
-            self.status_icon.config(text="✅")
-    
+            self.run_button.configure(text="Executar simulação",
+                                      variant="primary")
+            self.save_button.configure(state="normal")
+            self.load_button.configure(state="normal")
+            self.progress_bar.stop()
+            self.progress_bar.pack_forget()
+            self.set_status("Pronto para executar", "info")
+
     def set_status(self, status: str, status_type: str = "info"):
         """
-        Set the status message with appropriate icon.
-        
+        Set the status message.
+
         Args:
             status: Status message to display
-            status_type: Type of status ('info', 'success', 'warning', 'error')
+            status_type: 'info', 'success', 'warning', 'error' or 'running'
         """
-        icons = {
-            'info': 'ℹ️',
-            'success': '✅',
-            'warning': '⚠️',
-            'error': '❌',
-            'running': '⚙️'
-        }
-        
-        self.progress_var.set(status)
-        self.status_icon.config(text=icons.get(status_type, 'ℹ️'))
-    
+        self.status_pill.set(status, status_type)
+
     def enable_buttons(self, enabled: bool = True):
         """
         Enable or disable all buttons.
@@ -202,11 +128,11 @@ class ControlPanel(ttk.Frame):
             enabled: Whether to enable the buttons
         """
         state = "normal" if enabled else "disabled"
-        
+
         if not self.is_running:  # Only enable if not running
-            self.run_button.config(state=state)
-            self.save_button.config(state=state)
-            self.load_button.config(state=state)
+            self.run_button.configure(state=state)
+            self.save_button.configure(state=state)
+            self.load_button.configure(state=state)
     
     def get_is_running(self) -> bool:
         """Check if simulation is running."""

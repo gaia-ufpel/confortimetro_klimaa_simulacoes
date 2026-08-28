@@ -12,12 +12,14 @@ from typing import Optional
 
 from confortimetro.simulation import Simulation
 from confortimetro.config import SimulationConfig
+from confortimetro.idf import read_zone_names
 from .components import (
-    PathConfigPanel, 
-    SimulationConfigPanel, 
-    ResultsPanel, 
+    PathConfigPanel,
+    SimulationConfigPanel,
+    ResultsPanel,
     ControlPanel
 )
+from .theme import COLORS, SPACE, BottomSheet, Card, apply_theme, scrollable
 
 
 class MainWindow(tk.Tk):
@@ -32,271 +34,59 @@ class MainWindow(tk.Tk):
         self.simulation_queue: Optional[Queue] = None
         
         self._setup_window()
-        self._setup_styles()
+        apply_theme(self)
         self._build_ui()
         self._load_configuration()
     
     def _setup_window(self):
         """Setup the main window properties."""
-        self.title("🌡️ Confortímetro Klimaa - Simulações EnergyPlus")
+        self.title("Confortímetro Klimaa — Simulações EnergyPlus")
         self.geometry("1200x900")
         self.minsize(800, 600)
-        
-        # Modern gradient-like background
-        self.configure(background="#f8f9fa")
-        
-        # Center window on screen
+        self.configure(background=COLORS["bg"])
         self.center_window()
-        
-        # Set window icon if available
-    
-    def _setup_styles(self):
-        """Setup the UI styles with modern theme."""
-        from tkinter import ttk
-        
-        self.style = ttk.Style()
-        self.style.theme_use("clam")  # Better base theme
-        
-        # Color palette - Modern blue/green theme
-        # Paleta verde/terra do projeto
-        colors = {
-            'primary': '#3a5a40',       # Verde escuro
-            'primary_light': '#588157', # Verde
-            'primary_dark': '#344e41',  # Verde muito escuro
-            'secondary': '#588157',     # Verde
-            'secondary_light': '#a3b18a', # Sage
-            'accent': '#a3b18a',        # Sage
-            'danger': '#b3261e',        # Vermelho (semantico, fora da paleta)
-            'success': '#588157',       # Verde
-            'warning': '#a06b00',       # Ambar (semantico, fora da paleta)
-            'background': '#dad7cd',    # Areia
-            'surface': '#ffffff',       # Branco
-            'surface_alt': '#dad7cd',   # Areia
-            'text': '#344e41',          # Verde muito escuro
-            'text_muted': '#588157',    # Verde
-            'border': '#a3b18a',        # Sage
-        }
 
-        # Configure frame styles
-        self.style.configure("Main.TFrame", 
-                           background=colors['background'])
-        
-        self.style.configure("Card.TFrame", 
-                           background=colors['surface'],
-                           relief="flat",
-                           borderwidth=1)
-        
-        self.style.configure("Header.TFrame", 
-                           background=colors['primary'],
-                           relief="flat")
-        
-        # Configure label styles
-        self.style.configure("Title.TLabel", 
-                           background=colors['surface'],
-                           foreground=colors['text'],
-                           font=('Segoe UI', 12, 'bold'))
-        
-        self.style.configure("Header.TLabel", 
-                           background=colors['primary'],
-                           foreground='white',
-                           font=('Segoe UI', 14, 'bold'))
-        
-        self.style.configure("Body.TLabel", 
-                           background=colors['surface'],
-                           foreground=colors['text'],
-                           font=('Segoe UI', 9))
-        
-        self.style.configure("Muted.TLabel", 
-                           background=colors['surface'],
-                           foreground=colors['text_muted'],
-                           font=('Segoe UI', 8))
-        
-        # Configure button styles
-        self.style.configure("Primary.TButton",
-                           background=colors['primary'],
-                           foreground='white',
-                           font=('Segoe UI', 9, 'bold'),
-                           padding=(16, 8),
-                           relief="flat")
-        
-        self.style.map("Primary.TButton",
-                      background=[('active', colors['primary_light']),
-                                ('pressed', colors['primary_dark'])])
-        
-        self.style.configure("Secondary.TButton",
-                           background=colors['secondary'],
-                           foreground='white',
-                           font=('Segoe UI', 9, 'bold'),
-                           padding=(16, 8),
-                           relief="flat")
-        
-        self.style.map("Secondary.TButton",
-                      background=[('active', colors['secondary_light'])])
-        
-        self.style.configure("Danger.TButton",
-                           background=colors['danger'],
-                           foreground='white',
-                           font=('Segoe UI', 9, 'bold'),
-                           padding=(16, 8),
-                           relief="flat")
-        
-        self.style.configure("Outline.TButton",
-                           background=colors['surface'],
-                           foreground=colors['primary'],
-                           font=('Segoe UI', 9),
-                           padding=(12, 6),
-                           relief="solid",
-                           borderwidth=1)
-        
-        # Configure entry styles
-        self.style.configure("Modern.TEntry",
-                           foreground=colors['text'],
-                           font=('Segoe UI', 9),
-                           padding=8,
-                           relief="flat",
-                           borderwidth=1)
-        
-        # Configure combobox styles
-        self.style.configure("Modern.TCombobox",
-                           foreground=colors['text'],
-                           font=('Segoe UI', 9),
-                           padding=8)
-        
-        # Configure progress bar
-        self.style.configure("Modern.Horizontal.TProgressbar",
-                           background=colors['primary'],
-                           troughcolor=colors['surface_alt'],
-                           borderwidth=0,
-                           lightcolor=colors['primary'],
-                           darkcolor=colors['primary'])
-        
-        # Configure section (LabelFrame) styles
-        self.style.configure("Section.TLabelframe",
-                           background=colors['surface'],
-                           bordercolor=colors['border'],
-                           relief="solid",
-                           borderwidth=1)
-
-        self.style.configure("Section.TLabelframe.Label",
-                           background=colors['surface'],
-                           foreground=colors['primary'],
-                           font=('Segoe UI', 9, 'bold'))
-
-        # Configure notebook styles
-        self.style.configure("Modern.TNotebook",
-                           background=colors['background'],
-                           borderwidth=0)
-
-        self.style.configure("Modern.TNotebook.Tab",
-                           background=colors['surface_alt'],
-                           foreground=colors['text'],
-                           font=('Segoe UI', 10, 'bold'),
-                           padding=(20, 10))
-
-        self.style.map("Modern.TNotebook.Tab",
-                      background=[('selected', colors['surface'])],
-                      foreground=[('selected', colors['primary'])])
-
-        # Configure separator
-        self.style.configure("Modern.TSeparator",
-                           background=colors['border'])
-        
-        # Store colors for component access
-        self.colors = colors
-    
     def _build_ui(self):
-        """Build the user interface with modern card-based layout."""
-        from tkinter import ttk
-        
-        # Configure main frame
-        self.configure(background=self.colors['background'])
-        
-        # Main container with padding
-        main_container = ttk.Frame(self, style="Main.TFrame")
-        main_container.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Header with app title
-        header_frame = ttk.Frame(main_container, style="Header.TFrame")
-        header_frame.pack(fill="x", pady=(0, 20))
-        
-        # App icon/title
-        title_container = ttk.Frame(header_frame, style="Header.TFrame")
-        title_container.pack(fill="x", padx=20, pady=15)
-        
-        ttk.Label(title_container, text="🌡️", 
-                 font=('Segoe UI', 24)).pack(side="left")
-        
-        title_frame = ttk.Frame(title_container, style="Header.TFrame")
-        title_frame.pack(side="left", padx=(10, 0))
-        
-        ttk.Label(title_frame, text="Confortímetro Klimaa", 
-                 style="Header.TLabel",
-                 font=('Segoe UI', 18, 'bold')).pack(anchor="w")
-        ttk.Label(title_frame, text="Simulações Personalizadas com EnergyPlus", 
-                 style="Header.TLabel",
-                 font=('Segoe UI', 10)).pack(anchor="w")
-        
-        # Abas: configuração de um lado, execução/log do outro
-        notebook = ttk.Notebook(main_container, style="Modern.TNotebook")
-        notebook.pack(fill="both", expand=True)
-
-        config_tab = ttk.Frame(notebook, style="Main.TFrame", padding=15)
-        notebook.add(config_tab, text="⚙️  Configuração")
-
-        run_tab = ttk.Frame(notebook, style="Main.TFrame", padding=15)
-        notebook.add(run_tab, text="▶️  Execução")
-
-        # --- Aba de configuração ---
-        path_card = self._create_card(config_tab, "📁 Configuração de Caminhos")
-        self.path_panel = PathConfigPanel(path_card, callback=self)
-        self.path_panel.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-
-        sim_card = self._create_card(config_tab, "⚙️ Configuração de Simulação",
-                                     expand=True)
-        self.simulation_panel = SimulationConfigPanel(sim_card, callback=self)
-        self.simulation_panel.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-
-        # --- Aba de execução ---
-        control_card = self._create_card(run_tab, "🎮 Controles")
-        self.control_panel = ControlPanel(control_card, callback=self)
-        self.control_panel.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-
-        results_card = self._create_card(run_tab, "📊 Resultados e Log", expand=True)
-        self.results_panel = ResultsPanel(results_card, callback=self)
-        self.results_panel.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-
-        # Footer
-        footer_frame = ttk.Frame(main_container, style="Main.TFrame")
-        footer_frame.pack(fill="x", pady=(15, 0))
-
-        ttk.Label(footer_frame, text="🌱 Desenvolvido para GAIA - UFPEL",
-                 style="Muted.TLabel").pack(pady=10)
-
-    def _create_card(self, parent, title, expand: bool = False):
-        """Create a card container with title, already packed into `parent`."""
+        """Topbar de execução, parâmetros no meio, log num bottom sheet."""
         from tkinter import ttk
 
-        # Card container
-        card_container = ttk.Frame(parent, style="Main.TFrame")
-        card_container.pack(fill="both" if expand else "x",
-                            expand=expand, pady=(0, 15))
+        container = ttk.Frame(self, style="Main.TFrame")
+        container.pack(fill="both", expand=True, padx=SPACE[5], pady=SPACE[5])
 
-        # Card header
-        header = ttk.Frame(card_container, style="Card.TFrame")
-        header.pack(fill="x")
+        header = ttk.Frame(container, style="Main.TFrame")
+        header.pack(fill="x", pady=(0, SPACE[3]))
+        ttk.Label(header, text="Confortímetro Klimaa",
+                  style="H1.TLabel").pack(anchor="w")
+        ttk.Label(header, text="Simulações personalizadas com EnergyPlus",
+                  style="Sub.TLabel").pack(anchor="w", pady=(SPACE[1], 0))
 
-        ttk.Label(header, text=title, style="Title.TLabel").pack(
-            anchor="w", padx=20, pady=15)
+        # --- Topbar: executar, salvar/carregar e estado da simulação ---
+        topbar = Card(container, pad=SPACE[3])
+        topbar.pack(fill="x", pady=(0, SPACE[4]))
+        self.control_panel = ControlPanel(topbar.body, callback=self)
+        self.control_panel.pack(fill="x")
 
-        # Separator
-        ttk.Separator(card_container, style="Modern.TSeparator").pack(
-            fill="x", padx=20)
+        # --- Parâmetros: caminhos e simulação no mesmo card ---
+        params_card = Card(container, "Parâmetros da simulação")
+        params_card.pack(fill="both", expand=True)
+        params = scrollable(params_card.body)
 
-        # Card content
-        content = ttk.Frame(card_container, style="Card.TFrame")
-        content.pack(fill="both", expand=True)
+        self.path_panel = PathConfigPanel(params, callback=self)
+        self.path_panel.pack(fill="x")
+        ttk.Separator(params, orient="horizontal",
+                      style="Modern.TSeparator").pack(fill="x",
+                                                      pady=(0, SPACE[4]))
+        self.simulation_panel = SimulationConfigPanel(params, callback=self)
+        self.simulation_panel.pack(fill="both", expand=True)
 
-        return content
+        # --- Log: painel inferior colapsável ---
+        self.log_sheet = BottomSheet(container, "Log de execução")
+        self.log_sheet.pack(fill="x", pady=(SPACE[4], 0))
+        self.results_panel = ResultsPanel(self.log_sheet.body, callback=self)
+        self.results_panel.pack(fill="both", expand=True)
+
+        ttk.Label(container, text="Desenvolvido para o GAIA — UFPel",
+                  style="Sub.TLabel").pack(pady=(SPACE[3], 0))
 
     def center_window(self):
         """Center the window on the screen."""
@@ -338,6 +128,8 @@ class MainWindow(tk.Tk):
         self.path_panel.set_epw_path(self.configs.epw_path)
         self.path_panel.set_energy_path(self.configs.energy_path)
         
+        self._refresh_room_options(self.configs.idf_path)
+
         # Update simulation panel
         config_dict = {
             'pmv_lowerbound': self.configs.pmv_lowerbound,
@@ -463,6 +255,11 @@ class MainWindow(tk.Tk):
         """Handle IDF path change."""
         if self.configs:
             self.configs.idf_path = path
+        self._refresh_room_options(path)
+
+    def _refresh_room_options(self, idf_path: str):
+        """Ofereça as zonas do IDF escolhido no seletor de salas."""
+        self.simulation_panel.set_room_options(read_zone_names(idf_path))
     
     def on_output_path_changed(self, path: str):
         """Handle output path change."""
@@ -505,6 +302,7 @@ class MainWindow(tk.Tk):
         
         # Start simulation
         self.control_panel.set_running_state(True)
+        self.log_sheet.set_open(True)
         self.results_panel.append_info("Iniciando simulação...")
         
         # Create queue for communication

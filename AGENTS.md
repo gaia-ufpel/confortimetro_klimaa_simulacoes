@@ -49,15 +49,19 @@ saídas e diagnóstico de erros.
 
 ## Interface gráfica (Tkinter)
 
-`confortimetro/gui/main_window.py` monta um `ttk.Notebook` com duas abas —
-**Configuração** (caminhos + parâmetros de simulação) e **Execução**
-(controles + log). Estilos e paleta ficam só em `_setup_styles`; os painéis
-em `components/` recebem os nomes de estilo prontos e não redefinem cores,
-exceto as de estado (✅/⚠️/❌), que são literais nos painéis.
+`confortimetro/gui/main_window.py` monta uma tela única: topbar de execução
+(`ControlPanel`), card rolável com caminhos + parâmetros (`PathConfigPanel` e
+`SimulationConfigPanel`) e um `BottomSheet` com o log (`ResultsPanel`), que
+abre sozinho quando a simulação começa. Não há abas.
 
-Paleta: `#dad7cd` fundo, `#a3b18a` bordas/texto suave, `#588157` secundário
-e sucesso, `#3a5a40` primário, `#344e41` texto. Erro (`#b3261e`) e aviso
-(`#a06b00`) ficam fora dela de propósito — precisam se distinguir do verde.
+**Cor, fonte, raio, espaçamento e os widgets arredondados ficam só em
+`confortimetro/gui/theme.py`; a razão de cada escolha está em
+[`docs/DESIGN.md`](docs/DESIGN.md)** — leia antes de mexer na aparência. Os
+painéis em `components/` consomem `COLORS`/`SPACE`/`FONTS` e os nomes de
+estilo prontos, e não definem literais próprios.
+
+Tk **não** tem `border-radius`: card, botão e pill de status são desenhados
+num `tk.Canvas` por `theme.rounded_rect`. O resto continua ttk plano.
 
 - **Widget não packado não aparece e não dá erro.** Um card ou painel montado
   mas sem `pack`/`grid` some junto com todos os filhos, silenciosamente. Foi o
@@ -72,14 +76,24 @@ print(a.path_panel.winfo_ismapped(), a.simulation_panel.winfo_ismapped())
 a.destroy()"
 ```
 
-  Painel em aba não selecionada retorna `0` — selecione a aba antes de checar.
+  O log só é mapeado com o `BottomSheet` aberto (`a.log_sheet.set_open(True)`).
+
+- **Painel dentro de card vai em `card.body`, não no `Card`.** O `Card` já usa
+  `pack` para o próprio corpo; empacotar outra coisa nele mistura geometrias.
+
+- **As salas vêm do IDF.** `read_zone_names` (em `confortimetro/idf/processor.py`)
+  lê os nomes de zona do texto do IDF sem eppy nem IDD; `MainWindow._refresh_room_options`
+  alimenta o `ChipSelect`. IDF inválido → lista vazia e campo de texto livre,
+  nunca exceção.
 
 - `SimulationConfigPanel` usa um `ttk.LabelFrame` por seção. Adicionar um campo
   é chamar `_field(section, coluna, rótulo)`; não há numeração global de linhas
   para reajustar. Os nomes dos atributos (`self.*_entry`) são o contrato com
   `get_configuration`/`set_configuration` — renomear um quebra a leitura da
   configuração em silêncio, porque `get_configuration` engole `ValueError` e
-  devolve `{}`.
+  devolve `{}`. Os pares min/max (PMV, temperatura do AC, Clo) passaram a ser
+  `RangeField`, e as salas um `ChipSelect` — os atributos `*_min_entry` /
+  `*_max_entry` seguem existindo, apontando para os campos das pontas.
 
 ## Verificação
 
