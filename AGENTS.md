@@ -48,6 +48,40 @@ saídas e diagnóstico de erros.
 - O pós-processamento assume ano de 2015 e 6 timesteps por hora, e descarta as
   primeiras 288 linhas.
 
+## Interface gráfica (Tkinter)
+
+`confortimetro/gui/main_window.py` monta um `ttk.Notebook` com duas abas —
+**Configuração** (caminhos + parâmetros de simulação) e **Execução**
+(controles + log). Estilos e paleta ficam só em `_setup_styles`; os painéis
+em `components/` recebem os nomes de estilo prontos e não redefinem cores,
+exceto as de estado (✅/⚠️/❌), que são literais nos painéis.
+
+Paleta: `#dad7cd` fundo, `#a3b18a` bordas/texto suave, `#588157` secundário
+e sucesso, `#3a5a40` primário, `#344e41` texto. Erro (`#b3261e`) e aviso
+(`#a06b00`) ficam fora dela de propósito — precisam se distinguir do verde.
+
+- **Widget não packado não aparece e não dá erro.** Um card ou painel montado
+  mas sem `pack`/`grid` some junto com todos os filhos, silenciosamente. Foi o
+  que aconteceu com os quatro painéis até `392abe7`. Depois de mexer no
+  layout, confirme com:
+
+```bash
+.venv/bin/python -c "
+from confortimetro.gui.main_window import MainWindow
+a = MainWindow(); a.update()
+print(a.path_panel.winfo_ismapped(), a.simulation_panel.winfo_ismapped())
+a.destroy()"
+```
+
+  Painel em aba não selecionada retorna `0` — selecione a aba antes de checar.
+
+- `SimulationConfigPanel` usa um `ttk.LabelFrame` por seção. Adicionar um campo
+  é chamar `_field(section, coluna, rótulo)`; não há numeração global de linhas
+  para reajustar. Os nomes dos atributos (`self.*_entry`) são o contrato com
+  `get_configuration`/`set_configuration` — renomear um quebra a leitura da
+  configuração em silêncio, porque `get_configuration` engole `ValueError` e
+  devolve `{}`.
+
 ## Verificação
 
 ```bash
