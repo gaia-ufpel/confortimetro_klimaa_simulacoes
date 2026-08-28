@@ -23,11 +23,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
+      - name: Definir a versão
+        shell: pwsh
+        run: |
+          $projeto = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $versao = $env:GITHUB_REF -replace '^refs/tags/v', ''
+            if ($versao -ne $projeto) {
+              throw "Tag v$versao diverge da version do pyproject.toml ($projeto). Alinhe as duas antes de publicar."
+            }
+          } else {
+            $versao = "$projeto-dev+$($env:GITHUB_SHA.Substring(0,7))"
+          }
+          echo "VERSAO=$versao" >> $env:GITHUB_ENV
+          echo "Versão do build: $versao"
+
       - name: Empacotar (PyInstaller)
         run: pyinstaller packaging/confortimetro.spec --noconfirm
 
       - name: Gerar instalador (Inno Setup)
-        run: iscc packaging\installer.iss
+        run: iscc /DAppVersion=$env:VERSAO packaging\installer.iss
+        shell: pwsh
 
       - uses: actions/upload-artifact@v4
         with:

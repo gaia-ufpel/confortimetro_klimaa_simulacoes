@@ -3,7 +3,11 @@
 ; Instala em %LOCALAPPDATA% -> nao pede permissao de administrador.
 
 #define AppName "Confortimetro Klimaa"
-#define AppVersion "0.1.0"
+; A versao vem do build (iscc /DAppVersion=...), que a tira da tag do git.
+; O valor abaixo so vale para uma compilacao local avulsa.
+#ifndef AppVersion
+  #define AppVersion "0.0.0-dev"
+#endif
 
 [Setup]
 AppId={{2C0B0F2E-6C6F-4B57-9E2E-9E3C2E0A9A11}

@@ -43,6 +43,21 @@ iscc packaging\installer.iss
 O `.exe` do instalador sai em `dist\`. O EnergyPlus **não** é embutido — o
 `pyenergyplus` é carregado em tempo de execução da instalação da máquina.
 
+### Versão
+
+A versão é uma só, a do `version` no `pyproject.toml`. O workflow a lê de lá e
+passa para o Inno Setup (`iscc /DAppVersion=...`), então o número no
+instalador, em *Aplicativos e Recursos* e no nome do arquivo nunca divergem.
+
+- **Release**: crie a tag `v<version>` — `v0.1.0` para `version = "0.1.0"`. Se a
+  tag não bater com o `pyproject.toml`, o build falha de propósito, antes de
+  publicar nada.
+- **Build de teste** (`workflow_dispatch`, sem tag): a versão sai como
+  `0.1.0-dev+<sha curto>`, para não se confundir com uma release.
+
+Publicar uma versão nova: altere o `version` no `pyproject.toml`, commite, e
+crie a tag `v` correspondente.
+
 ## B. Instalação a partir do código
 
 ### 1. Instalar os dois pré-requisitos
