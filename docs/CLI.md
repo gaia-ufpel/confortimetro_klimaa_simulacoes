@@ -1,7 +1,7 @@
 # Execução por linha de comando
 
 Guia para agentes automatizados rodarem as simulações do Confortímetro Klimaa
-sem interface gráfica nem servidor web.
+sem interface gráfica.
 
 ## 1. Pré-requisitos
 
@@ -19,7 +19,7 @@ dependências). Para recriar:
 ```bash
 python -m venv .venv
 .venv/bin/pip install --upgrade pip
-.venv/bin/pip install -r requirements-web.txt
+.venv/bin/pip install -r requirements.txt
 ```
 
 Verificação rápida:
@@ -218,7 +218,6 @@ Atenção: o recorte por período é gerado **apenas para `ATELIE1`**
 |---|---|
 | `cli.py` | Entrada por linha de comando. |
 | `main.py` | Entrada da interface Tkinter. |
-| `bin/run_web.sh` → `confortimetro/web/app.py` | Interface web Flask/Socket.IO. |
 | `confortimetro/simulation.py` | Orquestração do pipeline. |
 | `confortimetro/idf/processor.py` | Modificações no IDF via eppy. |
 | `confortimetro/control/` | Controladores de conforto por timestep. |

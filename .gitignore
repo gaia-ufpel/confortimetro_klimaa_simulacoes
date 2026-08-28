@@ -1,11 +1,9 @@
 # ambientes
 .venv/
-venv_web/
 
 # saídas e arquivos gerados
 outputs/
 logs/
-uploads/
 examples/idf/**/in.idf
 examples/idf/**/expanded.idf
 examples/idf/**/*.err

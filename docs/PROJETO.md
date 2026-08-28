@@ -16,18 +16,17 @@ PMV (Fanger) e o modelo adaptativo ASHRAE 55, ambos lidos/calculados dentro do
 próprio timestep. O resultado é exportado em planilhas Excel por sala, mais
 estatísticas agregadas.
 
-Três entradas para o mesmo pipeline:
+Duas entradas para o mesmo pipeline:
 
 | Interface | Comando | Uso |
 |---|---|---|
 | CLI (headless) | `.venv/bin/python cli.py` | Automação, execuções longas, agentes. |
 | Desktop Tkinter | `python main.py` | Uso interativo local. |
-| Web Flask/Socket.IO | `./bin/run_web.sh` | Upload de IDF/EPW, progresso ao vivo, ZIP dos resultados. |
 
 ## 2. Arquitetura
 
 ```text
-config.json / GUI / formulário web
+config.json / GUI
         │
         v
  SimulationConfig  (dataclass; deriva input_path, expanded_idf_path, met_as_watts)
@@ -62,9 +61,8 @@ Fluxograma do condicionador:
 | `confortimetro/results/` | Pós-processamento: `excel.py` (ESO → planilha), `stats.py`, `periods.py` (recortes sazonais), `plots.py`. |
 | `confortimetro/module_type.py` | Enum `ModuleType`. |
 | `confortimetro/gui/` | Janela e painéis Tkinter (caminhos, parâmetros, controles, resultados). |
-| `confortimetro/web/` | Flask + Socket.IO, upload, sessões e adaptador `WebSimulationManager`. |
 | `examples/` | `config.json`, IDFs (`idf/`) e EPWs (`epw/`) de referência. |
-| `bin/` | `install.sh`/`install.bat`, `executar.bat`, `run_web.sh`. |
+| `bin/` | `install.sh`/`install.bat`, `executar.bat`. |
 | `scripts/generate_flowchart.py` | Gera o fluxograma da documentação. |
 | `docs/material/`, `docs/backups/` | PDFs do EnergyPlus e versões antigas em notebook; fora do versionamento. |
 
@@ -74,7 +72,7 @@ Fluxograma do condicionador:
 |---|---|
 | Python | 3.10+ (o código usa `list[str]`, `dict[str, int]`). |
 | EnergyPlus | 9.4. `energy_path` precisa conter `Energy+.idd`, `ExpandObjects` (`.exe` no Windows) e o pacote `pyenergyplus`. Padrões por plataforma em `default_energy_path()`: `/usr/local/EnergyPlus-9-4-0`, `C:\EnergyPlusV9-4-0`, `/Applications/EnergyPlus-9-4-0`. |
-| Dependências | `requirements.txt` (raiz; `pip install -e .` usa o mesmo arquivo via `pyproject.toml`): eppy, numpy, pandas, pythermalcomfort, dataclasses-json, ladybug-comfort, esoreader, matplotlib, openpyxl. A web adiciona `requirements-web.txt` (Flask, Flask-SocketIO, pytest). |
+| Dependências | `requirements.txt` (raiz; `pip install -e .` usa o mesmo arquivo via `pyproject.toml`): eppy, numpy, pandas, pythermalcomfort, dataclasses-json, ladybug-comfort, esoreader, matplotlib, openpyxl. |
 | Tkinter | Só para a interface desktop. |
 | IDF | Precisa conter as zonas de `rooms`, `PEOPLE_<ZONA>`, o PTHP `<ZONA> PTHP` e aceitar os schedules de controle (seção 6). |
 
@@ -85,14 +83,10 @@ Instalação:
 ./bin/install.sh            # cria .venv e instala requirements.txt
 # Windows
 bin\install.bat             # idem; depois bin\executar.bat abre a GUI
-# Web (venv separada, venv_web)
-./bin/run_web.sh install
 ```
 
 Para importar `confortimetro` de fora da raiz do repositório:
 `.venv/bin/pip install -e .`.
-
-`bin/run_web.sh` também aceita `start` (padrão), `test`, `clean` e `help`.
 
 ## 4. Configuração
 
@@ -259,27 +253,6 @@ consome uma `Queue` para o log. O botão **Parar** chama `Simulation.stop()`,
 que pede o encerramento à API do EnergyPlus (`request_stop`); o encerramento
 não é imediato.
 
-### Web (Flask + Socket.IO)
-
-`./bin/run_web.sh` → `confortimetro/web/app.py`, em `http://localhost:5000`.
-
-| Rota | Função |
-|---|---|
-| `GET /` | Página e criação da sessão. |
-| `GET` / `POST /api/config` | Lê e atualiza a configuração da sessão. |
-| `POST /api/upload` | Recebe `file` + `type` (`idf`/`epw`); só `.idf` e `.epw`, até 50 MiB, salvos em `uploads/` com nome aleatório. |
-| `POST /api/simulation/start` | Inicia a simulação em thread. |
-| `POST /api/simulation/stop` | Solicita parada. |
-| `GET /api/simulation/status` | Estado em memória. |
-| `GET /api/simulation/download` | ZIP das saídas da sessão. |
-
-Eventos Socket.IO: `connected`, `simulation_message`, `simulation_finished`,
-`ping`/`pong`.
-
-`WebSimulationManager` (`confortimetro/web/simulation_integration.py`) copia o IDF para um
-diretório temporário por sessão antes de rodar — a web, ao contrário do
-desktop/CLI, não modifica o arquivo original.
-
 ## 9. Testes
 
 ```bash
@@ -292,7 +265,6 @@ desktop/CLI, não modifica o arquivo original.
 | `tests/test_clo_priority.py` | Escolha do clo com PMV mais próximo de zero e validação de `clo_delta`/`clo_min`. |
 | `tests/test_pmv_fast.py` | Equivalência e cache do PMV rápido. |
 | `tests/test_error_reporting.py` | Erros que devem abortar (handlers faltando, exceção no callback, ESO truncado). |
-| `tests/web/` | Rotas Flask, upload, Socket.IO e o contrato com `Simulation.run(queue)` usando um simulador de teste. |
 
 ## 10. Armadilhas conhecidas
 
@@ -307,8 +279,6 @@ desktop/CLI, não modifica o arquivo original.
 - **Sempre execute a partir da raiz** (os caminhos padrão da configuração são relativos; para importar de fora, `pip install -e .`).
 - **Sem streaming de progresso no CLI**: as mensagens saem da `Queue` no final;
   o sinal de vida é o stdout do próprio EnergyPlus.
-- **Servidor web roda com `debug=True`**: não exponha em rede pública sem
-  alterar isso.
 - **`ATELIE1` e as datas de 2015 são hardcoded** no pós-processamento.
 
 ## 11. Convenções de desenvolvimento
@@ -332,11 +302,11 @@ Retrato do repositório no commit `2535046`, após a reorganização de pastas.
 
 | Item | Situação |
 |---|---|
-| Pipeline de simulação | Funcional pelas três entradas (CLI, Tkinter, web), todas sobre o mesmo `Simulation.run(queue)`. |
+| Pipeline de simulação | Funcional pelas duas entradas (CLI e Tkinter), ambas sobre o mesmo `Simulation.run(queue)`. |
 | Módulos de condicionamento | Os quatro implementados e registrados em `MODULES_MAPPER`. |
 | Relato de erros | Handlers ausentes, exceção no callback, código de saída do EnergyPlus, `eplusout.end`, séries truncadas e falha de escrita das planilhas abortam a execução com mensagem. |
-| Testes | `pytest tests` → 22 passando (conforto/clo, PMV rápido, relato de erros, rotas e contrato da web). |
-| Empacotamento | `pyproject.toml` com `pip install -e .`; dependências em `requirements.txt` e `requirements-web.txt`. |
+| Testes | `pytest tests` → 17 passando (conforto/clo, PMV rápido, relato de erros). |
+| Empacotamento | `pyproject.toml` com `pip install -e .`; dependências em `requirements.txt`. |
 | Documentação | Esta página, `CLI.md` e `WINDOWS.md` conferidas contra o código. |
 
 Tamanho do código: ~4 500 linhas Python em `confortimetro/` e `tests/`.
@@ -347,19 +317,16 @@ Nenhuma bloqueia o uso atual; estão em ordem aproximada de impacto.
 
 1. `ATELIE1` e as datas de 2015 continuam hardcoded no pós-processamento
    (`results/periods.py` e os parâmetros padrão de `summary_rooms_results_from_eso`).
-2. `confortimetro/web/app.py` sobe com `debug=True` e `host='0.0.0.0'` — trocar
-   antes de expor o servidor fora da máquina local.
-3. O IDF de entrada é modificado no lugar pelo CLI e pela GUI; só a interface
-   web trabalha sobre cópia. Adotar a cópia por execução nos três caminhos
-   resolveria também a colisão entre execuções paralelas.
-4. Sem streaming de progresso no CLI: as mensagens da `Queue` só são impressas
+2. O IDF de entrada é modificado no lugar pelo CLI e pela GUI. Adotar uma
+   cópia por execução resolveria também a colisão entre execuções paralelas.
+3. Sem streaming de progresso no CLI: as mensagens da `Queue` só são impressas
    ao final.
-5. Os meses de inverno (6 a 9) e o limite `ac_on_max_timesteps = 12` são
+4. Os meses de inverno (6 a 9) e o limite `ac_on_max_timesteps = 12` são
    constantes de código, não configuração.
 
 ### Fora do versionamento
 
-`.venv/`, `venv_web/`, `outputs/` (165 execuções acumuladas na máquina de
-desenvolvimento), `logs/`, `uploads/`, `docs/material/` (PDFs do EnergyPlus),
+`.venv/`, `outputs/` (165 execuções acumuladas na máquina de
+desenvolvimento), `logs/`, `docs/material/` (PDFs do EnergyPlus),
 `docs/backups/` (notebooks antigos) e os `in.idf`/`expanded.idf`/`*.err`
 gerados dentro de `examples/idf/`.

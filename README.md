@@ -6,12 +6,11 @@ durante a simulação e transforma os resultados em planilhas Excel.
 
 ## Estado do projeto
 
-O código vive no pacote `confortimetro/` e as três entradas — CLI, desktop
-Tkinter e web — rodam o mesmo `Simulation.run(queue)`. A web recebe IDF/EPW por
-upload, isola os arquivos de cada sessão numa cópia temporária e oferece o ZIP
-dos resultados ao final; CLI e desktop modificam o IDF de entrada no lugar.
+O código vive no pacote `confortimetro/` e as duas entradas — CLI e desktop
+Tkinter — rodam o mesmo `Simulation.run(queue)`. Ambas modificam o IDF de
+entrada no lugar.
 
-`pytest tests` passa com 22 testes. O retrato detalhado do que está pronto e
+`pytest tests` passa com 17 testes. O retrato detalhado do que está pronto e
 das pendências conhecidas está na seção *Estado atual* de
 [`docs/PROJETO.md`](docs/PROJETO.md#12-estado-atual-28082026).
 
@@ -21,8 +20,7 @@ das pendências conhecidas está na seção *Estado atual* de
    `Energy+.idd`, `ExpandObjects` e a API `pyenergyplus`.
 2. Crie o ambiente e instale as dependências com `./bin/install.sh` (Linux/macOS)
    ou `bin\install.bat` (Windows); ambos usam
-   [`requirements.txt`](requirements.txt). A interface web tem a própria venv
-   (`./bin/run_web.sh install`, com [`requirements-web.txt`](requirements-web.txt)).
+   [`requirements.txt`](requirements.txt).
 3. Ajuste [`examples/config.json`](examples/config.json) para os caminhos da
    sua máquina e para as zonas do seu IDF.
 4. Execute:
@@ -49,24 +47,12 @@ Passo a passo e como o instalador é gerado em
 Guia completo para automação e agentes em
 [`docs/CLI.md`](docs/CLI.md).
 
-## Interface web
-
-Com o EnergyPlus instalado e o caminho informado na página, execute:
-
-```bash
-./bin/run_web.sh
-```
-
-Abra `http://localhost:5000`, envie o IDF e o EPW, informe o diretório do
-EnergyPlus e clique em **Executar Simulação**. A aplicação usa cópias do IDF
-em diretórios temporários por sessão; ao terminar, use **Baixar Resultados**.
-
 ## Documentação
 
 O guia técnico completo está em
 [`docs/PROJETO.md`](docs/PROJETO.md): arquitetura e mapa de
 código, requisitos, todos os campos de configuração, algoritmo de controle
-timestep a timestep, requisitos do IDF, saídas, as três interfaces, testes,
+timestep a timestep, requisitos do IDF, saídas, as duas interfaces, testes,
 armadilhas e convenções.
 
 - [`docs/CLI.md`](docs/CLI.md) — execução headless e
@@ -78,7 +64,7 @@ armadilhas e convenções.
 ```text
 cli.py                      entrada por linha de comando (headless)
 main.py                     entrada da interface desktop
-bin/                        install.sh/.bat, executar.bat, run_web.sh
+bin/                        install.sh/.bat, executar.bat
 confortimetro/
   config.py                 SimulationConfig e faixas do modelo adaptativo
   module_type.py            enum ModuleType
@@ -87,8 +73,7 @@ confortimetro/
   control/                  controladores de conforto por zona (base + 4 módulos)
   results/                  planilhas, estatísticas, recortes sazonais, gráficos
   gui/                      interface Tkinter
-  web/                      interface Flask/Socket.IO
-tests/                      testes do núcleo; tests/web para a interface web
+tests/                      testes do núcleo
 examples/                   config.json, IDFs e EPWs de referência
 docs/                       documentação (material/ e backups/ ficam fora do git)
 scripts/                    utilitários de desenvolvimento
@@ -101,6 +86,5 @@ scripts/                    utilitários de desenvolvimento
 .venv/bin/python -m pytest tests -q
 ```
 
-Os comandos verificam a sintaxe, a lógica de conforto (clo, PMV, relato de
-erros) e as rotas, uploads, Socket.IO e o contrato entre a interface web e o
-pipeline de simulação.
+Os comandos verificam a sintaxe e a lógica de conforto (clo, PMV, relato de
+erros).

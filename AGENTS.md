@@ -12,7 +12,6 @@ Sempre a partir da raiz do repositório, com o venv do projeto:
 .venv/bin/python cli.py --set output_path=./outputs/run_001   # headless (CLI)
 .venv/bin/python cli.py --print-config                        # valida sem simular
 python main.py                                                # GUI Tkinter
-./bin/run_web.sh                                                  # interface web
 ```
 
 No Windows o usuário final usa o instalador

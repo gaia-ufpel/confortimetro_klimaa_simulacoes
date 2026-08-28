@@ -35,7 +35,7 @@ a = Analysis(
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
-    excludes=["flask", "pytest"],
+    excludes=["pytest"],
     noarchive=False,
 )
 
