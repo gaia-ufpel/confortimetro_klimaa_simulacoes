@@ -91,10 +91,10 @@ begin
   if Found = '' then
   begin
     // Uma linha nao pode comecar com #13#10: o preprocessador leria o '#'
-    // como diretiva. Por isso as quebras usam SLineBreak no fim da linha.
-    if MsgBox('O EnergyPlus 9.4 nao foi encontrado nesta maquina.' + SLineBreak + SLineBreak +
+    // como diretiva. Por isso as quebras ficam no fim da linha.
+    if MsgBox('O EnergyPlus 9.4 nao foi encontrado nesta maquina.' + #13#10 + #13#10 +
               'A instalacao do Confortimetro continua, mas para simular e ' +
-              'preciso instalar o EnergyPlus 9.4.' + SLineBreak + SLineBreak +
+              'preciso instalar o EnergyPlus 9.4.' + #13#10 + #13#10 +
               'Abrir agora a pagina de download?',
               mbConfirmation, MB_YESNO) = IDYES then
       ShellExec('open',
@@ -102,7 +102,7 @@ begin
                 '', '', SW_SHOW, ewNoWait, ErrorCode);
   end
   else if Pos('V9-4', Found) = 0 then
-    MsgBox('Foi encontrado o EnergyPlus em:' + SLineBreak + Found + SLineBreak + SLineBreak +
+    MsgBox('Foi encontrado o EnergyPlus em:' + #13#10 + Found + #13#10 + #13#10 +
            'O programa espera a versao 9.4 e a simulacao pode falhar com ' +
            'outra versao.', mbInformation, MB_OK);
 end;
