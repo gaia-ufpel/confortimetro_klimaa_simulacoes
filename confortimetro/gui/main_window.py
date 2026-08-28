@@ -58,24 +58,25 @@ class MainWindow(tk.Tk):
         self.style.theme_use("clam")  # Better base theme
         
         # Color palette - Modern blue/green theme
+        # Paleta verde/terra do projeto
         colors = {
-            'primary': '#2563eb',      # Blue 600
-            'primary_light': '#3b82f6', # Blue 500
-            'primary_dark': '#1d4ed8',  # Blue 700
-            'secondary': '#10b981',     # Emerald 500
-            'secondary_light': '#34d399', # Emerald 400
-            'accent': '#f59e0b',        # Amber 500
-            'danger': '#ef4444',        # Red 500
-            'success': '#22c55e',       # Green 500
-            'warning': '#f59e0b',       # Amber 500
-            'background': '#f8f9fa',    # Gray 50
-            'surface': '#ffffff',       # White
-            'surface_alt': '#f1f5f9',   # Slate 100
-            'text': '#1e293b',          # Slate 800
-            'text_muted': '#64748b',    # Slate 500
-            'border': '#e2e8f0',        # Slate 200
+            'primary': '#3a5a40',       # Verde escuro
+            'primary_light': '#588157', # Verde
+            'primary_dark': '#344e41',  # Verde muito escuro
+            'secondary': '#588157',     # Verde
+            'secondary_light': '#a3b18a', # Sage
+            'accent': '#a3b18a',        # Sage
+            'danger': '#b3261e',        # Vermelho (semantico, fora da paleta)
+            'success': '#588157',       # Verde
+            'warning': '#a06b00',       # Ambar (semantico, fora da paleta)
+            'background': '#dad7cd',    # Areia
+            'surface': '#ffffff',       # Branco
+            'surface_alt': '#dad7cd',   # Areia
+            'text': '#344e41',          # Verde muito escuro
+            'text_muted': '#588157',    # Verde
+            'border': '#a3b18a',        # Sage
         }
-        
+
         # Configure frame styles
         self.style.configure("Main.TFrame", 
                            background=colors['background'])
@@ -169,6 +170,33 @@ class MainWindow(tk.Tk):
                            lightcolor=colors['primary'],
                            darkcolor=colors['primary'])
         
+        # Configure section (LabelFrame) styles
+        self.style.configure("Section.TLabelframe",
+                           background=colors['surface'],
+                           bordercolor=colors['border'],
+                           relief="solid",
+                           borderwidth=1)
+
+        self.style.configure("Section.TLabelframe.Label",
+                           background=colors['surface'],
+                           foreground=colors['primary'],
+                           font=('Segoe UI', 9, 'bold'))
+
+        # Configure notebook styles
+        self.style.configure("Modern.TNotebook",
+                           background=colors['background'],
+                           borderwidth=0)
+
+        self.style.configure("Modern.TNotebook.Tab",
+                           background=colors['surface_alt'],
+                           foreground=colors['text'],
+                           font=('Segoe UI', 10, 'bold'),
+                           padding=(20, 10))
+
+        self.style.map("Modern.TNotebook.Tab",
+                      background=[('selected', colors['surface'])],
+                      foreground=[('selected', colors['primary'])])
+
         # Configure separator
         self.style.configure("Modern.TSeparator",
                            background=colors['border'])
@@ -208,69 +236,68 @@ class MainWindow(tk.Tk):
                  style="Header.TLabel",
                  font=('Segoe UI', 10)).pack(anchor="w")
         
-        # Content area with scrollable frame if needed
-        content_frame = ttk.Frame(main_container, style="Main.TFrame")
-        content_frame.pack(fill="both", expand=True)
-        
-        # Path configuration card
-        path_card = self._create_card(content_frame, "📁 Configuração de Caminhos")
-        path_card.pack(fill="x", pady=(0, 15))
-        
+        # Abas: configuração de um lado, execução/log do outro
+        notebook = ttk.Notebook(main_container, style="Modern.TNotebook")
+        notebook.pack(fill="both", expand=True)
+
+        config_tab = ttk.Frame(notebook, style="Main.TFrame", padding=15)
+        notebook.add(config_tab, text="⚙️  Configuração")
+
+        run_tab = ttk.Frame(notebook, style="Main.TFrame", padding=15)
+        notebook.add(run_tab, text="▶️  Execução")
+
+        # --- Aba de configuração ---
+        path_card = self._create_card(config_tab, "📁 Configuração de Caminhos")
         self.path_panel = PathConfigPanel(path_card, callback=self)
         self.path_panel.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-        
-        # Simulation configuration card
-        sim_card = self._create_card(content_frame, "⚙️ Configuração de Simulação")
-        sim_card.pack(fill="both", expand=True, pady=(0, 15))
-        
+
+        sim_card = self._create_card(config_tab, "⚙️ Configuração de Simulação",
+                                     expand=True)
         self.simulation_panel = SimulationConfigPanel(sim_card, callback=self)
         self.simulation_panel.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-        
-        # Control panel card
-        control_card = self._create_card(content_frame, "🎮 Controles")
-        control_card.pack(fill="x", pady=(0, 15))
-        
+
+        # --- Aba de execução ---
+        control_card = self._create_card(run_tab, "🎮 Controles")
         self.control_panel = ControlPanel(control_card, callback=self)
         self.control_panel.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-        
-        # Results card
-        results_card = self._create_card(content_frame, "📊 Resultados e Log")
-        results_card.pack(fill="both", expand=True)
-        
+
+        results_card = self._create_card(run_tab, "📊 Resultados e Log", expand=True)
         self.results_panel = ResultsPanel(results_card, callback=self)
         self.results_panel.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-        
+
         # Footer
         footer_frame = ttk.Frame(main_container, style="Main.TFrame")
         footer_frame.pack(fill="x", pady=(15, 0))
-        
-        ttk.Label(footer_frame, text="🌱 Desenvolvido para GAIA - UFPEL", 
+
+        ttk.Label(footer_frame, text="🌱 Desenvolvido para GAIA - UFPEL",
                  style="Muted.TLabel").pack(pady=10)
-    
-    def _create_card(self, parent, title):
-        """Create a card container with title."""
+
+    def _create_card(self, parent, title, expand: bool = False):
+        """Create a card container with title, already packed into `parent`."""
         from tkinter import ttk
-        
+
         # Card container
         card_container = ttk.Frame(parent, style="Main.TFrame")
-        
+        card_container.pack(fill="both" if expand else "x",
+                            expand=expand, pady=(0, 15))
+
         # Card header
         header = ttk.Frame(card_container, style="Card.TFrame")
         header.pack(fill="x")
-        
+
         ttk.Label(header, text=title, style="Title.TLabel").pack(
             anchor="w", padx=20, pady=15)
-        
+
         # Separator
         ttk.Separator(card_container, style="Modern.TSeparator").pack(
             fill="x", padx=20)
-        
+
         # Card content
         content = ttk.Frame(card_container, style="Card.TFrame")
         content.pack(fill="both", expand=True)
-        
+
         return content
-    
+
     def center_window(self):
         """Center the window on the screen."""
         self.update_idletasks()

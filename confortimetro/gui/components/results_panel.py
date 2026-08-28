@@ -83,7 +83,7 @@ class ResultsPanel(ttk.Frame):
             wrap="word",
             font=('Consolas', 9),
             background="#ffffff",
-            foreground="#1e293b",
+            foreground="#344e41",
             relief="flat",
             borderwidth=0
         )
@@ -91,19 +91,19 @@ class ResultsPanel(ttk.Frame):
         
         # Configure text tags for different message types with modern colors
         self.results_text.tag_configure("info", 
-                                       foreground="#3b82f6", 
+                                       foreground="#3a5a40", 
                                        font=('Consolas', 9))
         self.results_text.tag_configure("warning", 
-                                       foreground="#f59e0b", 
+                                       foreground="#a06b00", 
                                        font=('Consolas', 9, 'bold'))
         self.results_text.tag_configure("error", 
-                                       foreground="#ef4444", 
+                                       foreground="#b3261e", 
                                        font=('Consolas', 9, 'bold'))
         self.results_text.tag_configure("success", 
-                                       foreground="#22c55e", 
+                                       foreground="#588157", 
                                        font=('Consolas', 9, 'bold'))
         self.results_text.tag_configure("timestamp", 
-                                       foreground="#64748b", 
+                                       foreground="#a3b18a", 
                                        font=('Consolas', 8))
         
         # Status bar

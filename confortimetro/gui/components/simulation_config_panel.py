@@ -28,152 +28,107 @@ class SimulationConfigPanel(ttk.Frame):
         self._build_ui()
     
     def _build_ui(self):
-        """Build the UI components."""
-        # PMV configuration
+        """Build the UI components, one LabelFrame per logical section."""
         self._build_pmv_section()
-        
-        # Temperature and environment section
         self._build_temperature_section()
-        
-        # Comfort and air quality section
         self._build_comfort_section()
-        
-        # Clothing section
         self._build_clothing_section()
-        
-        # Rooms and module section
         self._build_rooms_module_section()
-    
+
+    def _section(self, title: str) -> ttk.LabelFrame:
+        """Create a titled section that stretches with the window."""
+        frame = ttk.LabelFrame(self, text=title, style="Section.TLabelframe",
+                               padding=10)
+        frame.pack(fill="x", pady=(0, 10))
+        for column in range(4):
+            frame.columnconfigure(column, weight=1, uniform="fields")
+        return frame
+
+    def _field(self, parent, column: int, label: str) -> ttk.Entry:
+        """Create a labeled entry in `column` of `parent`."""
+        ttk.Label(parent, text=label, style="Body.TLabel").grid(
+            row=0, column=column, padx=5, pady=(0, 2), sticky="w")
+        entry = ttk.Entry(parent, style="Modern.TEntry")
+        entry.grid(row=1, column=column, padx=5, pady=2, sticky="ew")
+        entry.bind('<FocusOut>', self._on_config_changed)
+        return entry
+
     def _build_pmv_section(self):
         """Build PMV configuration section."""
-        # PMV lowerbound
-        ttk.Label(self, text="PMV Min:").grid(row=0, column=0, padx=5, pady=2, sticky="w")
-        self.pmv_lowerbound_entry = ttk.Entry(self, width=10)
-        self.pmv_lowerbound_entry.grid(row=1, column=0, padx=5, pady=2)
-        self.pmv_lowerbound_entry.bind('<FocusOut>', self._on_config_changed)
-        
-        # PMV upperbound
-        ttk.Label(self, text="PMV Max:").grid(row=0, column=1, padx=5, pady=2, sticky="w")
-        self.pmv_upperbound_entry = ttk.Entry(self, width=10)
-        self.pmv_upperbound_entry.grid(row=1, column=1, padx=5, pady=2)
-        self.pmv_upperbound_entry.bind('<FocusOut>', self._on_config_changed)
-        
-        # Velocity max
-        ttk.Label(self, text="Velocidade Max:").grid(row=0, column=2, padx=5, pady=2, sticky="w")
-        self.vel_max_entry = ttk.Entry(self, width=10)
-        self.vel_max_entry.grid(row=1, column=2, padx=5, pady=2)
-        self.vel_max_entry.bind('<FocusOut>', self._on_config_changed)
-        
-        # Adaptative
-        ttk.Label(self, text="Margem Adaptativo:").grid(row=0, column=3, padx=5, pady=2, sticky="w")
+        section = self._section("Conforto PMV")
+
+        self.pmv_lowerbound_entry = self._field(section, 0, "PMV Min:")
+        self.pmv_upperbound_entry = self._field(section, 1, "PMV Max:")
+        self.vel_max_entry = self._field(section, 2, "Velocidade Max:")
+
+        ttk.Label(section, text="Margem Adaptativo:", style="Body.TLabel").grid(
+            row=0, column=3, padx=5, pady=(0, 2), sticky="w")
         self.selected_adaptative = tk.StringVar()
-        self.cbx_adaptative = ttk.Combobox(self, textvariable=self.selected_adaptative, width=10)
+        self.cbx_adaptative = ttk.Combobox(
+            section, textvariable=self.selected_adaptative,
+            style="Modern.TCombobox")
         self.cbx_adaptative["values"] = ("80%", "90%")
         self.cbx_adaptative["state"] = "readonly"
-        self.cbx_adaptative.grid(row=1, column=3, padx=5, pady=2)
+        self.cbx_adaptative.grid(row=1, column=3, padx=5, pady=2, sticky="ew")
         self.cbx_adaptative.bind('<<ComboboxSelected>>', self._on_config_changed)
-    
+
     def _build_temperature_section(self):
         """Build temperature configuration section."""
-        # Temperature ac min
-        ttk.Label(self, text="Temperatura AC Min:").grid(row=2, column=0, padx=5, pady=2, sticky="w")
-        self.temp_ac_min_entry = ttk.Entry(self, width=10)
-        self.temp_ac_min_entry.grid(row=3, column=0, padx=5, pady=2)
-        self.temp_ac_min_entry.bind('<FocusOut>', self._on_config_changed)
-        
-        # Temperature ac max
-        ttk.Label(self, text="Temperatura AC Max:").grid(row=2, column=1, padx=5, pady=2, sticky="w")
-        self.temp_ac_max_entry = ttk.Entry(self, width=10)
-        self.temp_ac_max_entry.grid(row=3, column=1, padx=5, pady=2)
-        self.temp_ac_max_entry.bind('<FocusOut>', self._on_config_changed)
-        
-        # Met
-        ttk.Label(self, text="Met:").grid(row=2, column=2, padx=5, pady=2, sticky="w")
-        self.met_entry = ttk.Entry(self, width=10)
-        self.met_entry.grid(row=3, column=2, padx=5, pady=2)
-        self.met_entry.bind('<FocusOut>', self._on_config_changed)
-        
-        # Wme
-        ttk.Label(self, text="Wme:").grid(row=2, column=3, padx=5, pady=2, sticky="w")
-        self.wme_entry = ttk.Entry(self, width=10)
-        self.wme_entry.grid(row=3, column=3, padx=5, pady=2)
-        self.wme_entry.bind('<FocusOut>', self._on_config_changed)
-    
+        section = self._section("Condicionamento e metabolismo")
+
+        self.temp_ac_min_entry = self._field(section, 0, "Temperatura AC Min:")
+        self.temp_ac_max_entry = self._field(section, 1, "Temperatura AC Max:")
+        self.met_entry = self._field(section, 2, "Met:")
+        self.wme_entry = self._field(section, 3, "Wme:")
+
     def _build_comfort_section(self):
         """Build comfort configuration section."""
-        # Comfort bound
-        ttk.Label(self, text="Banda de conforto:").grid(row=4, column=0, padx=5, pady=2, sticky="w")
-        self.comfort_bound_entry = ttk.Entry(self, width=10)
-        self.comfort_bound_entry.grid(row=5, column=0, padx=5, pady=2)
-        self.comfort_bound_entry.bind('<FocusOut>', self._on_config_changed)
-        
-        # CO2 limit
-        ttk.Label(self, text="Limite CO2:").grid(row=4, column=1, padx=5, pady=2, sticky="w")
-        self.co2_limit_entry = ttk.Entry(self, width=10)
-        self.co2_limit_entry.grid(row=5, column=1, padx=5, pady=2)
-        self.co2_limit_entry.bind('<FocusOut>', self._on_config_changed)
-        
-        # Air speed delta
-        ttk.Label(self, text="Variação da vel. ventilação:").grid(row=4, column=2, padx=5, pady=2, sticky="w")
-        self.air_speed_delta_entry = ttk.Entry(self, width=10)
-        self.air_speed_delta_entry.grid(row=5, column=2, padx=5, pady=2)
-        self.air_speed_delta_entry.bind('<FocusOut>', self._on_config_changed)
-        
-        # Temp open window bound
-        ttk.Label(self, text="Margem temp. abertura janela:").grid(row=4, column=3, padx=5, pady=2, sticky="w")
-        self.temp_open_window_bound_entry = ttk.Entry(self, width=10)
-        self.temp_open_window_bound_entry.grid(row=5, column=3, padx=5, pady=2)
-        self.temp_open_window_bound_entry.bind('<FocusOut>', self._on_config_changed)
-    
+        section = self._section("Conforto e qualidade do ar")
+
+        self.comfort_bound_entry = self._field(section, 0, "Banda de conforto:")
+        self.co2_limit_entry = self._field(section, 1, "Limite CO2:")
+        self.air_speed_delta_entry = self._field(
+            section, 2, "Variação da vel. ventilação:")
+        self.temp_open_window_bound_entry = self._field(
+            section, 3, "Margem temp. abertura janela:")
+
     def _build_clothing_section(self):
         """Build clothing configuration section."""
-        # Clo min
-        ttk.Label(self, text="Clo mínimo:").grid(row=6, column=0, padx=5, pady=2, sticky="w")
-        self.clo_min_entry = ttk.Entry(self, width=10)
-        self.clo_min_entry.grid(row=7, column=0, padx=5, pady=2)
-        self.clo_min_entry.bind('<FocusOut>', self._on_config_changed)
-        
-        # Clo max
-        ttk.Label(self, text="Clo máximo:").grid(row=6, column=1, padx=5, pady=2, sticky="w")
-        self.clo_max_entry = ttk.Entry(self, width=10)
-        self.clo_max_entry.grid(row=7, column=1, padx=5, pady=2)
-        self.clo_max_entry.bind('<FocusOut>', self._on_config_changed)
-        
-        # Clo delta
-        ttk.Label(self, text="Variação do Clo:").grid(row=6, column=2, padx=5, pady=2, sticky="w")
-        self.clo_delta_entry = ttk.Entry(self, width=10)
-        self.clo_delta_entry.grid(row=7, column=2, padx=5, pady=2)
-        self.clo_delta_entry.bind('<FocusOut>', self._on_config_changed)
+        section = self._section("Vestimenta (Clo)")
+
+        self.clo_min_entry = self._field(section, 0, "Clo mínimo:")
+        self.clo_max_entry = self._field(section, 1, "Clo máximo:")
+        self.clo_delta_entry = self._field(section, 2, "Variação do Clo:")
 
         # Prioridade do Clo sobre os equipamentos
         self.clo_priority_var = tk.BooleanVar(value=True)
         self.clo_priority_check = ttk.Checkbutton(
-            self, text="Ajustar Clo antes dos equipamentos",
+            section, text="Ajustar Clo antes dos equipamentos",
             variable=self.clo_priority_var, command=self._on_config_changed)
-        self.clo_priority_check.grid(row=7, column=3, padx=5, pady=2, sticky="w")
-    
+        self.clo_priority_check.grid(row=1, column=3, padx=5, pady=2, sticky="w")
+
     def _build_rooms_module_section(self):
         """Build rooms and module configuration section."""
-        # Rooms
-        ttk.Label(self, text="Salas:").grid(row=8, column=0, padx=5, pady=2, sticky="w")
-        self.rooms_entry = ttk.Entry(self, width=50)
-        self.rooms_entry.grid(row=8, column=1, columnspan=3, padx=5, pady=2, sticky="ew")
+        section = self._section("Zonas e módulo de condicionamento")
+
+        ttk.Label(section, text="Salas:", style="Body.TLabel").grid(
+            row=0, column=0, padx=5, pady=2, sticky="w")
+        self.rooms_entry = ttk.Entry(section, style="Modern.TEntry")
+        self.rooms_entry.grid(row=0, column=1, columnspan=3, padx=5, pady=2,
+                              sticky="ew")
         self.rooms_entry.bind('<FocusOut>', self._on_config_changed)
-        
-        # Module Type
-        ttk.Label(self, text="Módulo:").grid(row=9, column=0, padx=5, pady=2, sticky="w")
+
+        ttk.Label(section, text="Módulo:", style="Body.TLabel").grid(
+            row=1, column=0, padx=5, pady=2, sticky="w")
         self.selected_module = tk.StringVar()
-        self.cbx_module = ttk.Combobox(self, textvariable=self.selected_module, width=30)
+        self.cbx_module = ttk.Combobox(section, textvariable=self.selected_module,
+                                       style="Modern.TCombobox")
         self.cbx_module["values"] = [m.value for m in MODULES_MAPPER.keys()]
         self.cbx_module["state"] = "readonly"
-        self.cbx_module.grid(row=9, column=1, columnspan=3, padx=5, pady=2, sticky="ew")
+        self.cbx_module.grid(row=1, column=1, columnspan=3, padx=5, pady=2,
+                             sticky="ew")
         self.cbx_module.bind('<<ComboboxSelected>>', self._on_config_changed)
-        
-        # Configure column weights for responsiveness
-        self.columnconfigure(1, weight=1)
-        self.columnconfigure(2, weight=1)
-        self.columnconfigure(3, weight=1)
-    
+
     def _on_config_changed(self, event=None):
         """Handle configuration change."""
         if self.callback:

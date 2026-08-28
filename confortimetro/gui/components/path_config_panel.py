@@ -144,7 +144,7 @@ class PathConfigPanel(ttk.Frame):
             tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
             
             label = ttk.Label(tooltip, text=text, style="Muted.TLabel", 
-                             background="#f0f0f0", relief="solid", borderwidth=1)
+                             background="#dad7cd", relief="solid", borderwidth=1)
             label.pack()
             
             # Auto-hide after 3 seconds
@@ -162,7 +162,7 @@ class PathConfigPanel(ttk.Frame):
             self.energy_path_entry_status.config(
                 text=f"❌ EnergyPlus {REQUIRED_EP_VERSION} não encontrado — "
                      "instale-o ou informe a pasta em Procurar",
-                foreground="#ef4444"
+                foreground="#b3261e"
             )
 
     def _validate_energy_path(self, path: str, status_label):
@@ -171,20 +171,20 @@ class PathConfigPanel(ttk.Frame):
             status_label.config(
                 text="❌ Não é uma instalação do EnergyPlus (falta Energy+.idd "
                      "ou pyenergyplus) — aponte para a pasta raiz",
-                foreground="#ef4444"
+                foreground="#b3261e"
             )
             return
 
         version = energy_path_version(path)
         if version == REQUIRED_EP_VERSION or not version:
             status_label.config(
-                text=f"✅ EnergyPlus {version or 'detectado'}", foreground="#22c55e"
+                text=f"✅ EnergyPlus {version or 'detectado'}", foreground="#588157"
             )
         else:
             status_label.config(
                 text=f"⚠️ Versão {version} encontrada; o programa espera a "
                      f"{REQUIRED_EP_VERSION} e a simulação pode falhar",
-                foreground="#f59e0b"
+                foreground="#a06b00"
             )
 
     def _validate_path(self, entry):
@@ -213,18 +213,18 @@ class PathConfigPanel(ttk.Frame):
         elif "file" in entry_name:
             # File validation
             if os.path.isfile(path):
-                status_label.config(text="✅ Arquivo encontrado", foreground="#22c55e")
+                status_label.config(text="✅ Arquivo encontrado", foreground="#588157")
                 entry.config(style="Modern.TEntry")
             else:
-                status_label.config(text="❌ Arquivo não encontrado", foreground="#ef4444")
+                status_label.config(text="❌ Arquivo não encontrado", foreground="#b3261e")
                 # Could add error styling here
         else:
             # Directory validation  
             if os.path.isdir(path):
-                status_label.config(text="✅ Diretório válido", foreground="#22c55e")
+                status_label.config(text="✅ Diretório válido", foreground="#588157")
                 entry.config(style="Modern.TEntry")
             else:
-                status_label.config(text="❌ Diretório não encontrado", foreground="#ef4444")
+                status_label.config(text="❌ Diretório não encontrado", foreground="#b3261e")
     
     def _browse_idf(self):
         """Browse for IDF file."""
