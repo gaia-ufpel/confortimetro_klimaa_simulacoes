@@ -17,6 +17,38 @@ from confortimetro.config import SimulationConfig
 from confortimetro.module_type import ModuleType
 
 
+def read_zone_names(idf_path: str) -> List[str]:
+    """Nomes das zonas declaradas no IDF, na ordem em que aparecem.
+
+    Lê o texto direto em vez de usar o eppy: a GUI só quer preencher uma lista
+    e carregar pelo eppy exige o IDD do EnergyPlus e alguns segundos.
+    """
+    try:
+        with open(idf_path, "r", encoding="latin-1") as handle:
+            text = handle.read()
+    except OSError:
+        return []
+
+    names, tokens = [], []
+    for line in text.splitlines():
+        line = line.split("!")[0].strip()
+        if not line:
+            continue
+        for token in line.replace(";", ",").split(","):
+            token = token.strip()
+            if token:
+                tokens.append(token)
+        # Um objeto Zone é "Zone" seguido do nome; ZoneHVAC:* e afins não
+        # entram porque a comparação é exata.
+        while len(tokens) >= 2:
+            if tokens[0].lower() == "zone" and tokens[1] not in names:
+                names.append(tokens[1])
+            tokens.pop(0)
+        if line.endswith(";"):
+            tokens.clear()
+    return names
+
+
 class IDFProcessor:
     """Processador para modificar arquivos IDF do EnergyPlus."""
     
