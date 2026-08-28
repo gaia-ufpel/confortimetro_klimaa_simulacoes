@@ -1,18 +1,7 @@
-import sys
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 
-
-pythermalcomfort = ModuleType("pythermalcomfort")
-pythermalcomfort.utilities = SimpleNamespace()
-ladybug_comfort = ModuleType("ladybug_comfort")
-ladybug_pmv = ModuleType("ladybug_comfort.pmv")
-ladybug_pmv.predicted_mean_vote = lambda **_kwargs: {"pmv": 0}
-sys.modules.setdefault("pythermalcomfort", pythermalcomfort)
-sys.modules.setdefault("ladybug_comfort", ladybug_comfort)
-sys.modules.setdefault("ladybug_comfort.pmv", ladybug_pmv)
-
-from src.modules.conditioner import Conditioner
-from src.modules.conditioner_closed_window import ConditionerClosedWindow
+from confortimetro.control.base import Conditioner
+from confortimetro.control.closed_window import ConditionerClosedWindow
 
 
 def make_conditioner(pmv_by_clo):

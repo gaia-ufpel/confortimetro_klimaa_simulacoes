@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "confortimetro-klimaa"
+version = "0.1.0"
+description = "Simulações de conforto térmico com EnergyPlus"
+requires-python = ">=3.10"
+dynamic = ["dependencies"]
+
+[project.scripts]
+confortimetro = "cli:main"
+
+[tool.setuptools]
+packages = ["confortimetro"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

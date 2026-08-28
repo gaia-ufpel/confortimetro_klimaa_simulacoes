@@ -14,10 +14,11 @@ dos resultados ao final.
 
 1. Instale o EnergyPlus compatível e identifique a pasta que contém
    `Energy+.idd`, `ExpandObjects` e a API `pyenergyplus`.
-2. Crie um ambiente Python e instale as dependências descritas em
-   [`src/web/requirements.txt`](src/web/requirements.txt). O repositório não
-   possui um `requirements.txt` na raiz.
-3. Ajuste [`resources/config.json`](resources/config.json) para os caminhos da
+2. Crie o ambiente e instale as dependências com `./bin/install.sh` (Linux/macOS)
+   ou `bin\install.bat` (Windows); ambos usam
+   [`requirements.txt`](requirements.txt). A interface web tem a própria venv
+   (`./bin/run_web.sh install`, com [`requirements-web.txt`](requirements-web.txt)).
+3. Ajuste [`examples/config.json`](examples/config.json) para os caminhos da
    sua máquina e para as zonas do seu IDF.
 4. Execute:
 
@@ -28,12 +29,24 @@ dos resultados ao final.
 Na janela, valide os caminhos, escolha os parâmetros e clique em **Executar**.
 Os resultados são gravados no diretório `output_path` configurado.
 
+No Windows, use `bin\install.bat` e depois `bin\executar.bat` — passo a passo em
+[`docs/WINDOWS.md`](docs/WINDOWS.md).
+
+## Linha de comando (headless)
+
+```bash
+.venv/bin/python cli.py --set output_path=./outputs/run_001
+```
+
+Guia completo para automação e agentes em
+[`docs/CLI.md`](docs/CLI.md).
+
 ## Interface web
 
 Com o EnergyPlus instalado e o caminho informado na página, execute:
 
 ```bash
-./run_web.sh
+./bin/run_web.sh
 ```
 
 Abra `http://localhost:5000`, envie o IDF e o EPW, informe o diretório do
@@ -42,41 +55,48 @@ em diretórios temporários por sessão; ao terminar, use **Baixar Resultados**.
 
 ## Documentação
 
-O guia completo, baseado no código atualmente presente, está em
-[`documentation/PROJETO.md`](documentation/PROJETO.md). Ele cobre:
+O guia técnico completo está em
+[`docs/PROJETO.md`](docs/PROJETO.md): arquitetura e mapa de
+código, requisitos, todos os campos de configuração, algoritmo de controle
+timestep a timestep, requisitos do IDF, saídas, as três interfaces, testes,
+armadilhas e convenções.
 
-- arquitetura e fluxo de dados;
-- pré-requisitos, configuração e execução;
-- módulos de condicionamento e resultados produzidos;
-- API e operação da interface web;
-- testes, limitações conhecidas e manutenção.
+- [`docs/CLI.md`](docs/CLI.md) — execução headless e
+  diagnóstico operacional.
+- [`docs/WINDOWS.md`](docs/WINDOWS.md) — instalação no Windows.
 
 Os registros históricos de refatorações e melhorias ficam em
-[`documentation/history/`](documentation/history/); podem citar arquivos que
+[`docs/history/`](docs/history/); podem citar arquivos que
 já não existem.
 
 ## Estrutura essencial
 
 ```text
-main.py                    entrada da interface desktop
-src/simulation.py          orquestração EnergyPlus e pós-processamento
-src/processors/            alterações no IDF via eppy
-src/modules/               controladores de conforto por zona
-src/gui/                   interface Tkinter
-src/web/                   interface Flask/Socket.IO
-src/utils/                 configuração e planilhas de resultados
-resources/                 IDFs, EPWs e configuração de exemplo
-scripts/                   utilitários de desenvolvimento
-tests/legacy/              verificações manuais antigas
-documentation/             documentação atual, histórica e ativos visuais
+cli.py                      entrada por linha de comando (headless)
+main.py                     entrada da interface desktop
+bin/                        install.sh/.bat, executar.bat, run_web.sh
+confortimetro/
+  config.py                 SimulationConfig e faixas do modelo adaptativo
+  module_type.py            enum ModuleType
+  simulation.py             orquestração EnergyPlus e pós-processamento
+  idf/processor.py          alterações no IDF via eppy
+  control/                  controladores de conforto por zona (base + 4 módulos)
+  results/                  planilhas, estatísticas, recortes sazonais, gráficos
+  gui/                      interface Tkinter
+  web/                      interface Flask/Socket.IO
+tests/                      testes do núcleo; tests/web para a interface web
+examples/                   config.json, IDFs e EPWs de referência
+docs/                       documentação (material/ e backups/ ficam fora do git)
+scripts/                    utilitários de desenvolvimento
 ```
 
 ## Verificação atual
 
 ```bash
-python -m compileall -q main.py src tests
-python -m pytest src/web/tests -q
+.venv/bin/python -m compileall -q main.py cli.py confortimetro tests
+.venv/bin/python -m pytest tests -q
 ```
 
-Os comandos verificam a sintaxe e as rotas, uploads, Socket.IO e o contrato
-entre a interface web e o pipeline de simulação.
+Os comandos verificam a sintaxe, a lógica de conforto (clo, PMV, relato de
+erros) e as rotas, uploads, Socket.IO e o contrato entre a interface web e o
+pipeline de simulação.
