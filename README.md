@@ -6,9 +6,14 @@ durante a simulação e transforma os resultados em planilhas Excel.
 
 ## Estado do projeto
 
-As interfaces desktop e web executam o mesmo pipeline de simulação. A web
-recebe IDF/EPW por upload, isola os arquivos de cada sessão e oferece o ZIP
-dos resultados ao final.
+O código vive no pacote `confortimetro/` e as três entradas — CLI, desktop
+Tkinter e web — rodam o mesmo `Simulation.run(queue)`. A web recebe IDF/EPW por
+upload, isola os arquivos de cada sessão numa cópia temporária e oferece o ZIP
+dos resultados ao final; CLI e desktop modificam o IDF de entrada no lugar.
+
+`pytest tests` passa com 22 testes. O retrato detalhado do que está pronto e
+das pendências conhecidas está na seção *Estado atual* de
+[`docs/PROJETO.md`](docs/PROJETO.md#12-estado-atual-28082026).
 
 ## Início rápido (desktop)
 
@@ -64,10 +69,6 @@ armadilhas e convenções.
 - [`docs/CLI.md`](docs/CLI.md) — execução headless e
   diagnóstico operacional.
 - [`docs/WINDOWS.md`](docs/WINDOWS.md) — instalação no Windows.
-
-Os registros históricos de refatorações e melhorias ficam em
-[`docs/history/`](docs/history/); podem citar arquivos que
-já não existem.
 
 ## Estrutura essencial
 
