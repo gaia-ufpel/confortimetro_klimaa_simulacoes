@@ -41,6 +41,10 @@ saídas e diagnóstico de erros.
   a configuração antes.
 - `split_target_period_excel` é hardcoded para a zona `ATELIE1`; sem ela em
   `rooms`, essa etapa é pulada com aviso.
+- **O executável Windows é gerado só no CI** (`windows-latest`): PyInstaller +
+  Inno Setup não rodam em Linux. A versão vem do `version` do `pyproject.toml`,
+  e a tag `v<version>` precisa bater com ela ou o build falha de propósito.
+  Armadilhas do `.spec` e do `.iss` em [`docs/WINDOWS.md`](docs/WINDOWS.md).
 - O pós-processamento assume ano de 2015 e 6 timesteps por hora, e descarta as
   primeiras 288 linhas.
 

@@ -43,6 +43,17 @@ iscc packaging\installer.iss
 O `.exe` do instalador sai em `dist\`. O EnergyPlus **não** é embutido — o
 `pyenergyplus` é carregado em tempo de execução da instalação da máquina.
 
+### Armadilhas do empacotamento
+
+Erros que já quebraram o build e o que os resolve:
+
+| Erro | Causa |
+|---|---|
+| `script 'packaging/main.py' not found` | Caminhos dentro do `.spec` são resolvidos **em relação ao próprio `.spec`**, não ao diretório de onde o `pyinstaller` foi chamado. Por isso o spec ancora tudo em `SPECPATH`. |
+| `Unknown preprocessor directive` (Inno) | Uma linha do `.iss` começando com `#13#10` é lida como diretiva do pré-processador. Quebras de linha só no **fim** da linha. |
+| `Unknown identifier 'SLineBreak'` (Inno) | O Pascal Script do Inno não tem `SLineBreak`; use `#13#10`. |
+| `collect_data_files - skipping ... not a package` | `esoreader` é um módulo solto, não um pacote — não passe pelo `collect_all`. |
+
 ### Versão
 
 A versão é uma só, a do `version` no `pyproject.toml`. O workflow a lê de lá e
