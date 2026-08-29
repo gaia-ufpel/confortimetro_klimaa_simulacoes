@@ -28,6 +28,10 @@ class ControlPanelCallback(Protocol):
         """Called when load configuration is requested."""
         ...
 
+    def on_open_simulations(self) -> None:
+        """Called when the simulations listing is requested."""
+        ...
+
 
 class ControlPanel(ttk.Frame):
     """Panel for simulation controls."""
@@ -58,6 +62,11 @@ class ControlPanel(ttk.Frame):
             command=self._on_load_clicked)
         self.load_button.pack(side="left", padx=(SPACE[2], 0))
 
+        self.simulations_button = RoundedButton(
+            row, text="Simulações", variant="ghost", width=130,
+            command=self._on_simulations_clicked)
+        self.simulations_button.pack(side="left", padx=(SPACE[2], 0))
+
         self.status_pill = StatusPill(row, "Pronto para executar", "info")
         self.status_pill.pack(side="right")
 
@@ -85,6 +94,11 @@ class ControlPanel(ttk.Frame):
         if self.callback:
             self.callback.on_load_config()
     
+    def _on_simulations_clicked(self):
+        """Handle simulations listing button click."""
+        if self.callback:
+            self.callback.on_open_simulations()
+
     def set_running_state(self, is_running: bool):
         """
         Set the running state of the simulation with visual feedback.

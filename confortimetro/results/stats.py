@@ -17,6 +17,12 @@ def get_stats_from_simulation(output_path, rooms):
     doas_column = 'DOAS_STATUS_{}:Schedule Value'
     co2_column = '{}:Zone Air CO2 Concentration'
     em_conforto_column = 'EM_CONFORTO_{}:Schedule Value'
+    pmv_column = 'PEOPLE_{}:Zone Thermal Comfort Fanger Model PMV'
+    temp_op_column = '{}:Zone Operative Temperature'
+    adap_min_column = 'ADAP_MIN_{}:Schedule Value'
+    adap_max_column = 'ADAP_MAX_{}:Schedule Value'
+
+    JOULES_PER_KWH = 3.6e6
 
     id_arquivo = os.path.basename(os.path.normpath(output_path))
 
@@ -35,7 +41,13 @@ def get_stats_from_simulation(output_path, rooms):
             'Janela fechada, ar desligado e ventilador desligado': [],
             'Desconforto': [],
             'CO2 máximo': [],
-            'Janela aberta sem pessoas': []})
+            'Janela aberta sem pessoas': [],
+            'Aquecimento (kWh)': [],
+            'Resfriamento (kWh)': [],
+            'Energia total (kWh)': [],
+            'PMV médio': [],
+            'PMV fora da faixa': [],
+            'Fora da banda adaptativa': []})
 
     for room in rooms:
         if not os.path.exists(os.path.join(output_path, f"{room}.xlsx")):
@@ -44,7 +56,17 @@ def get_stats_from_simulation(output_path, rooms):
                 "summary_rooms_results_from_eso antes das estatísticas"
             )
 
-        df = pandas.read_excel(os.path.join(output_path, f"{room}.xlsx"))   
+        df = pandas.read_excel(os.path.join(output_path, f"{room}.xlsx"))
+
+        # Planilhas antigas (geradas antes da checagem de período em
+        # summary_rooms_results_from_eso) trazem o ano inteiro carimbado mesmo
+        # quando o RunPeriod era menor, com NaN no resto. NaN != 0 é True, o que
+        # inflava todas as contagens; descartamos essas linhas.
+        rows_before = len(df)
+        df = df.dropna(subset=[people_column.format(room)])
+        if len(df) != rows_before:
+            print(f"{room}: {rows_before - len(df)} linha(s) fora do período simulado "
+                  "descartadas (planilha gerada por versão antiga do pós-processamento)")
     
         row = {'Nome do arquivo': id_arquivo, 'Nome da sala': room,
                'Número ocupação': len(df[df[people_column.format(room)] != 0]), 'Ar condicionado ligado': None,
@@ -52,7 +74,9 @@ def get_stats_from_simulation(output_path, rooms):
                'Ventilador ligado e ar ligado': None, 'Ventilador ligado, ar desligado e janela fechada': None,
                'Janela aberta': None, 'Janela aberta e ventilador ligado': None, 'DOAS ligado': None,
                'Janela fechada, ar desligado e ventilador desligado': None, 'Desconforto': None, 'CO2 máximo': None,
-               'Janela aberta sem pessoas': None}
+               'Janela aberta sem pessoas': None, 'Aquecimento (kWh)': None,
+               'Resfriamento (kWh)': None, 'Energia total (kWh)': None, 'PMV médio': None,
+               'PMV fora da faixa': None, 'Fora da banda adaptativa': None}
 
         if row['Número ocupação'] == 0:
             raise ValueError(
@@ -74,6 +98,19 @@ def get_stats_from_simulation(output_path, rooms):
         row['CO2 máximo'] = df[co2_column.format(room)].max()
         without_people = df[df[people_column.format(room)] == 0]
         row['Janela aberta sem pessoas'] = len(without_people[without_people[janela_column.format(room)] == 1]) / len(without_people) if len(without_people) else 0
+
+        row['Aquecimento (kWh)'] = df[heating_column.format(room)].sum() / JOULES_PER_KWH
+        row['Resfriamento (kWh)'] = df[cooling_column.format(room)].sum() / JOULES_PER_KWH
+        row['Energia total (kWh)'] = row['Aquecimento (kWh)'] + row['Resfriamento (kWh)']
+
+        occupied = df[df[people_column.format(room)] != 0]
+        pmv = occupied[pmv_column.format(room)]
+        row['PMV médio'] = pmv.mean()
+        row['PMV fora da faixa'] = (pmv.abs() > 0.5).sum() / row['Número ocupação']
+        temp_op = occupied[temp_op_column.format(room)]
+        outside_adaptative = ((temp_op < occupied[adap_min_column.format(room)])
+                              | (temp_op > occupied[adap_max_column.format(room)]))
+        row['Fora da banda adaptativa'] = outside_adaptative.sum() / row['Número ocupação']
 
         stats_df = pandas.concat([stats_df, pandas.DataFrame(row, index=[len(stats_df)])])
 

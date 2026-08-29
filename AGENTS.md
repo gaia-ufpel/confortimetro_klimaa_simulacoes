@@ -54,6 +54,14 @@ saídas e diagnóstico de erros.
 `SimulationConfigPanel`) e um `BottomSheet` com o log (`ResultsPanel`), que
 abre sozinho quando a simulação começa. Não há abas.
 
+O botão **Simulações** da topbar abre em uma janela própria o
+`SimulationsPanel` (`components/simulations_panel.py`): lista as execuções da
+pasta de saídas com módulo, IDF, clima, zonas e o estado das estatísticas,
+mostra o `configs.json` da selecionada e compara várias lado a lado (energia,
+desconforto, PMV, acionamentos), com exportação em CSV. Toda a leitura vem de
+`confortimetro/results/compare.py`, que também alimenta `scripts/comparar.py` —
+mexa lá, não na interface, para mudar métricas ou colunas.
+
 **Cor, fonte, raio, espaçamento e os widgets arredondados ficam só em
 `confortimetro/gui/theme.py`; a razão de cada escolha está em
 [`docs/DESIGN.md`](docs/DESIGN.md)** — leia antes de mexer na aparência. Os
