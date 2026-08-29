@@ -164,12 +164,27 @@ produzem carimbos de data errados nas planilhas.
 | `configs.json` | Configuração efetiva daquela execução. |
 | `eplusout.eso` / `.csv` / `.err` / `.eio` / `.rdd` | Saídas brutas do EnergyPlus. Comece o diagnóstico por `eplusout.err`. |
 | `<ZONA>.xlsx` | Série temporal por zona: temperatura externa, ocupação, PMV, temperatura operativa, CO₂, estados de janela/ventilador/AC/DOAS. |
-| `ESTATISTICAS.xlsx` | Uma linha por zona com frações do tempo ocupado: aquecimento, resfriamento, ventilador ligado, janela aberta, DOAS, desconforto, CO₂ máximo. |
+| `ESTATISTICAS.xlsx` | Uma linha por zona com frações do tempo ocupado (aquecimento, resfriamento, ventilador ligado, janela aberta, DOAS, desconforto, CO₂ máximo), o consumo anual (`Aquecimento (kWh)`, `Resfriamento (kWh)`, `Energia total (kWh)`) e o conforto agregado (`PMV médio`, `PMV fora da faixa`, `Fora da banda adaptativa`). |
 | `ATELIE1_SPLIT.xlsx` | Recorte por período (`VERAO`, `INVERNO`, `DIAS_VERAO`, `DIAS_INVERNO`). |
 
 Atenção: o recorte por período é gerado **apenas para `ATELIE1`**
 (hardcoded em `Simulation._process_results`). Se `ATELIE1` não estiver em
 `rooms`, essa etapa é pulada com um aviso na fila de mensagens.
+
+## 7.1 Comparar várias execuções
+
+`scripts/comparar.py` junta os `ESTATISTICAS.xlsx` de várias execuções em um CSV
+único, com as colunas do `configs.json` (módulo, IDF, EPW, clo, banda adaptativa,
+…) ao lado das métricas — é a entrada para os gráficos de comparação.
+
+```bash
+.venv/bin/python scripts/comparar.py                         # o que já tem estatísticas completas
+.venv/bin/python scripts/comparar.py --recompute             # regera as antigas, sem colunas de energia
+.venv/bin/python scripts/comparar.py --runs 'FAURB_ENTORNO_*' --out ./outputs/entorno.csv
+```
+
+`--recompute` relê todas as planilhas por zona das execuções desatualizadas (em
+paralelo, `--workers`); leva minutos por execução, mas não simula nada de novo.
 
 ## 8. Armadilhas ao automatizar
 
