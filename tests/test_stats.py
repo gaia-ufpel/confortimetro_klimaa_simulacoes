@@ -13,6 +13,8 @@ JOULES_PER_KWH = 3.6e6
 def _room_dataframe(rows=10, nan_rows=5):
     """Metade ocupada com aquecimento; `nan_rows` linhas fora do período (NaN)."""
     df = pandas.DataFrame({
+        "Date/Time": pandas.date_range("2015-01-01 00:10", periods=rows, freq="10min"),
+        "Site Outdoor Air Drybulb Temperature": [22.0] * rows,
         f"PEOPLE_{ROOM}:People Occupant Count": [1.0] * rows,
         f"AC_{ROOM}:Schedule Value": [1.0] * rows,
         f"{ROOM} PTHP:Zone Packaged Terminal Heat Pump Total Heating Energy": [JOULES_PER_KWH] * rows,

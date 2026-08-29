@@ -186,6 +186,30 @@ Atenção: o recorte por período é gerado **apenas para `ATELIE1`**
 `--recompute` relê todas as planilhas por zona das execuções desatualizadas (em
 paralelo, `--workers`); leva minutos por execução, mas não simula nada de novo.
 
+`--sync` ingere os agregados em `outputs/simulacoes.db` (SQLite, criado
+sozinho) e passa a ler de lá: as métricas ficam em formato longo, uma linha por
+métrica, e cada ingestão guarda o seu carimbo de tempo — a consulta devolve a
+mais recente e o histórico das anteriores continua no banco
+(`confortimetro/results/database.py`, função `history`). Uma execução só é
+relida quando o `mtime` do seu `ESTATISTICAS.xlsx` muda.
+
+`--graficos DIR` salva em PNG os gráficos que se fazem só com os agregados
+(energia × desconforto, consumo por execução, acionamentos e diferença contra a
+referência). Os gráficos de série temporal saem pela interface, que consegue
+avisar da espera.
+
+```bash
+.venv/bin/python scripts/comparar.py --sync --room ATELIE1 --graficos ./outputs/graficos
+```
+
+## 7.2 Séries temporais e cache
+
+`confortimetro/results/series.py` lê um `<ZONA>.xlsx` e devolve as colunas com
+nomes curtos (`pmv`, `temp_operativa`, `janela`, …). Abrir a planilha leva ~22 s,
+então a primeira leitura grava um pickle em `<execução>/.series_cache/` e as
+seguintes saem dele em milissegundos, invalidado pelo `mtime` da planilha. O
+cache pesa ~12 MB por zona; `clear_cache(run_path)` apaga o de uma execução.
+
 ## 8. Armadilhas ao automatizar
 
 - **Execuções paralelas colidem.** `in.idf` e `expanded.idf` são gravados em

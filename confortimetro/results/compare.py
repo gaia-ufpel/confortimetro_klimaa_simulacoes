@@ -26,11 +26,18 @@ COMPARISON_COLUMNS = ['Energia total (kWh)', 'Aquecimento (kWh)', 'Resfriamento 
                       'DOAS ligado', 'CO2 máximo']
 
 
-def needs_recompute(run_path):
-    """A execução tem planilhas por zona mas estatísticas ausentes ou desatualizadas?"""
+def needs_recompute(run_path, known_mtimes=None):
+    """A execução tem planilhas por zona mas estatísticas ausentes ou desatualizadas?
+
+    `known_mtimes` mapeia execuções já ingeridas no banco ao `mtime` da planilha
+    lida; bater com ele dispensa abrir o arquivo, que é o custo de listar
+    dezenas de execuções.
+    """
     stats_path = os.path.join(run_path, 'ESTATISTICAS.xlsx')
     if not os.path.exists(stats_path):
         return True
+    if known_mtimes and known_mtimes.get(run_path) == os.path.getmtime(stats_path):
+        return False
     columns = pandas.read_excel(stats_path, nrows=0).columns
     return any(column not in columns for column in REQUIRED_COLUMNS)
 
@@ -40,7 +47,7 @@ def _room_files(run_path, rooms):
             if os.path.exists(os.path.join(run_path, f"{room}.xlsx"))]
 
 
-def read_run(run_path):
+def read_run(run_path, known_mtimes=None):
     """Metadados de uma execução, sem abrir nenhuma planilha grande."""
     config = {}
     config_path = os.path.join(run_path, 'configs.json')
@@ -56,7 +63,7 @@ def read_run(run_path):
         status = 'sem planilhas'
     elif not os.path.exists(stats_path):
         status = 'sem estatísticas'
-    elif needs_recompute(run_path):
+    elif needs_recompute(run_path, known_mtimes):
         status = 'desatualizada'
     else:
         status = 'pronta'
@@ -75,7 +82,7 @@ def read_run(run_path):
     }
 
 
-def list_runs(outputs_path='./outputs', patterns=None):
+def list_runs(outputs_path='./outputs', patterns=None, known_mtimes=None):
     """Todas as execuções (diretórios com configs.json), mais recentes primeiro."""
     if not os.path.isdir(outputs_path):
         return []
@@ -89,7 +96,7 @@ def list_runs(outputs_path='./outputs', patterns=None):
             continue
         if patterns and not any(fnmatch.fnmatch(name, pattern) for pattern in patterns):
             continue
-        runs.append(read_run(run_path))
+        runs.append(read_run(run_path, known_mtimes))
 
     return sorted(runs, key=lambda run: run['modificado'], reverse=True)
 
