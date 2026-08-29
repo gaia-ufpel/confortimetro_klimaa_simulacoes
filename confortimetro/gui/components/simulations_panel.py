@@ -21,7 +21,7 @@ from confortimetro.results.compare import (
     recompute_runs,
 )
 
-from ..theme import COLORS, FONTS, SPACE, Card, RoundedButton
+from ..theme import COLORS, FONTS, SPACE, Card, RoundedButton, scrollable
 
 # Colunas da listagem: (id, título, largura).
 _LIST_COLUMNS = [
@@ -102,7 +102,7 @@ class SimulationsPanel(ttk.Frame):
         self.tree = ttk.Treeview(
             list_card.body, style="Modern.Treeview", selectmode="extended",
             columns=[column for column, _, _ in _LIST_COLUMNS], show="headings",
-            height=10)
+            height=8)
         for column, title, width in _LIST_COLUMNS:
             self.tree.heading(column, text=title,
                               command=lambda c=column: self._sort_by(c))
@@ -176,20 +176,31 @@ class SimulationsPanel(ttk.Frame):
         ttk.Label(actions.body, textvariable=self.status_var,
                   style="Caption.TLabel").pack(anchor="w", pady=(SPACE[2], 0))
 
-        # --- Comparação ---
+        # --- Comparação: números à esquerda, gráfico à direita ---
         compare_card = Card(self, "Comparação de resultados")
         compare_card.pack(fill="both", expand=True, pady=(SPACE[3], 0))
-        self.compare_tree = ttk.Treeview(compare_card.body, style="Modern.Treeview",
+        compare_panes = ttk.PanedWindow(compare_card.body, orient="horizontal")
+        compare_panes.pack(fill="both", expand=True)
+
+        table_frame = ttk.Frame(compare_panes, style="Card.TFrame")
+        compare_panes.add(table_frame, weight=2)
+
+        self.compare_tree = ttk.Treeview(table_frame, style="Modern.Treeview",
                                          show="headings", height=6)
-        compare_scroll = ttk.Scrollbar(compare_card.body, orient="horizontal",
+        compare_scroll = ttk.Scrollbar(table_frame, orient="horizontal",
                                        command=self.compare_tree.xview)
-        compare_scroll_y = ttk.Scrollbar(compare_card.body, orient="vertical",
+        compare_scroll_y = ttk.Scrollbar(table_frame, orient="vertical",
                                          command=self.compare_tree.yview)
         self.compare_tree.configure(xscrollcommand=compare_scroll.set,
                                     yscrollcommand=compare_scroll_y.set)
         compare_scroll.pack(side="bottom", fill="x")
         compare_scroll_y.pack(side="right", fill="y")
         self.compare_tree.pack(side="left", fill="both", expand=True)
+
+        self.chart_frame = ttk.Frame(compare_panes, style="Card.TFrame")
+        compare_panes.add(self.chart_frame, weight=5)
+        self._chart_widgets = []
+        self._show_chart_placeholder()
 
     # --------------------------------------------------------------- dados
 
@@ -434,20 +445,60 @@ class SimulationsPanel(ttk.Frame):
         self._set_status(f"Falha ao gerar o gráfico: {error}")
         messagebox.showerror("Gráfico", str(error))
 
-    def _show_figure(self, figure, title):
-        """Janela com o gráfico e a barra de navegação (zoom, salvar PNG)."""
-        window = tk.Toplevel(self)
-        window.title(title)
-        window.configure(background=COLORS["bg"])
+    def _clear_chart(self):
+        """Solta o canvas anterior; sem isso cada gráfico empilha um widget."""
+        for widget in self._chart_widgets:
+            widget.destroy()
+        self._chart_widgets = []
 
-        canvas = FigureCanvasTkAgg(figure, master=window)
-        toolbar = NavigationToolbar2Tk(canvas, window, pack_toolbar=False)
+    def _show_chart_placeholder(self):
+        self._clear_chart()
+        label = ttk.Label(
+            self.chart_frame, style="Caption.TLabel", justify="center",
+            text="Selecione as execuções, escolha um gráfico\ne clique em "
+                 "'Gerar gráfico'.")
+        label.pack(expand=True)
+        self._chart_widgets.append(label)
+
+    # Acima desta altura a figura não cabe no painel: um gráfico de quatro
+    # painéis espremido em 300 px faz o layout do matplotlib colapsar os eixos
+    # a zero e desenhar uma área vazia. Esses vão para dentro de uma área
+    # rolável, no tamanho natural.
+    _INLINE_MAX_INCHES = 7.5
+
+    def _show_figure(self, figure, title):
+        """Desenha o gráfico no próprio painel, com a barra de navegação."""
+        self._clear_chart()
+        height = figure.get_size_inches()[1]
+
+        if height <= self._INLINE_MAX_INCHES:
+            host = None
+            canvas = FigureCanvasTkAgg(figure, master=self.chart_frame)
+            widget = canvas.get_tk_widget()
+        else:
+            host = ttk.Frame(self.chart_frame, style="Card.TFrame")
+            inner = scrollable(host)
+            canvas = FigureCanvasTkAgg(figure, master=inner)
+            widget = canvas.get_tk_widget()
+            widget.configure(height=int(height * figure.dpi))
+
+        # A barra vai ao chão antes do gráfico: quem é empacotado primeiro tem
+        # prioridade, e na ordem inversa o canvas come a barra.
+        toolbar = NavigationToolbar2Tk(canvas, self.chart_frame, pack_toolbar=False)
         toolbar.configure(background=COLORS["bg"])
         toolbar.update()
         toolbar.pack(side="bottom", fill="x")
-        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        if host is None:
+            widget.pack(fill="both", expand=True)
+        else:
+            host.pack(fill="both", expand=True)
+            widget.pack(fill="x", expand=True)
+            self._chart_widgets.append(host)
+
         canvas.draw()
-        return window
+        self._chart_widgets.extend([toolbar, widget])
+        return canvas
 
     def export_comparison(self):
         if self._comparison is None or self._comparison.empty:
@@ -465,8 +516,8 @@ def open_simulations_window(parent, outputs_path: str = "./outputs") -> tk.Tople
     """Abre a listagem/comparador em uma janela própria."""
     window = tk.Toplevel(parent)
     window.title("Simulações e comparação de resultados")
-    window.geometry("1400x850")
-    window.minsize(900, 600)
+    window.geometry("1500x980")
+    window.minsize(1000, 700)
     window.configure(background=COLORS["bg"])
     panel = SimulationsPanel(window, outputs_path)
     panel.pack(fill="both", expand=True, padx=SPACE[5], pady=SPACE[5])

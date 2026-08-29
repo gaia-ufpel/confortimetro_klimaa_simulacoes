@@ -26,7 +26,9 @@ FIGURE_SIZE = (11, 6)
 
 
 def _figure(title, size=FIGURE_SIZE):
-    figure = Figure(figsize=size, dpi=100, facecolor='white')
+    # `constrained` em vez de tight_layout: a figura é embutida no painel e
+    # precisa recompor as margens a cada redimensionamento, não só uma vez.
+    figure = Figure(figsize=size, dpi=100, facecolor='white', layout='constrained')
     figure.suptitle(title, color=TEXT_COLOR, fontsize=13, fontweight='bold')
     return figure
 
@@ -89,7 +91,6 @@ def energia_vs_desconforto(df, comfort_metric='Desconforto'):
     # legenda mental de quem lê o gráfico pela primeira vez.
     axes.text(0.01, 1.02, '↙ menos energia e menos desconforto', fontsize=9,
               color='#588157', transform=axes.transAxes)
-    figure.tight_layout()
     return figure
 
 
@@ -113,7 +114,6 @@ def energia_por_execucao(df):
     axes.set_xticks(positions)
     axes.set_xticklabels(labels, rotation=20, ha='right')
     axes.legend(frameon=False, labelcolor=TEXT_COLOR)
-    figure.tight_layout()
     return figure
 
 
@@ -139,7 +139,6 @@ def acionamentos(df):
     axes.set_xticks(positions)
     axes.set_xticklabels(columns, rotation=12, ha='right')
     axes.legend(frameon=False, labelcolor=TEXT_COLOR, fontsize=9)
-    figure.tight_layout()
     return figure
 
 
@@ -175,7 +174,6 @@ def delta_vs_baseline(df, baseline=None,
             [_short(label, 18) for label in trim_common_prefix(list(others['Execução']))],
             fontsize=9)
 
-    figure.tight_layout()
     return figure
 
 
@@ -203,7 +201,6 @@ def distribuicao_pmv(runs, room, bounds=(-0.5, 0.5)):
                   color=PALETTE[index % len(PALETTE)], label=_short(label))
 
     axes.legend(frameon=False, labelcolor=TEXT_COLOR, fontsize=9)
-    figure.tight_layout()
     return figure
 
 
@@ -238,7 +235,6 @@ def adaptativo(runs, room, sample=2000):
               linestyle='--', zorder=4)
 
     axes.legend(frameon=False, labelcolor=TEXT_COLOR, fontsize=9, markerscale=2)
-    figure.tight_layout()
     return figure
 
 
@@ -247,7 +243,7 @@ def carpete(runs, room, variable='temp_operativa'):
     titles = {'temp_operativa': 'Temperatura operativa (°C)', 'pmv': 'PMV',
               'co2': 'CO₂ (ppm)'}
     figure = _figure(f'{titles.get(variable, variable)} ao longo do ano — {room}',
-                     (12, 3.2 * len(runs) + 1.4))
+                     (12, 2.4 * len(runs) + 1.2))
     axes_list = figure.subplots(len(runs), 1, squeeze=False)[:, 0]
 
     grids = []
@@ -277,14 +273,13 @@ def carpete(runs, room, variable='temp_operativa'):
         figure.colorbar(image, ax=axes, pad=0.01)
 
     axes_list[-1].set_xlabel('Dia do ano', color=TEXT_COLOR, fontsize=9)
-    figure.tight_layout()
     return figure
 
 
 def periodo(runs, room, start='2015-01-15', days=7):
     """Recorte de alguns dias: externa, operativa, banda adaptativa e estados."""
     figure = _figure(f'{days} dias a partir de {start} — {room}',
-                     (12, 3.4 * len(runs) + 1.2))
+                     (12, 2.6 * len(runs) + 1.2))
     axes_list = figure.subplots(len(runs), 1, sharex=True, squeeze=False)[:, 0]
 
     begin = numpy.datetime64(start)
@@ -317,8 +312,9 @@ def periodo(runs, room, start='2015-01-15', days=7):
         axes.set_title(_short(label, 40), color=TEXT_COLOR, fontsize=10, loc='left')
         axes.legend(frameon=False, labelcolor=TEXT_COLOR, fontsize=8, ncol=6)
 
-    figure.autofmt_xdate()
-    figure.tight_layout()
+    for label in axes_list[-1].get_xticklabels():
+        label.set_rotation(20)
+        label.set_horizontalalignment('right')
     return figure
 
 

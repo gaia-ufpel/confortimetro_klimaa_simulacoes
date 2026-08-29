@@ -58,8 +58,12 @@ O botão **Simulações** da topbar abre em uma janela própria o
 `SimulationsPanel` (`components/simulations_panel.py`): lista as execuções da
 pasta de saídas com módulo, IDF, clima, zonas e o estado das estatísticas,
 mostra o `configs.json` da selecionada, compara várias lado a lado (energia,
-desconforto, PMV, acionamentos) e gera os gráficos de `results/charts.py` em
-janelas com a barra do matplotlib. Toda a leitura vem de
+desconforto, PMV, acionamentos) e desenha os gráficos de `results/charts.py`
+dentro do próprio card de comparação, ao lado da tabela, com a barra do
+matplotlib. Figuras de vários painéis (carpete, semana típica) passariam do
+espaço disponível — o layout do matplotlib colapsaria os eixos a zero —, então
+acima de 7,5 polegadas de altura elas vão para uma área rolável em tamanho
+natural. Toda a leitura vem de
 `confortimetro/results/` — mexa lá, não na interface, para mudar métricas,
 colunas ou gráficos.
 
