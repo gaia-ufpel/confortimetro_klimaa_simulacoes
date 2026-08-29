@@ -139,6 +139,20 @@ def apply_theme(root: tk.Misc) -> None:
     style.configure("Section.TLabelframe.Label", background=COLORS["surface"],
                     foreground=COLORS["text_mute"], font=FONTS["label"])
 
+    # Tabelas (listagem de simulações e comparador).
+    style.configure("Modern.Treeview", background=COLORS["surface"],
+                    fieldbackground=COLORS["surface"], foreground=COLORS["text"],
+                    bordercolor=COLORS["line"], font=FONTS["body"],
+                    rowheight=26, borderwidth=1, relief="solid")
+    style.configure("Modern.Treeview.Heading", background=COLORS["surface_2"],
+                    foreground=COLORS["primary"], font=FONTS["label"],
+                    relief="flat", padding=SPACE[2])
+    style.map("Modern.Treeview.Heading",
+              background=[("active", COLORS["accent"])])
+    style.map("Modern.Treeview",
+              background=[("selected", COLORS["primary_h"])],
+              foreground=[("selected", "#ffffff")])
+
     style.configure("Vertical.TScrollbar", background=COLORS["accent"],
                     troughcolor=COLORS["surface_2"],
                     bordercolor=COLORS["surface_2"],

@@ -6,10 +6,13 @@ from .path_config_panel import PathConfigPanel
 from .simulation_config_panel import SimulationConfigPanel
 from .results_panel import ResultsPanel
 from .control_panel import ControlPanel
+from .simulations_panel import SimulationsPanel, open_simulations_window
 
 __all__ = [
     'PathConfigPanel',
     'SimulationConfigPanel', 
     'ResultsPanel',
-    'ControlPanel'
+    'ControlPanel',
+    'SimulationsPanel',
+    'open_simulations_window'
 ]

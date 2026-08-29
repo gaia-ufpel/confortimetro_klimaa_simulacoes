@@ -17,7 +17,8 @@ from .components import (
     PathConfigPanel,
     SimulationConfigPanel,
     ResultsPanel,
-    ControlPanel
+    ControlPanel,
+    open_simulations_window
 )
 from .theme import COLORS, SPACE, BottomSheet, Card, apply_theme, scrollable
 
@@ -32,6 +33,7 @@ class MainWindow(tk.Tk):
         self.configs: Optional[SimulationConfig] = None
         self.simulation_thread: Optional[threading.Thread] = None
         self.simulation_queue: Optional[Queue] = None
+        self._simulations_window: Optional[tk.Toplevel] = None
         
         self._setup_window()
         apply_theme(self)
@@ -326,6 +328,22 @@ class MainWindow(tk.Tk):
             self.results_panel.append_warning("Parada de simulação solicitada...")
             self.control_panel.set_running_state(False)
     
+    def on_open_simulations(self):
+        """Abre a listagem de simulações já executadas e o comparador."""
+        if self._simulations_window and self._simulations_window.winfo_exists():
+            self._simulations_window.lift()
+            self._simulations_window.focus_force()
+            return
+
+        # A pasta configurada é a da próxima execução; a listagem interessa na
+        # pasta que a contém, onde ficam todas as execuções anteriores.
+        output_path = self.path_panel.get_output_path()
+        outputs_root = os.path.dirname(output_path.rstrip(os.sep)) or "."
+        if not os.path.isdir(outputs_root):
+            outputs_root = "."
+
+        self._simulations_window = open_simulations_window(self, outputs_root)
+
     def on_save_config(self):
         """Handle save configuration request."""
         self._save_configuration()
