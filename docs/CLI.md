@@ -84,10 +84,11 @@ Validar sem simular:
 |---|---|---|
 | `_idf_path` | str | Caminho do IDF de entrada. **No JSON o nome tem underscore**; em `--set` use `idf_path` (é uma property). |
 | `epw_path` | str | Arquivo climático `.epw`. |
-| `output_path` | str | Diretório de saída. Criado se não existir. |
+| `output_path` | str | Diretório da execução. Criado se não existir. **Vazio (o padrão) gera uma subpasta com carimbo de data na pasta de dados da aplicação** — `~/.local/share/ConfortimetroKlimaa/execucoes` no Linux, `%LOCALAPPDATA%\\ConfortimetroKlimaa` no Windows, `~/Library/Application Support` no macOS. A variável `CONFORTIMETRO_DATA_DIR` troca essa raiz. |
 | `energy_path` | str | Raiz da instalação do EnergyPlus. Detectado automaticamente quando o valor gravado no config não existe (veja abaixo). |
 | `input_path` | str | Derivado de `idf_path` (diretório do IDF). Não defina manualmente. |
-| `expanded_idf_path` | str | Derivado: `<input_path>/expanded.idf`. Não defina manualmente. |
+| `expanded_idf_path` | str | Derivado: `<output_path>/expanded.idf`. Não defina manualmente. |
+| `source_idf_path` | str | Preenchido na execução com o IDF escolhido pelo usuário, antes de `idf_path` passar a apontar para a cópia da execução. Não defina manualmente. |
 | `idf_filename` | str | Derivado. Não defina manualmente. |
 
 ### Conforto e controle
@@ -126,18 +127,19 @@ Definidos em `confortimetro/control/`, mapeados em `MODULES_MAPPER`:
 `Simulation.run()` (`confortimetro/simulation.py`), em ordem:
 
 1. **Módulo condicionador** instanciado a partir de `module_type`.
-2. **Processamento do IDF** (`confortimetro/idf/processor.py`): valida e insere
+2. **Diretório da execução** criado, com o modelo copiado para
+   `<output_path>/modelo.idf`; é essa cópia que segue no pipeline.
+3. **Processamento do IDF** (`confortimetro/idf/processor.py`): valida e insere
    os schedules de controle (`AC_*`, `VENT_*`, `JANELA_*`, `PMV_*`, `ADAP_*`,
    `EM_CONFORTO_*`, `DOAS_STATUS_*`, `METABOLISMO`, `WORK_EF`, …). **Grava o IDF
    modificado no lugar.**
-3. **ExpandObjects**: copia o IDF para `<input_path>/in.idf`, roda o binário
-   `ExpandObjects` (timeout 300 s) e gera `<input_path>/expanded.idf`.
-4. **Diretório de saída** criado; a configuração efetiva é salva em
-   `<output_path>/configs.json`.
-5. **EnergyPlus** roda via `pyenergyplus`, com o condicionador registrado no
+4. **ExpandObjects**: copia o IDF para `<output_path>/in.idf`, roda o binário
+   `ExpandObjects` (timeout 300 s) e gera `<output_path>/expanded.idf`.
+5. **Configuração efetiva** salva em `<output_path>/configs.json`.
+6. **EnergyPlus** roda via `pyenergyplus`, com o condicionador registrado no
    callback `begin_zone_timestep_after_init_heat_balance` — ou seja, o controle
    de conforto é decidido a cada timestep dentro da simulação.
-6. **Pós-processamento**: `eplusout.eso` → uma planilha por zona → estatísticas →
+7. **Pós-processamento**: `eplusout.eso` → uma planilha por zona → estatísticas →
    recorte por período.
 
 Uma simulação anual leva de dezenas de minutos a horas. O EnergyPlus escreve
@@ -212,13 +214,10 @@ cache pesa ~12 MB por zona; `clear_cache(run_path)` apaga o de uma execução.
 
 ## 8. Armadilhas ao automatizar
 
-- **Execuções paralelas colidem.** `in.idf` e `expanded.idf` são gravados em
-  `input_path`, que é o diretório do IDF de entrada. Para rodar várias
-  simulações ao mesmo tempo, copie o IDF para um diretório próprio por execução
-  e aponte `idf_path` para a cópia.
-- **O IDF de entrada é modificado no lugar.** Trabalhe sobre cópias; o
-  `git status` do repositório acusa mudanças em
-  `examples/idf/FAURB/*.idf` depois de cada execução.
+- **Execuções paralelas não colidem mais.** `modelo.idf`, `in.idf` e
+  `expanded.idf` são gravados dentro do `output_path` da execução.
+- **O IDF de entrada não é modificado.** A simulação copia o modelo para
+  `<output_path>/modelo.idf` e é essa cópia que o `IDFProcessor` altera.
 - **`output_path` é reutilizado** se já existir; resultados antigos podem se
   misturar aos novos. Use um diretório novo por execução.
 - **Sempre execute a partir da raiz do repositório.**

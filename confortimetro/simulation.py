@@ -61,17 +61,19 @@ class Simulation:
                 configs=self.configs
             )
             
-            # Etapa 2: Processar arquivo IDF
-            q.put("Processando arquivo IDF...")
-            self._process_idf()
-            
-            # Etapa 3: Expandir objetos EnergyPlus
-            q.put("Expandindo objetos EnergyPlus...")
-            self._expand_objects()
-            
-            # Etapa 4: Preparar diretórios de saída
+            # Etapa 2: Preparar o diretório da execução e copiar o IDF para lá
             q.put("Preparando diretórios de saída...")
             self._prepare_output_directories()
+
+            # Etapa 3: Processar o IDF (a cópia da execução, não o original)
+            q.put("Processando arquivo IDF...")
+            self._process_idf()
+
+            # Etapa 4: Expandir objetos EnergyPlus
+            q.put("Expandindo objetos EnergyPlus...")
+            self._expand_objects()
+
+            self.configs.to_json(os.path.join(self.configs.output_path, "configs.json"))
             
             # Etapa 5: Executar simulação EnergyPlus
             q.put("Executando simulação EnergyPlus...")
@@ -113,14 +115,16 @@ class Simulation:
             raise
     
     def _expand_objects(self):
-        """Expandir objetos EnergyPlus."""
+        """Expandir objetos EnergyPlus dentro do diretório da execução."""
         try:
-            # Copiar arquivo IDF para diretório de entrada
-            shutil.copy(self.configs.idf_path, os.path.join(self.configs.input_path, "in.idf"))
-            
-            # Executar ExpandObjects
+            # ExpandObjects lê in.idf e escreve expanded.idf no diretório em que
+            # roda; rodar no diretório da execução é o que mantém os artefatos
+            # dela juntos e permite execuções paralelas sobre o mesmo modelo.
+            shutil.copy(self.configs.idf_path,
+                        os.path.join(self.configs.output_path, "in.idf"))
+
             expand_cmd = [os.path.join(self.configs.energy_path, EXPAND_OBJECTS_APP)]
-            result = subprocess.run(expand_cmd, cwd=self.configs.input_path, 
+            result = subprocess.run(expand_cmd, cwd=self.configs.output_path,
                                   capture_output=True, text=True, timeout=300)
             
             if result.returncode != 0:
@@ -135,11 +139,22 @@ class Simulation:
             raise
     
     def _prepare_output_directories(self):
-        """Preparar diretórios de saída."""
+        """Criar o diretório da execução e trazer o modelo para dentro dele."""
         try:
             os.makedirs(self.configs.output_path, exist_ok=True)
-            self.configs.to_json(os.path.join(self.configs.output_path, "configs.json"))
-            
+            # output_path pode ter sido trocado depois da configuração ser criada.
+            self.configs.expanded_idf_path = os.path.join(
+                self.configs.output_path, "expanded.idf")
+
+            # O IDFProcessor grava as alterações no lugar. Processar uma cópia
+            # dentro da execução preserva o modelo original e deixa registrado
+            # exatamente o IDF que foi simulado.
+            if self.configs.source_idf_path is None:
+                self.configs.source_idf_path = self.configs.idf_path
+            model_path = os.path.join(self.configs.output_path, "modelo.idf")
+            shutil.copy(self.configs.source_idf_path, model_path)
+            self.configs.idf_path = model_path
+
             self.logger.info("Diretórios de saída preparados")
             
         except Exception as e:

@@ -29,12 +29,16 @@ saídas e diagnóstico de erros.
 
 ## Armadilhas que custam caro
 
-- **Execuções paralelas colidem.** `in.idf` e `expanded.idf` são gravados no
-  diretório do IDF de entrada. Para rodar simulações em paralelo, copie o IDF
-  para um diretório por execução e aponte `idf_path` para a cópia.
-- **O IDF de entrada é modificado no lugar** pelo `IDFProcessor`. Por isso
-  `examples/idf/FAURB/*.idf` aparece modificado no `git status` depois
-  de cada execução — normalmente não é uma alteração para commitar.
+- **Cada execução é uma pasta em `paths.runs_root()`** — `%LOCALAPPDATA%` no
+  Windows, `~/.local/share/ConfortimetroKlimaa/execucoes` no Linux,
+  `~/Library/Application Support` no macOS — e leva tudo consigo: `modelo.idf`
+  (a cópia processada), `in.idf`, `expanded.idf` e as saídas do EnergyPlus.
+  `CONFORTIMETRO_DATA_DIR` muda essa raiz; uma simulação anual passa de 1 GB.
+- **O IDF de entrada não é mais modificado no lugar.** O `IDFProcessor` grava as
+  alterações na cópia dentro da execução (`modelo.idf`), e `source_idf_path`
+  guarda o original. Execuções paralelas sobre o mesmo modelo deixaram de
+  colidir — mas `idf_path` muda no meio do `run()`, então leia `source_idf_path`
+  quando quiser o arquivo escolhido pelo usuário.
 - **Uma simulação anual leva de dezenas de minutos a horas.** Não a rode em
   primeiro plano esperando resposta rápida; use `--print-config` para validar
   a configuração antes.

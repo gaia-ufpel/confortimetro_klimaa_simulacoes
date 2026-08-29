@@ -7,6 +7,7 @@ import re
 import shutil
 
 from confortimetro.module_type import ModuleType
+from confortimetro.paths import new_run_path
 
 # Banda do modelo adaptativo por nível de aceitação (ASHRAE 55).
 PORCENT2ADAPTATIVE = {
@@ -149,6 +150,9 @@ class SimulationConfig:
 
     input_path: str = None
     expanded_idf_path: str = None
+    # IDF escolhido pelo usuário; `_idf_path` passa a apontar para a cópia
+    # gravada dentro da execução assim que a simulação começa.
+    source_idf_path: str = None
     idf_filename: str = None
     temp_open_window_bound: float = 5.0
     air_speed_delta: float = 0.15
@@ -156,8 +160,15 @@ class SimulationConfig:
     module_type: ModuleType = ModuleType.COMPLETE
 
     def __post_init__(self):
+        # Sem saída escolhida, cada execução ganha a sua subpasta na pasta de
+        # dados da aplicação — o diretório do repositório (ou o do executável,
+        # que pode ser somente leitura) não é lugar de resultado.
+        if not self.output_path:
+            self.output_path = new_run_path()
         self.input_path = os.path.dirname(self.idf_path)
-        self.expanded_idf_path = os.path.join(self.input_path, "expanded.idf")
+        # O IDF expandido é artefato da execução e mora com ela; deixá-lo ao
+        # lado do IDF de entrada fazia execuções paralelas se atropelarem.
+        self.expanded_idf_path = os.path.join(self.output_path, "expanded.idf")
         self.idf_filename = os.path.basename(self.idf_path)
         self.met_as_watts = self.met * 58.1 * 1.8
 
@@ -169,7 +180,6 @@ class SimulationConfig:
     def idf_path(self, idf_path: str):
         self._idf_path = idf_path
         self.input_path = os.path.dirname(self.idf_path)
-        self.expanded_idf_path = os.path.join(self.input_path, "expanded.idf")
         self.idf_filename = os.path.basename(self.idf_path)
 
     @property
