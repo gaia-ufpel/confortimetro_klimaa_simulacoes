@@ -57,10 +57,23 @@ abre sozinho quando a simulação começa. Não há abas.
 O botão **Simulações** da topbar abre em uma janela própria o
 `SimulationsPanel` (`components/simulations_panel.py`): lista as execuções da
 pasta de saídas com módulo, IDF, clima, zonas e o estado das estatísticas,
-mostra o `configs.json` da selecionada e compara várias lado a lado (energia,
-desconforto, PMV, acionamentos), com exportação em CSV. Toda a leitura vem de
-`confortimetro/results/compare.py`, que também alimenta `scripts/comparar.py` —
-mexa lá, não na interface, para mudar métricas ou colunas.
+mostra o `configs.json` da selecionada, compara várias lado a lado (energia,
+desconforto, PMV, acionamentos) e gera os gráficos de `results/charts.py` em
+janelas com a barra do matplotlib. Toda a leitura vem de
+`confortimetro/results/` — mexa lá, não na interface, para mudar métricas,
+colunas ou gráficos.
+
+## Resultados agregados
+
+- `results/compare.py` — lista execuções, regera estatísticas e monta a tabela
+  comparativa a partir dos `ESTATISTICAS.xlsx`.
+- `results/database.py` — SQLite em `outputs/simulacoes.db` com os agregados em
+  formato longo e histórico por ingestão. É cache e histórico, nunca a fonte:
+  apagar o arquivo não perde nada, um `sync` reconstrói.
+- `results/series.py` — séries por zona com cache em `.series_cache/`; sem ele
+  cada gráfico esperaria ~22 s por planilha.
+- `results/charts.py` — as figuras. Devolvem `Figure` e **não** usam `pyplot`:
+  o estado global dele briga com o laço de eventos do Tk.
 
 **Cor, fonte, raio, espaçamento e os widgets arredondados ficam só em
 `confortimetro/gui/theme.py`; a razão de cada escolha está em

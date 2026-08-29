@@ -13,6 +13,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from confortimetro.results import charts, database
 from confortimetro.results.compare import compare_runs, list_runs, recompute_runs
 
 
@@ -29,6 +30,10 @@ def main():
                              '(lê todas as planilhas por zona; leva minutos)')
     parser.add_argument('--workers', type=int, default=os.cpu_count(),
                         help='processos paralelos na regeração')
+    parser.add_argument('--sync', action='store_true',
+                        help='ingere os agregados em outputs/simulacoes.db e lê de lá')
+    parser.add_argument('--graficos', metavar='DIR', default=None,
+                        help='salva os gráficos agregados em PNG neste diretório')
     args = parser.parse_args()
 
     runs = list_runs(args.outputs, args.runs)
@@ -47,12 +52,31 @@ def main():
         if run['status'] != 'pronta':
             print(f"pulando {run['run']} ({run['status']}; use --recompute)", file=sys.stderr)
 
-    df = compare_runs([run['path'] for run in runs if run['status'] == 'pronta'], args.room)
+    ready = [run['path'] for run in runs if run['status'] == 'pronta']
+    if args.sync:
+        ingested, skipped = database.sync(args.outputs)
+        print(f"banco: {ingested} ingerida(s), {skipped} sem estatísticas completas",
+              file=sys.stderr)
+        df = database.load_comparison(database.database_path(args.outputs),
+                                      ready, args.room)
+    else:
+        df = compare_runs(ready, args.room)
+
     if df.empty:
         raise SystemExit('nenhuma execução com estatísticas completas encontrada')
 
     df.to_csv(args.out, index=False)
     print(f"{len(df)} linha(s) de {df['Execução'].nunique()} execução(ões) em {args.out}")
+
+    if args.graficos:
+        os.makedirs(args.graficos, exist_ok=True)
+        for name, (function, needs_series) in charts.CHARTS.items():
+            if needs_series:
+                continue  # esses releem as planilhas por zona; peça pela interface
+            figure = function(df)
+            path = os.path.join(args.graficos, name.lower().replace(' ', '_') + '.png')
+            figure.savefig(path, dpi=120)
+            print(f"gráfico em {path}")
 
 
 if __name__ == '__main__':

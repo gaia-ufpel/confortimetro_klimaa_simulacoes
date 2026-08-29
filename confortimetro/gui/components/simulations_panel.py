@@ -1,12 +1,19 @@
 """Listagem das simulações já executadas e comparação dos resultados."""
 
 import os
+import sqlite3
 import subprocess
 import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from matplotlib.backends.backend_tkagg import (
+    FigureCanvasTkAgg,
+    NavigationToolbar2Tk,
+)
+
+from confortimetro.results import charts, database
 from confortimetro.results.compare import (
     COMPARISON_COLUMNS,
     compare_runs,
@@ -61,6 +68,7 @@ class SimulationsPanel(ttk.Frame):
         self._runs: list[dict] = []
         self._comparison = None
         self._busy = False
+        self.chart_var = tk.StringVar(value=next(iter(charts.CHARTS)))
 
         self._build_ui()
         self.refresh()
@@ -151,6 +159,20 @@ class SimulationsPanel(ttk.Frame):
         RoundedButton(action_row, text="Exportar CSV", variant="ghost", width=150,
                       command=self.export_comparison).pack(side="right")
 
+        chart_row = ttk.Frame(actions.body, style="Card.TFrame")
+        chart_row.pack(fill="x", pady=(SPACE[3], 0))
+        ttk.Label(chart_row, text="Gráfico", style="Label.TLabel").pack(
+            side="left", padx=(0, SPACE[2]))
+        self.chart_combo = ttk.Combobox(chart_row, textvariable=self.chart_var,
+                                        style="Field.TCombobox", state="readonly",
+                                        values=list(charts.CHARTS), width=30)
+        self.chart_combo.pack(side="left")
+        RoundedButton(chart_row, text="Gerar gráfico", variant="primary", width=170,
+                      command=self.plot_selected).pack(side="left", padx=(SPACE[3], 0))
+        ttk.Label(chart_row, text="Os gráficos de série leem as planilhas por zona "
+                                  "na primeira vez (minutos) e ficam em cache depois.",
+                  style="Caption.TLabel").pack(side="left", padx=(SPACE[3], 0))
+
         ttk.Label(actions.body, textvariable=self.status_var,
                   style="Caption.TLabel").pack(anchor="w", pady=(SPACE[2], 0))
 
@@ -172,9 +194,19 @@ class SimulationsPanel(ttk.Frame):
     # --------------------------------------------------------------- dados
 
     def refresh(self):
-        """Relê a pasta de saídas e repovoa a listagem."""
+        """Sincroniza o banco, relê a pasta de saídas e repovoa a listagem."""
+        outputs_path = self.outputs_path.get()
         try:
-            self._runs = list_runs(self.outputs_path.get())
+            # O banco guarda os agregados já lidos; o mtime registrado evita
+            # reabrir o Excel de cada execução só para descobrir o status.
+            ingested, _ = database.sync(outputs_path)
+            known = database.known_mtimes(database.database_path(outputs_path))
+        except (OSError, sqlite3.Error) as error:
+            ingested, known = 0, {}
+            self._set_status(f"Banco indisponível ({error}); lendo direto das planilhas.")
+
+        try:
+            self._runs = list_runs(outputs_path, known_mtimes=known)
         except OSError as error:
             messagebox.showerror("Erro", f"Não foi possível ler a pasta: {error}")
             return
@@ -195,8 +227,11 @@ class SimulationsPanel(ttk.Frame):
             self.room_var.set("ATELIE1" if "ATELIE1" in rooms else rooms[0])
 
         ready = sum(1 for run in self._runs if run['status'] == 'pronta')
-        self._set_status(f"{len(self._runs)} execução(ões), {ready} com estatísticas "
-                         "completas")
+        message = (f"{len(self._runs)} execução(ões), {ready} com estatísticas "
+                   "completas")
+        if ingested:
+            message += f" — {ingested} ingerida(s) no banco agora"
+        self._set_status(message)
 
     def _sort_by(self, column):
         rows = [(self.tree.set(item, column), item) for item in self.tree.get_children()]
@@ -298,7 +333,7 @@ class SimulationsPanel(ttk.Frame):
             return
 
         incomplete = [run for run in runs if run['status'] != 'pronta']
-        df = compare_runs([run['path'] for run in runs], self.room_var.get() or None)
+        df = self._comparison_frame(runs, self.room_var.get() or None)
         if df.empty:
             self._set_status("Nenhuma das execuções selecionadas tem estatísticas "
                              "completas; use 'Regerar estatísticas'.")
@@ -331,6 +366,88 @@ class SimulationsPanel(ttk.Frame):
                 value = row[column]
                 values.append(f"{value:.3f}" if isinstance(value, float) else value)
             self.compare_tree.insert("", "end", values=values)
+
+    def plot_selected(self):
+        """Desenha o gráfico escolhido para as execuções selecionadas."""
+        runs = [run for run in self._selected_runs() if run['status'] == 'pronta']
+        if len(runs) < 2:
+            self._set_status("Selecione ao menos duas execuções com estatísticas "
+                             "completas para gerar um gráfico.")
+            return
+
+        room = self.room_var.get()
+        name = self.chart_var.get()
+        function, needs_series = charts.CHARTS[name]
+
+        # Só a leitura das séries é exclusiva; um gráfico agregado sai na hora
+        # e não tem por que esperar a leitura anterior terminar.
+        if needs_series and self._busy:
+            self._set_status("Aguarde a leitura das séries em andamento terminar.")
+            return
+
+        if not needs_series:
+            df = self._comparison_frame(runs, room)
+            if df.empty:
+                self._set_status("Sem dados agregados para essas execuções.")
+                return
+            self._show_figure(function(df), f"{name} — {room}")
+            self._set_status(f"{name}: {len(df)} execução(ões) na zona {room}.")
+            return
+
+        missing = [run['run'] for run in runs
+                   if room not in run['rooms_disponiveis']]
+        if missing:
+            self._set_status(f"{', '.join(missing)} não tem a planilha da zona {room}.")
+            return
+
+        self._busy = True
+        self._set_status(f"Lendo as séries de {len(runs)} execução(ões)… a primeira "
+                         "leitura de cada planilha leva ~20 s.")
+        series_runs = [(run['run'], run['path']) for run in runs]
+
+        def work():
+            # A leitura é o gasto; a figura sai pronta e só é anexada ao canvas
+            # na thread da interface.
+            try:
+                figure = function(series_runs, room)
+            except Exception as error:
+                self.after(0, lambda: self._plot_failed(error))
+                return
+            self.after(0, lambda: self._plot_done(figure, f"{name} — {room}"))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _comparison_frame(self, runs, room):
+        """Agregados das execuções: do banco quando possível, senão dos Excel."""
+        paths = [run['path'] for run in runs]
+        df = database.load_comparison(database.database_path(self.outputs_path.get()),
+                                      paths, room)
+        return df if not df.empty else compare_runs(paths, room)
+
+    def _plot_done(self, figure, title):
+        self._busy = False
+        self._show_figure(figure, title)
+        self._set_status(f"{title} pronto.")
+
+    def _plot_failed(self, error):
+        self._busy = False
+        self._set_status(f"Falha ao gerar o gráfico: {error}")
+        messagebox.showerror("Gráfico", str(error))
+
+    def _show_figure(self, figure, title):
+        """Janela com o gráfico e a barra de navegação (zoom, salvar PNG)."""
+        window = tk.Toplevel(self)
+        window.title(title)
+        window.configure(background=COLORS["bg"])
+
+        canvas = FigureCanvasTkAgg(figure, master=window)
+        toolbar = NavigationToolbar2Tk(canvas, window, pack_toolbar=False)
+        toolbar.configure(background=COLORS["bg"])
+        toolbar.update()
+        toolbar.pack(side="bottom", fill="x")
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+        canvas.draw()
+        return window
 
     def export_comparison(self):
         if self._comparison is None or self._comparison.empty:
