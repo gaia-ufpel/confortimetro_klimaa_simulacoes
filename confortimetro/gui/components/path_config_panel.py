@@ -50,8 +50,8 @@ class PathConfigPanel(ttk.Frame):
     """Panel for path configuration."""
 
     def __init__(self, parent, callback: Optional[PathConfigCallback] = None,
-                 fields: tuple = FIELD_KEYS):
-        super().__init__(parent, style="Surface.TFrame")
+                 fields: tuple = FIELD_KEYS, **kwargs):
+        super().__init__(parent, style="Surface.TFrame", **kwargs)
         self.callback = callback
         self._fields = fields
         self._build_ui()

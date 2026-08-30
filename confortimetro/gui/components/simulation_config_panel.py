@@ -49,6 +49,11 @@ class SimulationConfigPanel(ttk.Frame):
         self._build_equipment_tab()
         self._build_rooms_module_tab()
 
+    def insert_tab(self, index: int, widget, title: str) -> None:
+        """Insert an externally built frame as a tab of this panel."""
+        self.notebook.insert(index, widget, text=title)
+        self.notebook.select(index)
+
     def _tab(self, title: str) -> ttk.Frame:
         """Create a notebook tab whose four columns share the width."""
         frame = ttk.Frame(self.notebook, style="Surface.TFrame",
@@ -93,45 +98,69 @@ class SimulationConfigPanel(ttk.Frame):
         return combo
 
     def _build_comfort_tab(self):
-        """PMV, metabolismo e vestimenta: as entradas do conforto do ocupante."""
-        tab = self._tab("Conforto")
+        """Um bloco por assunto: índice, ocupante e vestimenta."""
+        tab = ttk.Frame(self.notebook, style="Surface.TFrame",
+                        padding=SPACE[3])
+        self.notebook.add(tab, text="Conforto")
 
+        index = self._section(tab, "Índice de conforto")
         # Faixa do PMV na escala ASHRAE (-3 frio … +3 quente).
-        self.pmv_range = self._range(tab, 0, 0, "Faixa de PMV", -3.0, 3.0)
-        self.comfort_bound_entry = self._field(tab, 0, 2, "Banda de conforto")
-
-        self.met_entry = self._field(tab, 2, 0, "Met")
-        self.wme_entry = self._field(tab, 2, 1, "Wme")
+        self.pmv_range = self._range(index, 0, 0, "Faixa de PMV", -3.0, 3.0)
+        self.comfort_bound_entry = self._field(index, 0, 2,
+                                               "Banda de conforto")
         self.selected_adaptative = tk.StringVar()
-        self.cbx_adaptative = self._combo(tab, 2, 2, "Margem do adaptativo",
+        self.cbx_adaptative = self._combo(index, 0, 3,
+                                          "Margem do adaptativo",
                                           ("80%", "90%"),
                                           self.selected_adaptative)
 
-        self.clo_range = self._range(tab, 4, 0, "Faixa de Clo", 0.0, 2.0, 0.05)
-        self.clo_delta_entry = self._field(tab, 4, 2, "Variação do Clo")
+        occupant = self._section(tab, "Ocupante")
+        self.met_entry = self._field(occupant, 0, 0, "Met (met)")
+        self.wme_entry = self._field(occupant, 0, 1, "Wme (W/m²)")
+
+        clothing = self._section(tab, "Vestimenta")
+        self.clo_range = self._range(clothing, 0, 0, "Faixa de Clo (clo)",
+                                     0.0, 2.0, 0.05)
+        self.clo_delta_entry = self._field(clothing, 0, 2,
+                                           "Variação do Clo (clo)")
 
         # Prioridade do Clo sobre os equipamentos
         self.clo_priority_var = tk.BooleanVar(value=True)
         self.clo_priority_check = ttk.Checkbutton(
-            tab, text="Ajustar Clo antes dos equipamentos",
+            clothing, text="Ajustar Clo antes dos equipamentos",
             variable=self.clo_priority_var, command=self._on_config_changed,
             style="Card.TCheckbutton")
-        self.clo_priority_check.grid(row=5, column=3, padx=SPACE[1],
+        self.clo_priority_check.grid(row=1, column=3, padx=SPACE[1],
                                      pady=(0, SPACE[2]), sticky="w")
 
+    def _section(self, parent, title: str) -> ttk.Labelframe:
+        """Create a titled section that stacks vertically inside a tab."""
+        section = ttk.Labelframe(parent, text=title, style="Section.TLabelframe",
+                                 padding=SPACE[2])
+        section.pack(fill="x", pady=(0, SPACE[2]))
+        for column in range(4):
+            section.columnconfigure(column, weight=1, uniform="fields")
+        return section
+
     def _build_equipment_tab(self):
-        """Ar-condicionado, ventilação e janela: o que o módulo aciona."""
-        tab = self._tab("Equipamentos")
+        """Um bloco por equipamento: fica claro o que cada ajuste comanda."""
+        tab = ttk.Frame(self.notebook, style="Surface.TFrame",
+                        padding=SPACE[3])
+        self.notebook.add(tab, text="Equipamentos")
 
+        ac = self._section(tab, "Ar-condicionado")
         self.temp_ac_range = self._range(
-            tab, 0, 0, "Faixa de temperatura do AC (°C)", 10.0, 35.0, 0.5)
-        self.vel_max_entry = self._field(tab, 0, 2, "Velocidade máxima")
-        self.air_speed_delta_entry = self._field(
-            tab, 0, 3, "Variação da vel. de ventilação")
+            ac, 0, 0, "Faixa de temperatura do AC (°C)", 10.0, 35.0, 0.5)
 
+        fan = self._section(tab, "Ventilador")
+        self.vel_max_entry = self._field(fan, 0, 0, "Velocidade máxima (m/s)")
+        self.air_speed_delta_entry = self._field(
+            fan, 0, 1, "Variação da vel. de ventilação (m/s)")
+
+        window = self._section(tab, "Janela")
         self.temp_open_window_bound_entry = self._field(
-            tab, 2, 0, "Margem de temp. p/ abrir janela")
-        self.co2_limit_entry = self._field(tab, 2, 1, "Limite de CO2")
+            window, 0, 0, "Margem de temp. p/ abrir janela (°C)")
+        self.co2_limit_entry = self._field(window, 0, 1, "Limite de CO2 (ppm)")
 
     def _build_rooms_module_tab(self):
         """Zonas simuladas e módulo de condicionamento."""

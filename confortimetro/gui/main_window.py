@@ -226,19 +226,16 @@ class MainWindow(tk.Tk):
                       icon="edit", command=self.on_edit_idf).pack(
                           side="left", pady=(SPACE[2], 0))
 
-        # --- Parâmetros: caminhos e simulação no mesmo card ---
-        params_card = Card(page, "Parâmetros da simulação")
-        params_card.pack(fill="both", expand=True)
-        params = params_card.body
-
-        self.path_panel = PathConfigPanel(params, callback=self,
-                                          fields=SIMULATION_FIELDS)
-        self.path_panel.pack(fill="x")
-        ttk.Separator(params, orient="horizontal",
-                      style="Modern.TSeparator").pack(fill="x",
-                                                      pady=(0, SPACE[4]))
-        self.simulation_panel = SimulationConfigPanel(params, callback=self)
+        # --- Parâmetros: as abas já são o card, sem moldura em volta ---
+        self.simulation_panel = SimulationConfigPanel(page, callback=self)
         self.simulation_panel.pack(fill="both", expand=True)
+        # Os caminhos entram como primeira aba: o IDF e o EPW são a entrada da
+        # simulação, não mais um bloco solto acima dos parâmetros.
+        self.path_panel = PathConfigPanel(self.simulation_panel.notebook,
+                                          callback=self,
+                                          fields=SIMULATION_FIELDS,
+                                          padding=SPACE[3])
+        self.simulation_panel.insert_tab(0, self.path_panel, "Arquivos")
 
         # --- Log: painel inferior colapsável ---
         self.log_sheet = BottomSheet(page, "Log de execução")
