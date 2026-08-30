@@ -42,14 +42,13 @@ saídas e diagnóstico de erros.
 - **Uma simulação anual leva de dezenas de minutos a horas.** Não a rode em
   primeiro plano esperando resposta rápida; use `--print-config` para validar
   a configuração antes.
-- `split_target_period_excel` é hardcoded para a zona `ATELIE1`; sem ela em
-  `rooms`, essa etapa é pulada com aviso.
 - **O executável Windows é gerado só no CI** (`windows-latest`): PyInstaller +
   Inno Setup não rodam em Linux. A versão vem do `version` do `pyproject.toml`,
   e a tag `v<version>` precisa bater com ela ou o build falha de propósito.
   Armadilhas do `.spec` e do `.iss` em [`docs/WINDOWS.md`](docs/WINDOWS.md).
-- O pós-processamento assume ano de 2015 e 6 timesteps por hora, e descarta as
-  primeiras 288 linhas.
+- O período e o passo do pós-processamento vêm do `RunPeriod` e do `Timestep`
+  do IDF (`read_run_period`, `read_timesteps_per_hour`); o descarte inicial é de
+  dois dias de aquecimento, proporcional ao timestep.
 
 ## Interface gráfica (Tkinter)
 

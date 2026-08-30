@@ -134,20 +134,6 @@ class ControlPanel(ttk.Frame):
         """
         self.status_pill.set(status, status_type)
 
-    def enable_buttons(self, enabled: bool = True):
-        """
-        Enable or disable all buttons.
-        
-        Args:
-            enabled: Whether to enable the buttons
-        """
-        state = "normal" if enabled else "disabled"
-
-        if not self.is_running:  # Only enable if not running
-            self.run_button.configure(state=state)
-            self.save_button.configure(state=state)
-            self.load_button.configure(state=state)
-    
     def get_is_running(self) -> bool:
         """Check if simulation is running."""
         return self.is_running

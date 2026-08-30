@@ -64,6 +64,23 @@ def test_compara_duas_execucoes(tmp_path):
     assert df['Energia total (kWh)'].tolist() == pytest.approx([10.0, 4.0])
 
 
+def test_marca_execucoes_de_periodos_diferentes(tmp_path):
+    from confortimetro.results.compare import mismatched_periods
+    from tests.test_stats import _room_dataframe
+
+    anual = _make_run(tmp_path, 'ANUAL', 'COMPLETE')
+    curta = _make_run(tmp_path, 'CURTA', 'COMPLETE')
+    # A execução curta cobre metade dos timesteps: comparar totais não faz sentido.
+    _room_dataframe(rows=5, nan_rows=0).to_excel(curta / f"{ROOM}.xlsx", index=False)
+    for run_path in (anual, curta):
+        recompute_run(str(run_path))
+
+    df = compare_runs([str(anual), str(curta)], room=ROOM)
+
+    assert df['Timesteps simulados'].tolist() == [10, 5]
+    assert mismatched_periods(df) == ['CURTA']
+
+
 def test_compara_ignora_execucao_sem_estatisticas(tmp_path):
     pronta = _make_run(tmp_path, 'PRONTA', 'COMPLETE')
     crua = _make_run(tmp_path, 'CRUA', 'COMPLETE')

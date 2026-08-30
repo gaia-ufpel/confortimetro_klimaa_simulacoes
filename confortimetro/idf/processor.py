@@ -7,6 +7,7 @@ de arquivos IDF necessárias para as simulações.
 
 import os
 import platform
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 import logging
@@ -47,6 +48,70 @@ def read_zone_names(idf_path: str) -> List[str]:
         if line.endswith(";"):
             tokens.clear()
     return names
+
+
+def _idf_objects(idf_path: str, object_type: str) -> List[List[str]]:
+    """Campos de cada objeto de um tipo, lendo o texto do IDF.
+
+    Mesmo motivo de `read_zone_names`: carregar pelo eppy exige o IDD do
+    EnergyPlus e alguns segundos, e aqui só queremos dois números.
+    """
+    try:
+        with open(idf_path, "r", encoding="latin-1") as handle:
+            text = handle.read()
+    except OSError:
+        return []
+
+    objects, fields, collecting = [], [], False
+    for line in text.splitlines():
+        line = line.split("!")[0].strip()
+        if not line:
+            continue
+        for token in line.replace(";", ",").split(","):
+            token = token.strip()
+            if not token:
+                continue
+            if not collecting:
+                collecting = token.lower() == object_type.lower()
+                continue
+            fields.append(token)
+        if line.endswith(";") and collecting:
+            objects.append(fields)
+            fields, collecting = [], False
+    return objects
+
+
+def read_timesteps_per_hour(idf_path: str, default: int = 6) -> int:
+    """Valor do objeto `Timestep` do IDF."""
+    objects = _idf_objects(idf_path, "Timestep")
+    if not objects or not objects[0]:
+        return default
+    try:
+        return int(float(objects[0][0]))
+    except ValueError:
+        return default
+
+
+def read_run_period(idf_path: str, default_year: int = 2015):
+    """Início e fim do `RunPeriod`, como `(datetime, datetime)`.
+
+    O fim é exclusivo — a meia-noite do dia seguinte —, que é como o
+    pós-processamento numera os carimbos de tempo.
+    """
+    objects = _idf_objects(idf_path, "RunPeriod")
+    if not objects or len(objects[0]) < 7:
+        return (datetime(default_year, 1, 1), datetime(default_year + 1, 1, 1))
+
+    # Campos: nome, mês e dia iniciais, ano inicial, mês e dia finais, ano final.
+    _, begin_month, begin_day, begin_year, end_month, end_day, end_year = objects[0][:7]
+    try:
+        begin_year = int(begin_year) if begin_year else default_year
+        end_year = int(end_year) if end_year else begin_year
+        start = datetime(begin_year, int(begin_month), int(begin_day))
+        end = datetime(end_year, int(end_month), int(end_day)) + timedelta(days=1)
+    except ValueError:
+        return (datetime(default_year, 1, 1), datetime(default_year + 1, 1, 1))
+    return (start, end)
 
 
 class IDFProcessor:
@@ -437,32 +502,3 @@ class IDFProcessor:
         
         return errors
     
-    def get_idf_summary(self) -> Dict[str, Any]:
-        """
-        Obter resumo do arquivo IDF.
-        
-        Returns:
-            Dict[str, Any]: Informações sobre o arquivo IDF
-        """
-        try:
-            idf = IDF(self.configs.idf_path)
-            
-            summary = {
-                "file_path": self.configs.idf_path,
-                "building_count": len(idf.idfobjects.get("Building", [])),
-                "zone_count": len(idf.idfobjects.get("Zone", [])),
-                "people_count": len(idf.idfobjects.get("People", [])),
-                "schedule_constant_count": len(idf.idfobjects.get("Schedule:Constant", [])),
-                "output_variable_count": len(idf.idfobjects.get("Output:Variable", [])),
-                "schedule_type_limits_count": len(idf.idfobjects.get("ScheduleTypeLimits", []))
-            }
-            
-            # Adicionar informações sobre salas configuradas
-            summary["configured_rooms"] = self.configs.rooms
-            summary["room_count"] = len(self.configs.rooms)
-            
-            return summary
-            
-        except Exception as e:
-            self.logger.error(f"Failed to get IDF summary: {e}")
-            return {"error": str(e)}

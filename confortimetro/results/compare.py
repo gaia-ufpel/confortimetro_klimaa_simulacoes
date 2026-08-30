@@ -23,7 +23,7 @@ REQUIRED_COLUMNS = ['Energia total (kWh)', 'PMV fora da faixa', 'Fora da banda a
 COMPARISON_COLUMNS = ['Energia total (kWh)', 'Aquecimento (kWh)', 'Resfriamento (kWh)',
                       'Desconforto', 'PMV médio', 'PMV fora da faixa',
                       'Fora da banda adaptativa', 'Janela aberta', 'Ventilador ligado',
-                      'DOAS ligado', 'CO2 máximo']
+                      'DOAS ligado', 'CO2 máximo', 'Timesteps simulados']
 
 
 def needs_recompute(run_path, known_mtimes=None):
@@ -129,6 +129,24 @@ def recompute_runs(run_paths, workers=None, on_result=None):
             if on_result:
                 on_result(run_path, error)
     return errors
+
+
+def mismatched_periods(df):
+    """Execuções cujo período simulado destoa das demais na tabela.
+
+    Comparar o consumo anual de uma com o de outra que rodou só o verão dá um
+    resultado sem sentido; a contagem de timesteps é o que denuncia isso.
+    """
+    if df.empty or 'Timesteps simulados' not in df.columns:
+        return []
+    counts = df['Timesteps simulados'].dropna()
+    if counts.empty:
+        return []
+    # A execução mais longa é a referência: com duas execuções a moda empata e
+    # apontaria a errada. Quem cobre menos tempo é a exceção a sinalizar.
+    longest = counts.max()
+    divergent = df[df['Timesteps simulados'] < longest]
+    return sorted(set(divergent['Execução']))
 
 
 def compare_runs(run_paths, room=None):

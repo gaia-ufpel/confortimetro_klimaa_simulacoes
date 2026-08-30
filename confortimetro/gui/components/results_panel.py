@@ -258,18 +258,3 @@ class ResultsPanel(ttk.Frame):
     def append_success(self, message: str):
         """Append a success message."""
         self.append_message(message, "success")
-    
-    def get_text(self) -> str:
-        """Get all text from the results area."""
-        return self.results_text.get(1.0, tk.END)
-    
-    def set_text(self, text: str):
-        """Set the text in the results area."""
-        self.results_text.config(state="normal")
-        self.results_text.delete(1.0, tk.END)
-        self.results_text.insert(1.0, text)
-        self.results_text.config(state="disabled")
-    
-    def is_empty(self) -> bool:
-        """Check if the results area is empty."""
-        return len(self.get_text().strip()) == 0

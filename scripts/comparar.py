@@ -70,7 +70,7 @@ def main():
 
     if args.graficos:
         os.makedirs(args.graficos, exist_ok=True)
-        for name, (function, needs_series) in charts.CHARTS.items():
+        for name, (function, needs_series, _options) in charts.CHARTS.items():
             if needs_series:
                 continue  # esses releem as planilhas por zona; peça pela interface
             figure = function(df)

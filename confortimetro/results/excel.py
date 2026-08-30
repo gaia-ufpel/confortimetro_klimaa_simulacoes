@@ -5,28 +5,23 @@ import os
 import esoreader
 import pandas
 
-def summary_one_room_results_from_csv(csv_path, room):
-    """
-    Resumo dos resultados de uma sala em um arquivo .xlsx a partir de um arquivo .csv
-    """
-    df = pandas.read_csv(csv_path)
-    base_path = csv_path[:-13]
+# Dias de aquecimento que o EnergyPlus escreve no .eso antes do período
+# simulado. Em 6 timesteps por hora davam as 288 linhas descartadas à mão.
+WARMUP_DAYS = 2
 
-    target_cols = ["Date/Time",
-                   "Environment:Site Outdoor Air Drybulb Temperature [C](TimeStep)"
-    ]
-    target_cols.extend(filter(lambda x: room in x, df.columns))
-    result = df[target_cols]
-    result = result.drop(result.index[:288])
 
-    result.to_excel(os.path.join(base_path, f"{room}.xlsx"), index=False)
-
-def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_per_hour:int=6, start_date:str='2015-01-01', end_date:str='2016-1-1 T00:00'):
+def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_per_hour:int=6, start_date='2015-01-01', end_date='2016-1-1 T00:00'):
     """
     Resumo dos resultados de cada sala em um arquivo .xlsx a partir de um arquivo .eso
+
+    `timesteps_per_hour`, `start_date` e `end_date` descrevem o RunPeriod do IDF
+    simulado — a `Simulation` os lê do próprio arquivo. Os padrões só existem
+    para quem chama a função à mão sobre uma execução antiga.
     """
-    start_date = pandas.to_datetime(start_date) + pandas.Timedelta(minutes=60//timesteps_per_hour)
-    dates = pandas.Series(pandas.date_range(start_date, end_date, freq=f"{60//timesteps_per_hour}min"))
+    minutes = 60 // timesteps_per_hour
+    warmup_rows = WARMUP_DAYS * 24 * timesteps_per_hour
+    start_date = pandas.to_datetime(start_date) + pandas.Timedelta(minutes=minutes)
+    dates = pandas.Series(pandas.date_range(start_date, end_date, freq=f"{minutes}min"))
     eso = esoreader.read_from_path(os.path.join(output_path, "eplusout.eso"))
     variables = eso.find_variable("")
 
@@ -50,7 +45,7 @@ def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_p
                 "confira o nome da zona em rooms e as Output:Variable do IDF"
             )
 
-        df = df.drop(df.index[:288])
+        df = df.drop(df.index[:warmup_rows])
         df.index = range(len(df))
 
         # concat com tamanhos diferentes preenche com NaN em silêncio: uma
