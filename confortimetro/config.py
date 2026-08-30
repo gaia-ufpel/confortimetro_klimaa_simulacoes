@@ -5,6 +5,8 @@ import os
 import platform
 import re
 import shutil
+import subprocess
+from functools import lru_cache
 
 from confortimetro.module_type import ModuleType
 from confortimetro.paths import new_run_path, runs_root
@@ -19,6 +21,8 @@ ADAPTATIVE2PORCENT = {value: key for key, value in PORCENT2ADAPTATIVE.items()}
 
 # Versão da API do pyenergyplus que o projeto usa.
 REQUIRED_EP_VERSION = "9.4"
+# `EnergyPlusAPI.api_version()` do EnergyPlus 9.4.
+REQUIRED_EP_API_VERSION = "0.2"
 
 
 def _platform_globs() -> list[str]:
@@ -81,15 +85,59 @@ def is_energy_path(path: str) -> bool:
     )
 
 
+@lru_cache(maxsize=32)
+def _energyplus_cli_version(path: str) -> str:
+    """Versão informada pelo próprio executável (`energyplus --version`)."""
+    executable = os.path.join(
+        path, "energyplus.exe" if platform.system() == "Windows" else "energyplus"
+    )
+    if not os.path.isfile(executable):
+        return ""
+    try:
+        output = subprocess.run(
+            [executable, "--version"], capture_output=True, text=True, timeout=10
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    match = re.search(r"Version\s+(\d+)\.(\d+)", output)
+    return f"{match.group(1)}.{match.group(2)}" if match else ""
+
+
 def energy_path_version(path: str) -> str:
     """
-    Versão da instalação, extraída do nome do diretório
-    (`EnergyPlusV9-4-0`, `EnergyPlus-9-4-0`, `EnergyPlus-23-2-0`).
+    Versão da instalação.
 
-    Retorna "" quando o nome não segue nenhum dos padrões.
+    Pergunta ao próprio EnergyPlus (`energyplus --version`); se o executável
+    não responder, cai no nome do diretório (`EnergyPlusV9-4-0`,
+    `EnergyPlus-9-4-0`, `EnergyPlus-23-2-0`).
+
+    Retorna "" quando nenhuma das duas fontes diz a versão.
     """
+    version = _energyplus_cli_version(path)
+    if version:
+        return version
     match = re.search(r"(\d+)[-.](\d+)", os.path.basename(os.path.normpath(path)))
     return f"{match.group(1)}.{match.group(2)}" if match else ""
+
+
+def energy_api_version(path: str) -> str:
+    """
+    Versão da API Python declarada em `pyenergyplus/api.py` (`api_version`).
+
+    Lê o arquivo em vez de importar: o pyenergyplus da instalação escolhida
+    ainda não está no `sys.path` na hora de validar o caminho. Retorna "" se
+    o arquivo não declarar a versão.
+    """
+    api_file = os.path.join(path, "pyenergyplus", "api.py")
+    try:
+        with open(api_file, encoding="utf-8", errors="replace") as handle:
+            source = handle.read()
+    except OSError:
+        return ""
+    # O 9.4 devolve a versão como string (`return "0.2"`); versões antigas
+    # devolvem float. Os dois casos caem no mesmo grupo.
+    match = re.search(r"def api_version\b.*?return\s+[\"']?([\d.]+)", source, re.S)
+    return match.group(1).rstrip(".") if match else ""
 
 
 def _windows_registry_paths() -> list[str]:
