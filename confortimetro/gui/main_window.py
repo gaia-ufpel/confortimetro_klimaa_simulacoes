@@ -222,9 +222,6 @@ class MainWindow(tk.Tk):
         topbar.pack(fill="x", pady=(0, SPACE[4]))
         self.control_panel = ControlPanel(topbar.body, callback=self)
         self.control_panel.pack(fill="x")
-        RoundedButton(topbar.body, text="Editar IDF", variant="ghost",
-                      icon="edit", command=self.on_edit_idf).pack(
-                          side="left", pady=(SPACE[2], 0))
 
         # --- Parâmetros: as abas já são o card, sem moldura em volta ---
         self.simulation_panel = SimulationConfigPanel(page, callback=self)

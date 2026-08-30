@@ -76,7 +76,7 @@ duas páginas; misturar `pack` e `place` no mesmo host empurra a que entra).
   parâmetros (`PathConfigPanel` e `SimulationConfigPanel`) e um `BottomSheet`
   com o log (`ResultsPanel`), que abre sozinho quando a simulação começa.
 - `idf` — `IDFEditorPanel` (`components/idf_editor_panel.py`), aberta pelo
-  **Editar IDF** da topbar de execução: período,
+  **Editar IDF** do `ControlPanel`: período,
   passos por hora e ocupação lidos do IDF escolhido. **Salvar como novo IDF**
   grava `<nome>_editado.idf` ao lado do original (numerado se já existir) e
   aponta o campo de IDF da execução para ele; o arquivo do usuário nunca é

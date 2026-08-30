@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Protocol, Optional
 
-from ..theme import SPACE, ChipSelect, RangeField
+from ..theme import SPACE, ChipSelect, RangeField, fmt_num, parse_num
 from confortimetro.config import ADAPTATIVE2PORCENT, PORCENT2ADAPTATIVE
 from confortimetro.module_type import ModuleType
 
@@ -23,6 +23,11 @@ MODULE_LABELS = {
         "Janela fechada (ventilador e ar-condicionado)",
 }
 LABEL2MODULE = {label: module for module, label in MODULE_LABELS.items()}
+
+#: Banda adaptativa usada quando a configuração não traz uma válida — a mesma
+#: do `SimulationConfig`. O 0.8 que estava aqui era resquício de quando o campo
+#: guardava a fração de aceitação, e virava uma semibanda de 0,8 °C.
+DEFAULT_ADAPTATIVE = 2.5
 
 
 class SimulationConfigCallback(Protocol):
@@ -193,19 +198,20 @@ class SimulationConfigPanel(ttk.Frame):
             return {
                 'pmv_lowerbound': self.pmv_range.get()[0],
                 'pmv_upperbound': self.pmv_range.get()[1],
-                'max_vel': float(self.vel_max_entry.get()) if self.vel_max_entry.get() else 0.0,
-                'adaptative_bound': PORCENT2ADAPTATIVE.get(self.selected_adaptative.get(), 0.8),
+                'max_vel': parse_num(self.vel_max_entry.get()),
+                'adaptative_bound': PORCENT2ADAPTATIVE.get(
+                    self.selected_adaptative.get(), DEFAULT_ADAPTATIVE),
                 'temp_ac_min': self.temp_ac_range.get()[0],
                 'temp_ac_max': self.temp_ac_range.get()[1],
-                'met': float(self.met_entry.get()) if self.met_entry.get() else 0.0,
-                'wme': float(self.wme_entry.get()) if self.wme_entry.get() else 0.0,
-                'pmv_comfort_bound': float(self.comfort_bound_entry.get()) if self.comfort_bound_entry.get() else 0.0,
-                'co2_limit': float(self.co2_limit_entry.get()) if self.co2_limit_entry.get() else 0.0,
-                'air_speed_delta': float(self.air_speed_delta_entry.get()) if self.air_speed_delta_entry.get() else 0.0,
-                'temp_open_window_bound': float(self.temp_open_window_bound_entry.get()) if self.temp_open_window_bound_entry.get() else 0.0,
+                'met': parse_num(self.met_entry.get()),
+                'wme': parse_num(self.wme_entry.get()),
+                'pmv_comfort_bound': parse_num(self.comfort_bound_entry.get()),
+                'co2_limit': parse_num(self.co2_limit_entry.get()),
+                'air_speed_delta': parse_num(self.air_speed_delta_entry.get()),
+                'temp_open_window_bound': parse_num(self.temp_open_window_bound_entry.get()),
                 'clo_min': self.clo_range.get()[0],
                 'clo_max': self.clo_range.get()[1],
-                'clo_delta': float(self.clo_delta_entry.get()) if self.clo_delta_entry.get() else 0.0,
+                'clo_delta': parse_num(self.clo_delta_entry.get()),
                 'clo_priority': bool(self.clo_priority_var.get()),
                 'rooms': self.rooms_select.get_values(),
                 'module_type': LABEL2MODULE.get(self.selected_module.get())
@@ -220,36 +226,38 @@ class SimulationConfigPanel(ttk.Frame):
                            config.get('pmv_upperbound', 0.5))
         
         self.vel_max_entry.delete(0, tk.END)
-        self.vel_max_entry.insert(0, str(config.get('max_vel', '')))
+        self.vel_max_entry.insert(0, fmt_num(config.get('max_vel')))
         
-        self.selected_adaptative.set(ADAPTATIVE2PORCENT.get(config.get('adaptative_bound', 0.8), '80%'))
+        self.selected_adaptative.set(
+            ADAPTATIVE2PORCENT.get(config.get('adaptative_bound'),
+                                   ADAPTATIVE2PORCENT[DEFAULT_ADAPTATIVE]))
         
         self.temp_ac_range.set(config.get('temp_ac_min', 16.0),
                                config.get('temp_ac_max', 30.0))
         
         self.met_entry.delete(0, tk.END)
-        self.met_entry.insert(0, str(config.get('met', '')))
+        self.met_entry.insert(0, fmt_num(config.get('met')))
         
         self.wme_entry.delete(0, tk.END)
-        self.wme_entry.insert(0, str(config.get('wme', '')))
+        self.wme_entry.insert(0, fmt_num(config.get('wme')))
         
         self.comfort_bound_entry.delete(0, tk.END)
-        self.comfort_bound_entry.insert(0, str(config.get('pmv_comfort_bound', '')))
+        self.comfort_bound_entry.insert(0, fmt_num(config.get('pmv_comfort_bound')))
         
         self.co2_limit_entry.delete(0, tk.END)
-        self.co2_limit_entry.insert(0, str(config.get('co2_limit', '')))
+        self.co2_limit_entry.insert(0, fmt_num(config.get('co2_limit')))
         
         self.air_speed_delta_entry.delete(0, tk.END)
-        self.air_speed_delta_entry.insert(0, str(config.get('air_speed_delta', '')))
+        self.air_speed_delta_entry.insert(0, fmt_num(config.get('air_speed_delta')))
         
         self.temp_open_window_bound_entry.delete(0, tk.END)
-        self.temp_open_window_bound_entry.insert(0, str(config.get('temp_open_window_bound', '')))
+        self.temp_open_window_bound_entry.insert(0, fmt_num(config.get('temp_open_window_bound')))
         
         self.clo_range.set(config.get('clo_min', 0.5),
                            config.get('clo_max', 1.0))
         
         self.clo_delta_entry.delete(0, tk.END)
-        self.clo_delta_entry.insert(0, str(config.get('clo_delta', '')))
+        self.clo_delta_entry.insert(0, fmt_num(config.get('clo_delta')))
 
         self.clo_priority_var.set(bool(config.get('clo_priority', True)))
         

@@ -130,6 +130,28 @@ def _pick_family(candidates, fallback):
     return tkfont.nametofont(fallback).cget("family")
 
 
+def fmt_num(value, empty: str = "") -> str:
+    """Número como o usuário brasileiro escreve: vírgula decimal.
+
+    Texto que não é número volta intacto — o campo pode estar guardando algo
+    que não veio de um float.
+    """
+    if value is None or value == "":
+        return empty
+    try:
+        return f"{float(value):g}".replace(".", ",")
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def parse_num(text, default: float = 0.0) -> float:
+    """Lê o que o campo tem, aceitando vírgula ou ponto como decimal."""
+    try:
+        return float(str(text).strip().replace(",", "."))
+    except (TypeError, ValueError):
+        return default
+
+
 def rounded_rect(canvas: tk.Canvas, x1, y1, x2, y2, radius, **kwargs):
     """Retângulo de cantos arredondados como polígono suavizado."""
     radius = min(radius, abs(x2 - x1) / 2, abs(y2 - y1) / 2)
@@ -548,14 +570,14 @@ class RangeField(ttk.Frame):
         self._redraw()
 
     def _read(self, entry, fallback):
-        try:
-            return self._clamp(float(entry.get().replace(",", ".")))
-        except ValueError:
+        text = entry.get().strip()
+        if not text:
             return fallback
+        return self._clamp(parse_num(text, fallback))
 
     def _write(self, entry, value):
         entry.delete(0, tk.END)
-        entry.insert(0, f"{value:g}")
+        entry.insert(0, fmt_num(value))
 
     def _clamp(self, value):
         return min(max(float(value), self._lower), self._upper)
@@ -862,6 +884,15 @@ def demo():
     rng.set(1.0, -1.0)                   # invertido: sai ordenado
     assert rng.get() == (-1.0, 1.0), rng.get()
     assert rng._to_value(rng._to_x(2.0)) == 2.0
+    # Vírgula na tela, float na leitura — e ponto digitado continua valendo.
+    rng.set(-0.5, 1.5)
+    assert rng.min_entry.get() == "-0,5", rng.min_entry.get()
+    rng.max_entry.delete(0, tk.END)
+    rng.max_entry.insert(0, "2.5")
+    assert rng.get() == (-0.5, 2.5), rng.get()
+    assert fmt_num("") == "" and fmt_num(None) == "" and fmt_num("abc") == "abc"
+    assert fmt_num(1000) == "1000" and fmt_num(0.15) == "0,15"
+    assert parse_num("0,15") == 0.15 and parse_num("", 7.0) == 7.0
 
     chips = ChipSelect(card.body)
     chips.pack(fill="x")

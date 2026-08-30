@@ -248,7 +248,8 @@ class ComparisonPanel(ttk.Frame):
             values = []
             for column in columns:
                 value = row[column]
-                values.append(f"{value:.3f}" if isinstance(value, float) else value)
+                values.append(f"{value:.3f}".replace(".", ",")
+                              if isinstance(value, float) else value)
             self.compare_tree.insert("", "end", values=values)
 
     def plot(self):

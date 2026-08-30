@@ -27,6 +27,10 @@ class ControlPanelCallback(Protocol):
         """Called when load configuration is requested."""
         ...
 
+    def on_edit_idf(self) -> None:
+        """Called when editing the IDF fields is requested."""
+        ...
+
 
 class ControlPanel(ttk.Frame):
     """Panel for simulation controls."""
@@ -57,6 +61,11 @@ class ControlPanel(ttk.Frame):
             command=self._on_load_clicked)
         self.load_button.pack(side="left", padx=(SPACE[2], 0))
 
+        self.edit_idf_button = RoundedButton(
+            row, text="Editar IDF", variant="ghost", icon="edit",
+            command=self._on_edit_idf_clicked)
+        self.edit_idf_button.pack(side="left", padx=(SPACE[2], 0))
+
         self.status_pill = StatusPill(row, "Pronto para executar", "info")
         self.status_pill.pack(side="right")
 
@@ -84,6 +93,11 @@ class ControlPanel(ttk.Frame):
         if self.callback:
             self.callback.on_load_config()
     
+    def _on_edit_idf_clicked(self):
+        """Handle edit IDF button click."""
+        if self.callback:
+            self.callback.on_edit_idf()
+
     def set_running_state(self, is_running: bool):
         """
         Set the running state of the simulation with visual feedback.
@@ -98,6 +112,7 @@ class ControlPanel(ttk.Frame):
                                       icon="stop")
             self.save_button.configure(state="disabled")
             self.load_button.configure(state="disabled")
+            self.edit_idf_button.configure(state="disabled")
             self.progress_bar.pack(fill="x", pady=(SPACE[3], 0))
             self.progress_bar.start(10)
             self.set_status("Executando simulação...", "running")
@@ -106,6 +121,7 @@ class ControlPanel(ttk.Frame):
                                       variant="primary", icon="play")
             self.save_button.configure(state="normal")
             self.load_button.configure(state="normal")
+            self.edit_idf_button.configure(state="normal")
             self.progress_bar.stop()
             self.progress_bar.pack_forget()
             self.set_status("Pronto para executar", "info")
