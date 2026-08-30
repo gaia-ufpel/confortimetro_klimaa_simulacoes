@@ -15,6 +15,10 @@ confortimetro = "cli:main"
 [tool.setuptools]
 packages = ["confortimetro"]
 
+# A fonte de ícones é lida do disco em tempo de execução (gui/theme.icon).
+[tool.setuptools.package-data]
+confortimetro = ["gui/assets/*"]
+
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
 

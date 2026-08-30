@@ -124,6 +124,20 @@ para mudar métricas, colunas ou gráficos.
 - `results/charts.py` — as figuras. Devolvem `Figure` e **não** usam `pyplot`:
   o estado global dele briga com o laço de eventos do Tk.
 
+Os ícones são o **Lucide** (ISC), embutido como fonte em
+`confortimetro/gui/assets/lucide.ttf`. O Tk não carrega fonte de arquivo, então
+`theme.icon(nome, tamanho, cor, master=)` desenha o glifo com o Pillow e
+devolve um `PhotoImage` — a fonte não precisa estar instalada na máquina, e a
+cor sai do próprio tema. Duas regras: o cache é **obrigatório** (o Tk não
+segura referência de imagem, e um `PhotoImage` coletado deixa o botão vazio) e
+a chave inclui o interpretador do `master`, porque a imagem pertence ao `Tk`
+que a criou — reusá-la em outra janela dá `image "pyimageN" doesn't exist`.
+`RoundedButton(icon=...)` e o `StatusPill` desenham o par ícone + texto
+centralizado; nos `ttk.Label` use `image=` com `compound="left"`. Para um ícone
+novo, pegue o código em `https://unpkg.com/lucide-static/font/info.json` e
+acrescente ao dicionário `ICONS`. A fonte entra no bundle pelo `datas` do
+`.spec` e no pacote pelo `package-data` do `pyproject.toml`.
+
 **Cor, fonte, raio, espaçamento e os widgets arredondados ficam só em
 `confortimetro/gui/theme.py`; a razão de cada escolha está em
 [`docs/DESIGN.md`](docs/DESIGN.md)** — leia antes de mexer na aparência. Os

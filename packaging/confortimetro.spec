@@ -14,6 +14,10 @@ from PyInstaller.utils.hooks import collect_all
 ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
 
 datas = [
+    # A fonte de ícones é lida em tempo de execução pelo Pillow (theme.icon),
+    # então precisa existir como arquivo dentro do bundle.
+    (os.path.join(ROOT, "confortimetro", "gui", "assets"),
+     "confortimetro/gui/assets"),
     (os.path.join(ROOT, "examples", "config.json"), "examples"),
     (os.path.join(ROOT, "examples", "idf"), "examples/idf"),
     (os.path.join(ROOT, "examples", "epw"), "examples/epw"),

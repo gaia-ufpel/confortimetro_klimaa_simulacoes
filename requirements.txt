@@ -7,4 +7,5 @@ ladybug-comfort>=0.18.0
 esoreader>=1.2.3
 sv_ttk>=2.6  # tema Sun Valley para os widgets ttk
 matplotlib>=3.7.0
+pillow>=10.0  # desenha os ícones do Lucide (theme.icon); vem com o matplotlib
 openpyxl>=3.1.0  # engine de .xlsx do pandas, importado indiretamente

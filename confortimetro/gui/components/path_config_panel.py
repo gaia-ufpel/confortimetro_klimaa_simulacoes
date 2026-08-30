@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import filedialog, ttk
 from typing import Protocol, Optional
 
-from ..theme import COLORS, SPACE, RoundedButton
+from ..theme import COLORS, SPACE, RoundedButton, icon
 from confortimetro.config import (
     REQUIRED_EP_VERSION,
     energy_path_version,
@@ -96,13 +96,13 @@ class PathConfigPanel(ttk.Frame):
         entry.bind('<FocusOut>', change_callback)
         entry.bind('<KeyRelease>', lambda e: self._validate_path(entry))
 
-        RoundedButton(field, text="Procurar", variant="ghost",
+        RoundedButton(field, text="Procurar", variant="ghost", icon="browse",
                       command=browse_command).grid(row=1, column=1)
 
         # O caminho do EnergyPlus ganha um botão de detecção automática: é o
         # único campo cujo valor a máquina consegue descobrir sozinha.
         if entry_var_name == "energy_path_entry":
-            RoundedButton(field, text="Detectar", variant="ghost",
+            RoundedButton(field, text="Detectar", variant="ghost", icon="detect",
                           command=self.detect_energy_path).grid(
                               row=1, column=2, padx=(SPACE[2], 0))
 
@@ -151,22 +151,26 @@ class PathConfigPanel(ttk.Frame):
         """Feedback do campo do EnergyPlus: precisa do IDD e do pyenergyplus."""
         if not is_energy_path(path):
             status_label.config(
-                text="❌ Não é uma instalação do EnergyPlus (falta Energy+.idd "
-                     "ou pyenergyplus) — aponte para a pasta raiz",
-                foreground=COLORS["danger"]
+                text=" Não é uma instalação do EnergyPlus (falta Energy+.idd "
+                     "ou pyenergyplus). Aponte para a pasta raiz",
+                foreground=COLORS["danger"],
+                image=icon("error", 14, COLORS["danger"], master=self), compound="left"
             )
             return
 
         version = energy_path_version(path)
         if version == REQUIRED_EP_VERSION or not version:
             status_label.config(
-                text=f"✅ EnergyPlus {version or 'detectado'}", foreground=COLORS["ok"]
+                text=f"EnergyPlus {version or 'detectado'}",
+                foreground=COLORS["ok"],
+                image=icon("success", 14, COLORS["ok"], master=self), compound="left"
             )
         else:
             status_label.config(
-                text=f"⚠️ Versão {version} encontrada; o programa espera a "
+                text=f" Versão {version} encontrada. O programa espera a "
                      f"{REQUIRED_EP_VERSION} e a simulação pode falhar",
-                foreground=COLORS["warn"]
+                foreground=COLORS["warn"],
+                image=icon("warning", 14, COLORS["warn"], master=self), compound="left"
             )
 
     def _validate_path(self, entry):
@@ -199,18 +203,28 @@ class PathConfigPanel(ttk.Frame):
         elif "file" in entry_name:
             # File validation
             if os.path.isfile(path):
-                status_label.config(text="✅ Arquivo encontrado", foreground=COLORS["ok"])
+                status_label.config(text=" Arquivo encontrado", foreground=COLORS["ok"],
+                                    image=icon("success", 14, COLORS["ok"], master=self),
+                                    compound="left")
                 entry.config(style="Field.TEntry")
             else:
-                status_label.config(text="❌ Arquivo não encontrado", foreground=COLORS["danger"])
+                status_label.config(text=" Arquivo não encontrado",
+                                    foreground=COLORS["danger"],
+                                    image=icon("error", 14, COLORS["danger"], master=self),
+                                    compound="left")
                 # Could add error styling here
         else:
             # Directory validation  
             if os.path.isdir(path):
-                status_label.config(text="✅ Diretório válido", foreground=COLORS["ok"])
+                status_label.config(text=" Diretório válido", foreground=COLORS["ok"],
+                                    image=icon("success", 14, COLORS["ok"], master=self),
+                                    compound="left")
                 entry.config(style="Field.TEntry")
             else:
-                status_label.config(text="❌ Diretório não encontrado", foreground=COLORS["danger"])
+                status_label.config(text=" Diretório não encontrado",
+                                    foreground=COLORS["danger"],
+                                    image=icon("error", 14, COLORS["danger"], master=self),
+                                    compound="left")
     
     def _browse_idf(self):
         """Browse for IDF file."""

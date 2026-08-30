@@ -63,21 +63,21 @@ class SimulationsPanel(ttk.Frame):
         row = ttk.Frame(toolbar.body, style="Surface.TFrame")
         row.pack(fill="x")
 
-        RoundedButton(row, text="Nova execução", variant="primary",
+        RoundedButton(row, text="Nova execução", variant="primary", icon="new",
                       command=self._new_run).pack(side="left")
-        RoundedButton(row, text="Ver detalhes", variant="ghost",
+        RoundedButton(row, text="Ver detalhes", variant="ghost", icon="details",
                       command=self._open_details).pack(side="left", padx=(SPACE[3], 0))
-        RoundedButton(row, text="Duplicar", variant="ghost",
+        RoundedButton(row, text="Duplicar", variant="ghost", icon="duplicate",
                       command=self._duplicate).pack(side="left", padx=(SPACE[2], 0))
-        RoundedButton(row, text="Regerar estatísticas", variant="ghost",
+        RoundedButton(row, text="Regerar estatísticas", variant="ghost", icon="recompute",
                       command=self.recompute_selected).pack(side="left",
                                                             padx=(SPACE[2], 0))
-        RoundedButton(row, text="Abrir pasta", variant="ghost",
+        RoundedButton(row, text="Abrir pasta", variant="ghost", icon="open",
                       command=self.open_selected_folder).pack(side="left",
                                                               padx=(SPACE[2], 0))
-        RoundedButton(row, text="Atualizar", variant="ghost",
+        RoundedButton(row, text="Atualizar", variant="ghost", icon="refresh",
                       command=self.refresh).pack(side="left", padx=(SPACE[2], 0))
-        RoundedButton(row, text="Comparar selecionadas", variant="primary", command=self._compare).pack(side="right")
+        RoundedButton(row, text="Comparar selecionadas", variant="primary", icon="compare", command=self._compare).pack(side="right")
 
         info_row = ttk.Frame(toolbar.body, style="Surface.TFrame")
         info_row.pack(fill="x", pady=(SPACE[2], 0))

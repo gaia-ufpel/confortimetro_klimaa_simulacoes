@@ -3,11 +3,13 @@ Design system da interface: tokens, estilos ttk e os poucos widgets que
 precisam de cantos arredondados (Tk não tem border-radius — ver docs/DESIGN.md).
 """
 
+import os
 import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
 
 import sv_ttk
+from PIL import Image, ImageDraw, ImageFont, ImageTk
 
 # Chrome neutro do tema Sun Valley (sv_ttk) + o verde da marca como acento.
 # Os sprites do sv_ttk são imagens: a cor dos widgets ttk não é configurável,
@@ -38,6 +40,77 @@ COLORS = {
 SPACE = (0, 4, 8, 12, 16, 24, 32)
 
 RADIUS = {"card": 12, "control": 8, "pill": 999}
+
+#: Ícones do Lucide (ISC, `assets/LUCIDE-LICENSE.txt`), pelo ponto de código do
+#: glifo na fonte. Tk não carrega fonte de arquivo, então o glifo é desenhado
+#: com o Pillow e vira uma imagem — daí a fonte não precisar estar instalada na
+#: máquina. Para usar um ícone novo, pegue o código em
+#: https://unpkg.com/lucide-static/font/info.json e acrescente aqui.
+ICON_FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "assets", "lucide.ttf")
+
+ICONS = {
+    "play": 57660,
+    "stop": 57703,
+    "save": 57677,
+    "open": 57927,
+    "new": 57661,
+    "details": 57530,
+    "duplicate": 57502,
+    "refresh": 57669,
+    "compare": 58019,
+    "settings": 57684,
+    "back": 57416,
+    "export": 57522,
+    "clear": 57999,
+    "browse": 57681,
+    "detect": 58199,
+    "chart": 58021,
+    "recompute": 57673,
+    "chevron-right": 57455,
+    "chevron-down": 57453,
+    "info": 57593,
+    "running": 57609,
+    "success": 57894,
+    "warning": 57747,
+    "error": 57476,
+}
+
+_ICON_CACHE: dict = {}
+
+
+def icon(name: str, size: int = 16, color: str = None, master=None):
+    """Ícone como `PhotoImage`, desenhado na cor pedida.
+
+    O cache é obrigatório e não só uma economia: o Tk não segura referência de
+    imagem, e um `PhotoImage` sem dono em Python some no coletor e deixa o
+    botão vazio. A chave inclui o interpretador do `master` porque uma imagem
+    pertence ao Tk que a criou: reaproveitá-la em outra janela (dois `Tk()` na
+    mesma sessão, como nos testes) dá `image "pyimageN" doesn't exist`.
+    """
+    color = color or COLORS["text"]
+    key = (name, size, color, id(master.tk) if master is not None else None)
+    if key in _ICON_CACHE:
+        return _ICON_CACHE[key]
+
+    code = ICONS.get(name)
+    if code is None:
+        return None
+    try:
+        font = ImageFont.truetype(ICON_FONT, size)
+    except OSError:
+        # Sem a fonte o rótulo do botão continua legível; só o ícone falta.
+        return None
+
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    # `anchor="mm"` centraliza o glifo na caixa; sem isso ele encosta na borda
+    # de cima e o alinhamento com o texto do botão muda a cada ícone.
+    draw.text((size / 2, size / 2), chr(code), font=font, fill=color, anchor="mm")
+
+    photo = ImageTk.PhotoImage(image, master=master)
+    _ICON_CACHE[key] = photo
+    return photo
 
 # Preenchido por apply_theme com a família resolvida na máquina.
 FONTS: dict = {}
@@ -227,14 +300,18 @@ class RoundedButton(tk.Canvas):
     _HEIGHT = 34
     _PAD_X = SPACE[4]
     _MIN_WIDTH = 96
+    _ICON_SIZE = 16
+    _ICON_GAP = SPACE[2]
 
     def __init__(self, parent, text: str, command=None, variant: str = "primary",
-                 width: int = None, radius: int = RADIUS["control"]):
+                 icon: str = None, width: int = None,
+                 radius: int = RADIUS["control"]):
         super().__init__(parent, height=self._HEIGHT,
-                         width=width or self._width_for(text),
+                         width=width or self._width_for(text, icon),
                          bg=COLORS["surface"], highlightthickness=0, bd=0,
                          takefocus=1)
         self._fixed_width = width
+        self._icon = icon
         self._text = text
         self._command = command
         self._variant = variant
@@ -250,26 +327,28 @@ class RoundedButton(tk.Canvas):
         self.bind("<ButtonRelease-1>", self._on_release)
 
     @classmethod
-    def _width_for(cls, text: str) -> int:
-        """Largura do rótulo mais o respiro lateral, nunca abaixo do mínimo."""
+    def _width_for(cls, text: str, icon_name: str = None) -> int:
+        """Largura do conteúdo mais o respiro lateral, nunca abaixo do mínimo."""
         try:
             measured = tkfont.Font(font=FONTS["body"]).measure(text)
         except (tk.TclError, KeyError):
             # Antes do apply_theme não há fonte resolvida para medir.
             measured = len(text) * 8
+        if icon_name:
+            measured += cls._ICON_SIZE + cls._ICON_GAP
         return max(cls._MIN_WIDTH, measured + 2 * cls._PAD_X)
 
     def configure(self, **kwargs):  # type: ignore[override]
         """Aceita text/variant/command/state; o resto vai para o Canvas."""
         redraw = False
-        for key in ("text", "variant", "command", "state"):
+        for key in ("text", "variant", "command", "state", "icon"):
             if key in kwargs:
                 setattr(self, f"_{key}", kwargs.pop(key))
                 redraw = True
         # Trocar o rótulo (Executar/Parar) refaz a largura, a menos que a
         # chamada tenha fixado uma.
-        if "text" in kwargs or (redraw and self._fixed_width is None):
-            super().configure(width=self._width_for(self._text))
+        if redraw and self._fixed_width is None:
+            super().configure(width=self._width_for(self._text, self._icon))
         result = super().configure(**kwargs) if kwargs else None
         if redraw:
             self._redraw()
@@ -295,8 +374,23 @@ class RoundedButton(tk.Canvas):
         self.delete("all")
         rounded_rect(self, 1, 1, width - 2, height - 2, self._radius,
                      fill=fill, outline=outline or fill, width=1)
-        self.create_text(width / 2, height / 2, text=self._text, fill=fg,
-                         font=FONTS["body"])
+
+        # O ícone é uma imagem na cor do texto; o par ícone + rótulo fica
+        # centralizado como um bloco só.
+        image = icon(self._icon, self._ICON_SIZE, fg, master=self) if self._icon else None
+        if image is None:
+            self.create_text(width / 2, height / 2, text=self._text, fill=fg,
+                             font=FONTS["body"])
+            return
+
+        text_width = tkfont.Font(font=FONTS["body"]).measure(self._text)
+        block = self._ICON_SIZE + self._ICON_GAP + text_width
+        left = (width - block) / 2
+        # A referência da imagem vive no cache do módulo; o Tk não segura a sua.
+        self.create_image(left + self._ICON_SIZE / 2, height / 2, image=image)
+        self.create_text(left + self._ICON_SIZE + self._ICON_GAP, height / 2,
+                         text=self._text, fill=fg, font=FONTS["body"],
+                         anchor="w")
 
     def _on_enter(self, _event):
         self._hover = True
@@ -476,8 +570,8 @@ class BottomSheet(ttk.Frame):
         bar = ttk.Frame(self, style="Main.TFrame")
         bar.pack(fill="x")
 
-        self._toggle = RoundedButton(bar, text=f"▸  {title}", variant="bar",
-                                     command=self.toggle)
+        self._toggle = RoundedButton(bar, text=title, variant="bar",
+                                     icon="chevron-right", command=self.toggle)
         self._toggle.configure(bg=COLORS["bg"])
         self._toggle.pack(side="left")
         self._title = title
@@ -497,7 +591,8 @@ class BottomSheet(ttk.Frame):
             self._holder.pack(fill="both", expand=True, pady=(SPACE[2], 0))
         else:
             self._holder.pack_forget()
-        self._toggle.configure(text=f"{'▾' if is_open else '▸'}  {self._title}")
+        self._toggle.configure(text=self._title,
+                               icon="chevron-down" if is_open else "chevron-right")
 
     @property
     def is_open(self) -> bool:
@@ -586,19 +681,22 @@ class ChipSelect(ttk.Frame):
             close.bind("<Button-1>", lambda e, v=value: self._remove(v))
 
 
+# Estado: fundo, cor do texto e nome do ícone (o mesmo do estado).
 _PILL_STATES = {
-    "info": (COLORS["surface_2"], COLORS["text"], "ℹ️"),
-    "running": (COLORS["surface_2"], COLORS["text"], "⚙️"),
-    "success": (COLORS["ok"], "#ffffff", "✅"),
-    "warning": (COLORS["warn"], "#ffffff", "⚠️"),
-    "error": (COLORS["danger"], "#ffffff", "❌"),
+    "info": (COLORS["surface_2"], COLORS["text"]),
+    "running": (COLORS["surface_2"], COLORS["text"]),
+    "success": (COLORS["ok"], "#ffffff"),
+    "warning": (COLORS["warn"], "#ffffff"),
+    "error": (COLORS["danger"], "#ffffff"),
 }
 
 
 class StatusPill(tk.Canvas):
-    """Cápsula de estado: emoji + texto sobre fundo derivado do estado."""
+    """Cápsula de estado: ícone + texto sobre fundo derivado do estado."""
 
     _HEIGHT = 28
+    _ICON_SIZE = 14
+    _ICON_GAP = SPACE[2]
 
     def __init__(self, parent, text: str = "", state: str = "info"):
         super().__init__(parent, height=self._HEIGHT, bg=COLORS["surface"],
@@ -615,21 +713,31 @@ class StatusPill(tk.Canvas):
 
     def _resize(self):
         """A cápsula acompanha o texto — não deve esticar pela linha toda."""
-        width = tkfont.Font(font=FONTS["body"]).measure(f"XX  {self._text}")
-        self.configure(width=width + SPACE[5])
+        width = tkfont.Font(font=FONTS["body"]).measure(self._text)
+        self.configure(width=width + self._ICON_SIZE + self._ICON_GAP + SPACE[5])
 
     def _redraw(self):
         width, height = self.winfo_width(), self.winfo_height()
         if width < 4 or height < 4:
             return
-        fill, fg, icon = _PILL_STATES.get(self._state, _PILL_STATES["info"])
+        fill, fg = _PILL_STATES.get(self._state, _PILL_STATES["info"])
         self.delete("all")
         # A pill neutra é quase da cor do card: sem a borda ela some.
         outline = COLORS["line"] if fill == COLORS["surface_2"] else fill
         rounded_rect(self, 1, 1, width - 2, height - 2, height / 2,
                      fill=fill, outline=outline)
-        self.create_text(width / 2, height / 2, text=f"{icon}  {self._text}",
-                         fill=fg, font=FONTS["body"])
+
+        image = icon(self._state, self._ICON_SIZE, fg, master=self)
+        text_width = tkfont.Font(font=FONTS["body"]).measure(self._text)
+        if image is None:
+            self.create_text(width / 2, height / 2, text=self._text, fill=fg,
+                             font=FONTS["body"])
+            return
+        left = (width - (self._ICON_SIZE + self._ICON_GAP + text_width)) / 2
+        self.create_image(left + self._ICON_SIZE / 2, height / 2, image=image)
+        self.create_text(left + self._ICON_SIZE + self._ICON_GAP, height / 2,
+                         text=self._text, fill=fg, font=FONTS["body"],
+                         anchor="w")
 
 
 def demo():
@@ -655,6 +763,13 @@ def demo():
     assert button.winfo_reqwidth() == RoundedButton._MIN_WIDTH
     largo = RoundedButton(card.body, "Comparar as execuções selecionadas")
     assert largo.winfo_reqwidth() > button.winfo_reqwidth()
+
+    com_icone = RoundedButton(card.body, "Executar", icon="play")
+    com_icone.pack()
+    root.update()
+    assert icon("play", master=root) is not None, "fonte de ícones não carregou"
+    # Forma, ícone e rótulo: sem o ícone o canvas teria só dois itens.
+    assert len(com_icone.find_all()) == 3
     button.configure(state="disabled")
     assert button._colors()[0] == COLORS["surface_2"]
     pill.set("Falhou", "error")

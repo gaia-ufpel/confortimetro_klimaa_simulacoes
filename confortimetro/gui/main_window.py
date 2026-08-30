@@ -195,7 +195,7 @@ class MainWindow(tk.Tk):
         row = ttk.Frame(page, style="Main.TFrame")
         row.pack(fill="x", pady=(0, SPACE[3]))
         if back_to:
-            RoundedButton(row, text="← Voltar", variant="bar",
+            RoundedButton(row, text="Voltar", variant="bar", icon="back",
                           command=lambda: self.show_page(back_to)).pack(side="left",
                                                                         padx=(0, SPACE[3]))
         ttk.Label(row, text=title, style="H2.TLabel",
@@ -209,7 +209,7 @@ class MainWindow(tk.Tk):
 
         page = ttk.Frame(self.page_host, style="Main.TFrame")
         nav = self._page_nav(page, "Execuções")
-        RoundedButton(nav, text="Configurações", variant="bar",
+        RoundedButton(nav, text="Configurações", variant="bar", icon="settings",
                       command=lambda: self.show_page("settings")).pack(side="right")
 
         self.simulations_panel = SimulationsPanel(page, self._outputs_root(),
@@ -252,10 +252,10 @@ class MainWindow(tk.Tk):
         actions.pack(fill="x", pady=(SPACE[4], 0))
         row = ttk.Frame(actions.body, style="Surface.TFrame")
         row.pack(fill="x")
-        RoundedButton(row, text="Duplicar para nova execução", variant="primary",
+        RoundedButton(row, text="Duplicar para nova execução", variant="primary", icon="duplicate",
                       command=lambda: self.on_duplicate_run(self._detail_run)).pack(
                           side="left")
-        RoundedButton(row, text="Abrir pasta", variant="ghost",
+        RoundedButton(row, text="Abrir pasta", variant="ghost", icon="open",
                       command=self._open_detail_folder).pack(side="left",
                                                              padx=(SPACE[2], 0))
         return page

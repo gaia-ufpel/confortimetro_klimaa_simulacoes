@@ -81,9 +81,9 @@ class ComparisonPanel(ttk.Frame):
                                        style="Field.TCombobox", state="readonly",
                                        width=18)
         self.room_combo.pack(side="left")
-        RoundedButton(action_row, text="Comparar", variant="primary",
+        RoundedButton(action_row, text="Comparar", variant="primary", icon="compare",
                       command=self.compare).pack(side="left", padx=(SPACE[3], 0))
-        RoundedButton(action_row, text="Exportar CSV", variant="ghost",
+        RoundedButton(action_row, text="Exportar CSV", variant="ghost", icon="export",
                       command=self.export_comparison).pack(side="right")
 
         chart_row = ttk.Frame(actions.body, style="Surface.TFrame")
@@ -95,7 +95,7 @@ class ComparisonPanel(ttk.Frame):
                                         values=list(charts.CHARTS), width=30)
         self.chart_combo.pack(side="left")
         self.chart_combo.bind('<<ComboboxSelected>>', self._on_chart_changed)
-        RoundedButton(chart_row, text="Gerar gráfico", variant="primary",
+        RoundedButton(chart_row, text="Gerar gráfico", variant="primary", icon="chart",
                       command=self.plot).pack(side="left", padx=(SPACE[3], 0))
 
         # Cada gráfico mostra só as suas opções; o resto some da barra.

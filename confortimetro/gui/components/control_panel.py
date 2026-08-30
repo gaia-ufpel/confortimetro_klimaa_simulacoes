@@ -43,17 +43,17 @@ class ControlPanel(ttk.Frame):
         row.pack(fill="x")
 
         self.run_button = RoundedButton(
-            row, text="Executar simulação", variant="primary",
+            row, text="Executar simulação", variant="primary", icon="play",
             command=self._on_run_clicked)
         self.run_button.pack(side="left")
 
         self.save_button = RoundedButton(
-            row, text="Salvar", variant="ghost",
+            row, text="Salvar", variant="ghost", icon="save",
             command=self._on_save_clicked)
         self.save_button.pack(side="left", padx=(SPACE[2], 0))
 
         self.load_button = RoundedButton(
-            row, text="Carregar", variant="ghost",
+            row, text="Carregar", variant="ghost", icon="open",
             command=self._on_load_clicked)
         self.load_button.pack(side="left", padx=(SPACE[2], 0))
 
@@ -94,7 +94,8 @@ class ControlPanel(ttk.Frame):
         self.is_running = is_running
 
         if is_running:
-            self.run_button.configure(text="Parar simulação", variant="danger")
+            self.run_button.configure(text="Parar simulação", variant="danger",
+                                      icon="stop")
             self.save_button.configure(state="disabled")
             self.load_button.configure(state="disabled")
             self.progress_bar.pack(fill="x", pady=(SPACE[3], 0))
@@ -102,7 +103,7 @@ class ControlPanel(ttk.Frame):
             self.set_status("Executando simulação...", "running")
         else:
             self.run_button.configure(text="Executar simulação",
-                                      variant="primary")
+                                      variant="primary", icon="play")
             self.save_button.configure(state="normal")
             self.load_button.configure(state="normal")
             self.progress_bar.stop()
