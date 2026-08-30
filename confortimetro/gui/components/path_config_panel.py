@@ -96,13 +96,13 @@ class PathConfigPanel(ttk.Frame):
         entry.bind('<FocusOut>', change_callback)
         entry.bind('<KeyRelease>', lambda e: self._validate_path(entry))
 
-        RoundedButton(field, text="Procurar", variant="ghost", width=110,
+        RoundedButton(field, text="Procurar", variant="ghost",
                       command=browse_command).grid(row=1, column=1)
 
         # O caminho do EnergyPlus ganha um botão de detecção automática: é o
         # único campo cujo valor a máquina consegue descobrir sozinha.
         if entry_var_name == "energy_path_entry":
-            RoundedButton(field, text="Detectar", variant="ghost", width=110,
+            RoundedButton(field, text="Detectar", variant="ghost",
                           command=self.detect_energy_path).grid(
                               row=1, column=2, padx=(SPACE[2], 0))
 

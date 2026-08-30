@@ -49,9 +49,9 @@ class ResultsPanel(ttk.Frame):
         filter_combo.pack(side="left")
         filter_combo.bind('<<ComboboxSelected>>', self._filter_messages)
 
-        RoundedButton(toolbar, text="Limpar", variant="ghost", width=100,
+        RoundedButton(toolbar, text="Limpar", variant="ghost",
                       command=self._clear_results).pack(side="right")
-        RoundedButton(toolbar, text="Exportar", variant="ghost", width=100,
+        RoundedButton(toolbar, text="Exportar", variant="ghost",
                       command=self._export_results).pack(
                           side="right", padx=(0, SPACE[2]))
 
