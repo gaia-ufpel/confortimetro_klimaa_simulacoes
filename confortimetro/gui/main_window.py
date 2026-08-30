@@ -129,12 +129,14 @@ class MainWindow(tk.Tk):
             self._runs_dirty = False
             self.simulations_panel.refresh()
 
-        # Todas as páginas ficam empilhadas no mesmo lugar e a troca é só um
-        # `lift`. Animar o deslize repintava a página inteira a cada quadro e
-        # o Tk, sem double buffering, pisca.
-        page = self._pages[name]
-        page.place(relx=0, rely=0, relwidth=1, relheight=1)
-        page.lift()
+        # Troca seca: a anterior sai, a nova ocupa o host. Animar o deslize
+        # repintava a página inteira a cada quadro e o Tk, sem double
+        # buffering, pisca.
+        for key, page in self._pages.items():
+            if key == name:
+                page.place(relx=0, rely=0, relwidth=1, relheight=1)
+            else:
+                page.place_forget()
 
     def _page_nav(self, page, title: str, back_to: str = None):
         """Cabeçalho da página: título e, quando faz sentido, o botão voltar."""

@@ -35,12 +35,8 @@ def window(tmp_path, monkeypatch):
 
 
 def _settle(window):
-    """Espera a transição de página terminar antes de olhar o que está no ar."""
-    for _ in range(200):
-        window.update()
-        if window._sliding is None:
-            return
-    raise AssertionError("a transição de página não terminou")
+    """Deixa o Tk aplicar a troca antes de olhar o que está no ar."""
+    window.update()
 
 
 def test_paginas_trocam(window):
