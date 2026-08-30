@@ -470,9 +470,8 @@ class BottomSheet(ttk.Frame):
     """Painel inferior colapsável, no espírito do painel do VS Code: uma barra
     sempre visível e o conteúdo (em `.body`) que abre e fecha."""
 
-    def __init__(self, parent, title: str, height: int = 260):
+    def __init__(self, parent, title: str):
         super().__init__(parent, style="Main.TFrame")
-        self._height = height
         self._open = False
 
         bar = ttk.Frame(self, style="Main.TFrame")

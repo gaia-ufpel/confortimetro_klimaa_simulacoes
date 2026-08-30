@@ -6,10 +6,8 @@ de arquivos IDF necessárias para as simulações.
 """
 
 import os
-import platform
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional
-from pathlib import Path
+from typing import Any, List
 import logging
 
 from eppy.modeleditor import IDF

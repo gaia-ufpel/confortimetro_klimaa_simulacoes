@@ -1,3 +1,9 @@
+"""Gera o fluxograma do controlador em docs/assets.
+
+Precisa do graphviz, que não entra no requirements por ser usado só aqui:
+`pip install graphviz` e o binário `dot` do sistema.
+"""
+
 from graphviz import Digraph
 from pathlib import Path
 

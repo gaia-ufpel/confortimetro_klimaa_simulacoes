@@ -69,6 +69,7 @@ class SimulationsPanel(ttk.Frame):
         self._runs: list[dict] = []
         self._comparison = None
         self._busy = False
+        self._sort_state = (None, False)
         self.chart_var = tk.StringVar(value=next(iter(charts.CHARTS)))
         self.baseline_var = tk.StringVar()
         self.variable_var = tk.StringVar(value=next(iter(charts.CARPET_VARIABLES)))
@@ -316,8 +317,8 @@ class SimulationsPanel(ttk.Frame):
 
     def _sort_by(self, column):
         rows = [(self.tree.set(item, column), item) for item in self.tree.get_children()]
-        descending = getattr(self, "_sort_state", (None, False))
-        descending = not descending[1] if descending[0] == column else False
+        column_before, descending_before = self._sort_state
+        descending = not descending_before if column_before == column else False
         self._sort_state = (column, descending)
         for index, (_, item) in enumerate(sorted(rows, reverse=descending)):
             self.tree.move(item, "", index)
