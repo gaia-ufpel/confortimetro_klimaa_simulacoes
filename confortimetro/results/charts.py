@@ -318,14 +318,18 @@ def periodo(runs, room, start='2015-01-15', days=7):
     return figure
 
 
-# Catálogo consumido pela interface: rótulo -> (função, precisa das séries?).
+CARPET_VARIABLES = {'Temperatura operativa': 'temp_operativa', 'PMV': 'pmv',
+                    'CO₂': 'co2'}
+
+# Catálogo consumido pela interface: rótulo -> (função, precisa das séries?,
+# opções que a função aceita além dos dados). As opções viram campos na janela.
 CHARTS = {
-    'Energia × desconforto': (energia_vs_desconforto, False),
-    'Consumo por execução': (energia_por_execucao, False),
-    'Acionamentos': (acionamentos, False),
-    'Diferença contra a referência': (delta_vs_baseline, False),
-    'Distribuição do PMV': (distribuicao_pmv, True),
-    'Modelo adaptativo': (adaptativo, True),
-    'Carpete anual': (carpete, True),
-    'Semana típica': (periodo, True),
+    'Energia × desconforto': (energia_vs_desconforto, False, ()),
+    'Consumo por execução': (energia_por_execucao, False, ()),
+    'Acionamentos': (acionamentos, False, ()),
+    'Diferença contra a referência': (delta_vs_baseline, False, ('baseline',)),
+    'Distribuição do PMV': (distribuicao_pmv, True, ()),
+    'Modelo adaptativo': (adaptativo, True, ()),
+    'Carpete anual': (carpete, True, ('variable',)),
+    'Semana típica': (periodo, True, ('start', 'days')),
 }

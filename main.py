@@ -9,6 +9,7 @@ import os
 import sys
 
 from confortimetro.gui.main_window import MainWindow
+from confortimetro.paths import app_data_path
 
 
 def resolve_config_path() -> str:
@@ -24,23 +25,22 @@ def resolve_config_path() -> str:
     if not getattr(sys, "frozen", False):
         return os.path.join("examples", "config.json")
 
-    base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-    user_config = os.path.join(base, "ConfortimetroKlimaa", "config.json")
+    user_config = os.path.join(app_data_path(), "config.json")
     if not os.path.exists(user_config):
         os.makedirs(os.path.dirname(user_config), exist_ok=True)
         with open(os.path.join(sys._MEIPASS, "examples", "config.json")) as reader:
             data = json.load(reader)
 
         # Os caminhos do config versionado são relativos ao repositório e de
-        # Linux; no executável apontam para os exemplos embutidos e para uma
-        # pasta de saída gravável em Documentos.
-        docs = os.path.join(os.path.expanduser("~"), "Documents", "ConfortimetroKlimaa")
+        # Linux; no executável apontam para os exemplos embutidos.
         data["_idf_path"] = os.path.join(sys._MEIPASS, *data["_idf_path"].split("/")[1:])
         data["epw_path"] = os.path.join(sys._MEIPASS, *data["epw_path"].split("/")[1:])
         data["input_path"] = os.path.dirname(data["_idf_path"])
-        data["expanded_idf_path"] = os.path.join(data["input_path"], "expanded.idf")
-        data["output_path"] = os.path.join(docs, "run_001")
-        data["energy_path"] = ""  # cai no padrão da plataforma em from_json
+        # Saída e EnergyPlus vazios: caem nos padrões da plataforma
+        # (paths.new_run_path e find_energy_path) ao carregar a configuração.
+        data["output_path"] = ""
+        data["expanded_idf_path"] = ""
+        data["energy_path"] = ""
 
         with open(user_config, "w") as writer:
             json.dump(data, writer, indent=4)

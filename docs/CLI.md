@@ -154,10 +154,10 @@ adaptação; use `examples/idf/FAURB/FAURB_PTHP_ENTORNO.idf` como
 referência. Erros de validação abortam antes da simulação com
 `Erros de validação do IDF: [...]`.
 
-O intervalo de simulação (`RunPeriod`) e `timesteps_per_hour` vêm do IDF. O
-pós-processamento assume **ano de 2015, 6 timesteps por hora** e descarta as
-primeiras 288 linhas (dois dias de aquecimento); IDFs com outra configuração
-produzem carimbos de data errados nas planilhas.
+O intervalo de simulação (`RunPeriod`) e `timesteps_per_hour` vêm do IDF, e o
+pós-processamento os relê de lá (`read_run_period`, `read_timesteps_per_hour`)
+para carimbar as datas — modelos de outro ano ou com outro passo funcionam. O
+descarte inicial é de dois dias de aquecimento, proporcional ao timestep.
 
 ## 7. Saídas em `output_path`
 
@@ -166,12 +166,8 @@ produzem carimbos de data errados nas planilhas.
 | `configs.json` | Configuração efetiva daquela execução. |
 | `eplusout.eso` / `.csv` / `.err` / `.eio` / `.rdd` | Saídas brutas do EnergyPlus. Comece o diagnóstico por `eplusout.err`. |
 | `<ZONA>.xlsx` | Série temporal por zona: temperatura externa, ocupação, PMV, temperatura operativa, CO₂, estados de janela/ventilador/AC/DOAS. |
-| `ESTATISTICAS.xlsx` | Uma linha por zona com frações do tempo ocupado (aquecimento, resfriamento, ventilador ligado, janela aberta, DOAS, desconforto, CO₂ máximo), o consumo anual (`Aquecimento (kWh)`, `Resfriamento (kWh)`, `Energia total (kWh)`) e o conforto agregado (`PMV médio`, `PMV fora da faixa`, `Fora da banda adaptativa`). |
-| `ATELIE1_SPLIT.xlsx` | Recorte por período (`VERAO`, `INVERNO`, `DIAS_VERAO`, `DIAS_INVERNO`). |
-
-Atenção: o recorte por período é gerado **apenas para `ATELIE1`**
-(hardcoded em `Simulation._process_results`). Se `ATELIE1` não estiver em
-`rooms`, essa etapa é pulada com um aviso na fila de mensagens.
+| `ESTATISTICAS.xlsx` | Uma linha por zona com frações do tempo ocupado (aquecimento, resfriamento, ventilador ligado, janela aberta, DOAS, desconforto, CO₂ máximo), o consumo anual (`Aquecimento (kWh)`, `Resfriamento (kWh)`, `Energia total (kWh)`), o conforto agregado (`PMV médio`, `PMV fora da faixa`, `Fora da banda adaptativa`) e `Timesteps simulados` — é ele que denuncia execuções de períodos diferentes, que não podem ser comparadas pelos totais. |
+| `<ZONA>_SPLIT.xlsx` | Recorte por período de cada zona (`VERAO`, `INVERNO`, `DIAS_VERAO`, `DIAS_INVERNO`), só com as horas ocupadas. O ano dos recortes vem da própria planilha. |
 
 ## 7.1 Comparar várias execuções
 

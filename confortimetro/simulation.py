@@ -10,10 +10,14 @@ from typing import Optional
 
 from confortimetro.control import MODULES_MAPPER
 from confortimetro.control.base import request_stop
-from confortimetro.results import summary_one_room_results_from_csv, summary_rooms_results_from_eso, get_stats_from_simulation, split_target_period_excel
+from confortimetro.results import (
+    summary_rooms_results_from_eso,
+    get_stats_from_simulation,
+    split_target_period_excel,
+)
 from confortimetro.config import SimulationConfig
 from confortimetro.module_type import ModuleType
-from confortimetro.idf import IDFProcessor
+from confortimetro.idf import IDFProcessor, read_run_period, read_timesteps_per_hour
 
 EnergyPlusAPI = None
 
@@ -240,7 +244,13 @@ class Simulation:
             
             q.put("Extraindo resultados...")
             print("Extraindo resultados...")
-            summary_rooms_results_from_eso(self.configs.output_path, self.configs.rooms)
+            # O período e o passo vêm do IDF simulado: com valores fixos, um
+            # modelo de outro ano ou outro timestep sairia com datas erradas.
+            start, end = read_run_period(self.configs.idf_path)
+            summary_rooms_results_from_eso(
+                self.configs.output_path, self.configs.rooms,
+                timesteps_per_hour=read_timesteps_per_hour(self.configs.idf_path),
+                start_date=start, end_date=end)
             q.put("Resultados extraidos com sucesso!")
             print("Resultados extraidos com sucesso!")
             
@@ -250,17 +260,13 @@ class Simulation:
             q.put("Estatísticas extraidas com sucesso!")
             print("Estatísticas extraidas com sucesso!")
             
-            # split_target_period_excel é fixo na zona ATELIE1
-            if "ATELIE1" in self.configs.rooms:
-                q.put("Dividindo resultados por período...")
-                print("Dividindo resultados por período...")
-                split_target_period_excel(os.path.join(self.configs.output_path, "ATELIE1.xlsx"))
-                q.put("Resultados divididos com sucesso!")
-                print("Resultados divididos com sucesso!")
-            else:
-                aviso = "ATELIE1 não está em rooms: recorte por período não gerado"
-                self.logger.warning(aviso)
-                q.put(f"Aviso: {aviso}")
+            q.put("Dividindo resultados por período...")
+            print("Dividindo resultados por período...")
+            for room in self.configs.rooms:
+                split_target_period_excel(
+                    os.path.join(self.configs.output_path, f"{room}.xlsx"), room)
+            q.put("Resultados divididos com sucesso!")
+            print("Resultados divididos com sucesso!")
             
             q.put("EXIT")
             
@@ -269,8 +275,3 @@ class Simulation:
             self.logger.error(error_msg)
             q.put(error_msg)
             raise
-    
-    def get_idf_summary(self):
-        """Obter resumo do arquivo IDF processado."""
-        return self.idf_processor.get_idf_summary()
-        

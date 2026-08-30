@@ -18,6 +18,7 @@ from confortimetro.results.compare import (
     COMPARISON_COLUMNS,
     compare_runs,
     list_runs,
+    mismatched_periods,
     recompute_runs,
 )
 
@@ -69,6 +70,10 @@ class SimulationsPanel(ttk.Frame):
         self._comparison = None
         self._busy = False
         self.chart_var = tk.StringVar(value=next(iter(charts.CHARTS)))
+        self.baseline_var = tk.StringVar()
+        self.variable_var = tk.StringVar(value=next(iter(charts.CARPET_VARIABLES)))
+        self.start_var = tk.StringVar(value='2015-01-15')
+        self.days_var = tk.StringVar(value='7')
 
         self._build_ui()
         self.refresh()
@@ -167,11 +172,20 @@ class SimulationsPanel(ttk.Frame):
                                         style="Field.TCombobox", state="readonly",
                                         values=list(charts.CHARTS), width=30)
         self.chart_combo.pack(side="left")
+        self.chart_combo.bind('<<ComboboxSelected>>', self._on_chart_changed)
         RoundedButton(chart_row, text="Gerar gráfico", variant="primary", width=170,
                       command=self.plot_selected).pack(side="left", padx=(SPACE[3], 0))
-        ttk.Label(chart_row, text="Os gráficos de série leem as planilhas por zona "
-                                  "na primeira vez (minutos) e ficam em cache depois.",
-                  style="Caption.TLabel").pack(side="left", padx=(SPACE[3], 0))
+
+        # Cada gráfico mostra só as suas opções; o resto some da barra.
+        self.option_row = ttk.Frame(actions.body, style="Card.TFrame")
+        self.option_row.pack(fill="x", pady=(SPACE[2], 0))
+        self._option_widgets = {}
+        self._build_option_fields()
+        self._on_chart_changed()
+
+        ttk.Label(actions.body, text="Os gráficos de série leem as planilhas por zona "
+                                     "na primeira vez (minutos) e ficam em cache depois.",
+                  style="Caption.TLabel").pack(anchor="w", pady=(SPACE[1], 0))
 
         ttk.Label(actions.body, textvariable=self.status_var,
                   style="Caption.TLabel").pack(anchor="w", pady=(SPACE[2], 0))
@@ -201,6 +215,62 @@ class SimulationsPanel(ttk.Frame):
         compare_panes.add(self.chart_frame, weight=5)
         self._chart_widgets = []
         self._show_chart_placeholder()
+
+    def _build_option_fields(self):
+        """Um campo por opção declarada no catálogo de gráficos."""
+        baseline = ttk.Frame(self.option_row, style="Card.TFrame")
+        ttk.Label(baseline, text="Referência", style="Label.TLabel").pack(
+            side="left", padx=(0, SPACE[2]))
+        self.baseline_combo = ttk.Combobox(baseline, textvariable=self.baseline_var,
+                                           style="Field.TCombobox", state="readonly",
+                                           width=32)
+        self.baseline_combo.pack(side="left")
+        self._option_widgets['baseline'] = baseline
+
+        variable = ttk.Frame(self.option_row, style="Card.TFrame")
+        ttk.Label(variable, text="Variável", style="Label.TLabel").pack(
+            side="left", padx=(0, SPACE[2]))
+        ttk.Combobox(variable, textvariable=self.variable_var, style="Field.TCombobox",
+                     state="readonly", width=22,
+                     values=list(charts.CARPET_VARIABLES)).pack(side="left")
+        self._option_widgets['variable'] = variable
+
+        period = ttk.Frame(self.option_row, style="Card.TFrame")
+        ttk.Label(period, text="Início", style="Label.TLabel").pack(
+            side="left", padx=(0, SPACE[2]))
+        ttk.Entry(period, textvariable=self.start_var, style="Field.TEntry",
+                  width=12).pack(side="left")
+        ttk.Label(period, text="Dias", style="Label.TLabel").pack(
+            side="left", padx=(SPACE[3], SPACE[2]))
+        ttk.Entry(period, textvariable=self.days_var, style="Field.TEntry",
+                  width=5).pack(side="left")
+        self._option_widgets['start'] = period
+        self._option_widgets['days'] = period
+
+    def _on_chart_changed(self, _event=None):
+        options = charts.CHARTS[self.chart_var.get()][2]
+        for name, widget in self._option_widgets.items():
+            if name in options:
+                widget.pack(side="left", padx=(0, SPACE[4]))
+            else:
+                widget.pack_forget()
+
+    def _chart_options(self):
+        """Valores dos campos visíveis, no formato que cada gráfico espera."""
+        options = charts.CHARTS[self.chart_var.get()][2]
+        values = {}
+        if 'baseline' in options:
+            values['baseline'] = self.baseline_var.get() or None
+        if 'variable' in options:
+            values['variable'] = charts.CARPET_VARIABLES[self.variable_var.get()]
+        if 'start' in options:
+            values['start'] = self.start_var.get().strip()
+        if 'days' in options:
+            try:
+                values['days'] = max(int(self.days_var.get()), 1)
+            except ValueError:
+                values['days'] = 7
+        return values
 
     # --------------------------------------------------------------- dados
 
@@ -352,11 +422,23 @@ class SimulationsPanel(ttk.Frame):
 
         self._comparison = df
         self._render_comparison(df)
-        message = f"{len(df)} linha(s) comparadas na zona {self.room_var.get()}."
+        self.baseline_combo["values"] = list(df['Execução'])
+        if self.baseline_var.get() not in list(df['Execução']):
+            self.baseline_var.set(df['Execução'].iloc[0])
+        message = (f"{len(df)} linha(s) comparadas na zona {self.room_var.get()}."
+                   + self._period_warning(df))
         if incomplete:
             message += (f" {len(incomplete)} execução(ões) ficaram de fora por não ter "
                         "estatísticas completas.")
         self._set_status(message)
+
+    def _period_warning(self, df):
+        """Aviso quando as execuções comparadas não cobrem o mesmo período."""
+        divergent = mismatched_periods(df)
+        if not divergent:
+            return ""
+        return (f" Atenção: {', '.join(divergent)} simulou um período diferente "
+                "das demais; os totais não são comparáveis.")
 
     def _render_comparison(self, df):
         columns = ["Execução", "Nome da sala", "module_type"]
@@ -388,7 +470,8 @@ class SimulationsPanel(ttk.Frame):
 
         room = self.room_var.get()
         name = self.chart_var.get()
-        function, needs_series = charts.CHARTS[name]
+        function, needs_series, _ = charts.CHARTS[name]
+        options = self._chart_options()
 
         # Só a leitura das séries é exclusiva; um gráfico agregado sai na hora
         # e não tem por que esperar a leitura anterior terminar.
@@ -401,8 +484,14 @@ class SimulationsPanel(ttk.Frame):
             if df.empty:
                 self._set_status("Sem dados agregados para essas execuções.")
                 return
-            self._show_figure(function(df), f"{name} — {room}")
-            self._set_status(f"{name}: {len(df)} execução(ões) na zona {room}.")
+            try:
+                figure = function(df, **options)
+            except ValueError as error:
+                self._set_status(str(error))
+                return
+            self._show_figure(figure, f"{name} — {room}")
+            self._set_status(f"{name}: {len(df)} execução(ões) na zona {room}."
+                             + self._period_warning(df))
             return
 
         missing = [run['run'] for run in runs
@@ -420,7 +509,7 @@ class SimulationsPanel(ttk.Frame):
             # A leitura é o gasto; a figura sai pronta e só é anexada ao canvas
             # na thread da interface.
             try:
-                figure = function(series_runs, room)
+                figure = function(series_runs, room, **options)
             except Exception as error:
                 self.after(0, lambda: self._plot_failed(error))
                 return

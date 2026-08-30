@@ -41,6 +41,7 @@ def get_stats_from_simulation(output_path, rooms):
             'Janela fechada, ar desligado e ventilador desligado': [],
             'Desconforto': [],
             'CO2 máximo': [],
+            'Timesteps simulados': [],
             'Janela aberta sem pessoas': [],
             'Aquecimento (kWh)': [],
             'Resfriamento (kWh)': [],
@@ -74,6 +75,7 @@ def get_stats_from_simulation(output_path, rooms):
                'Ventilador ligado e ar ligado': None, 'Ventilador ligado, ar desligado e janela fechada': None,
                'Janela aberta': None, 'Janela aberta e ventilador ligado': None, 'DOAS ligado': None,
                'Janela fechada, ar desligado e ventilador desligado': None, 'Desconforto': None, 'CO2 máximo': None,
+               'Timesteps simulados': None,
                'Janela aberta sem pessoas': None, 'Aquecimento (kWh)': None,
                'Resfriamento (kWh)': None, 'Energia total (kWh)': None, 'PMV médio': None,
                'PMV fora da faixa': None, 'Fora da banda adaptativa': None}
@@ -98,6 +100,10 @@ def get_stats_from_simulation(output_path, rooms):
         row['CO2 máximo'] = df[co2_column.format(room)].max()
         without_people = df[df[people_column.format(room)] == 0]
         row['Janela aberta sem pessoas'] = len(without_people[without_people[janela_column.format(room)] == 1]) / len(without_people) if len(without_people) else 0
+
+        # Duas execuções só são comparáveis se cobrem o mesmo período; sem esta
+        # contagem, um RunPeriod de verão passava por anual na tabela.
+        row['Timesteps simulados'] = len(df)
 
         row['Aquecimento (kWh)'] = df[heating_column.format(room)].sum() / JOULES_PER_KWH
         row['Resfriamento (kWh)'] = df[cooling_column.format(room)].sum() / JOULES_PER_KWH

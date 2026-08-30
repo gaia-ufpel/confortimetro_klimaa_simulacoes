@@ -29,11 +29,11 @@ def test_prefixo_comum_sai_dos_rotulos():
     assert charts.trim_common_prefix(['abc', 'xyz']) == ['abc', 'xyz']
 
 
-@pytest.mark.parametrize('name', [name for name, (_, series) in charts.CHARTS.items()
+@pytest.mark.parametrize('name', [name for name, (_, series, _o) in charts.CHARTS.items()
                                   if not series])
 def test_graficos_agregados(duas_execucoes, name):
     df, _ = duas_execucoes
-    function, _ = charts.CHARTS[name]
+    function = charts.CHARTS[name][0]
 
     figure = function(df)
 
@@ -41,11 +41,11 @@ def test_graficos_agregados(duas_execucoes, name):
     assert figure.get_size_inches()[0] > 0
 
 
-@pytest.mark.parametrize('name', [name for name, (_, series) in charts.CHARTS.items()
+@pytest.mark.parametrize('name', [name for name, (_, series, _o) in charts.CHARTS.items()
                                   if series])
 def test_graficos_de_serie(duas_execucoes, name):
     _, runs = duas_execucoes
-    function, _ = charts.CHARTS[name]
+    function = charts.CHARTS[name][0]
 
     figure = function(runs, ROOM)
 
