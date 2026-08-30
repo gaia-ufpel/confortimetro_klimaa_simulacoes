@@ -101,6 +101,10 @@ def apply_theme(root: tk.Misc) -> None:
 
     style.configure("H1.TLabel", background=COLORS["bg"],
                     foreground=COLORS["primary"], font=FONTS["h1"])
+    # Título de página, sobre o fundo da janela (o CardTitle é o de dentro
+    # do card, sobre a superfície branca).
+    style.configure("H2.TLabel", background=COLORS["bg"],
+                    foreground=COLORS["text"], font=FONTS["h2"])
     style.configure("Sub.TLabel", background=COLORS["bg"],
                     foreground=COLORS["text_mute"], font=FONTS["caption"])
     style.configure("CardTitle.TLabel", background=COLORS["surface"],
@@ -213,15 +217,24 @@ _BUTTON_VARIANTS = {
 
 
 class RoundedButton(tk.Canvas):
-    """Botão de cantos arredondados. Variantes: primary, ghost, bar, danger."""
+    """Botão de cantos arredondados. Variantes: primary, ghost, bar, danger.
+
+    A largura sai do próprio rótulo: todos os botões ficam com a mesma altura,
+    o mesmo respiro lateral e a mesma largura mínima, sem número mágico em cada
+    chamada. `width=` continua existindo para o caso raro de forçar uma medida.
+    """
 
     _HEIGHT = 34
+    _PAD_X = SPACE[4]
+    _MIN_WIDTH = 96
 
     def __init__(self, parent, text: str, command=None, variant: str = "primary",
-                 width: int = 160, radius: int = RADIUS["control"]):
-        super().__init__(parent, height=self._HEIGHT, width=width,
+                 width: int = None, radius: int = RADIUS["control"]):
+        super().__init__(parent, height=self._HEIGHT,
+                         width=width or self._width_for(text),
                          bg=COLORS["surface"], highlightthickness=0, bd=0,
                          takefocus=1)
+        self._fixed_width = width
         self._text = text
         self._command = command
         self._variant = variant
@@ -236,6 +249,16 @@ class RoundedButton(tk.Canvas):
         self.bind("<ButtonPress-1>", self._on_press)
         self.bind("<ButtonRelease-1>", self._on_release)
 
+    @classmethod
+    def _width_for(cls, text: str) -> int:
+        """Largura do rótulo mais o respiro lateral, nunca abaixo do mínimo."""
+        try:
+            measured = tkfont.Font(font=FONTS["body"]).measure(text)
+        except (tk.TclError, KeyError):
+            # Antes do apply_theme não há fonte resolvida para medir.
+            measured = len(text) * 8
+        return max(cls._MIN_WIDTH, measured + 2 * cls._PAD_X)
+
     def configure(self, **kwargs):  # type: ignore[override]
         """Aceita text/variant/command/state; o resto vai para o Canvas."""
         redraw = False
@@ -243,6 +266,10 @@ class RoundedButton(tk.Canvas):
             if key in kwargs:
                 setattr(self, f"_{key}", kwargs.pop(key))
                 redraw = True
+        # Trocar o rótulo (Executar/Parar) refaz a largura, a menos que a
+        # chamada tenha fixado uma.
+        if "text" in kwargs or (redraw and self._fixed_width is None):
+            super().configure(width=self._width_for(self._text))
         result = super().configure(**kwargs) if kwargs else None
         if redraw:
             self._redraw()
@@ -450,7 +477,7 @@ class BottomSheet(ttk.Frame):
         bar.pack(fill="x")
 
         self._toggle = RoundedButton(bar, text=f"▸  {title}", variant="bar",
-                                     width=200, command=self.toggle)
+                                     command=self.toggle)
         self._toggle.configure(bg=COLORS["bg"])
         self._toggle.pack(side="left")
         self._title = title
@@ -515,7 +542,9 @@ class ChipSelect(ttk.Frame):
         return list(self._values)
 
     def set_values(self, values):
-        self._values = [v for v in dict.fromkeys(values) if v]
+        # `rooms` vem nulo em configuração antiga; sem isso duplicar aquela
+        # execução quebrava aqui.
+        self._values = [v for v in dict.fromkeys(values or []) if v]
         self.set_options(self._option_list)
         self._render_chips()
 
@@ -621,6 +650,11 @@ def demo():
 
     assert card._bg.find_withtag("shape"), "card sem forma desenhada"
     assert button.find_all(), "botão sem forma desenhada"
+    # Largura vem do rótulo: rótulo curto encolhe até o mínimo, rótulo longo
+    # cresce com ele.
+    assert button.winfo_reqwidth() == RoundedButton._MIN_WIDTH
+    largo = RoundedButton(card.body, "Comparar as execuções selecionadas")
+    assert largo.winfo_reqwidth() > button.winfo_reqwidth()
     button.configure(state="disabled")
     assert button._colors()[0] == COLORS["surface_2"]
     pill.set("Falhou", "error")
