@@ -29,6 +29,10 @@ saídas e diagnóstico de erros.
 
 ## Armadilhas que custam caro
 
+- **Uma execução é um diretório com `configs.json` ou `parameters.txt`**
+  (`compare.RUN_MARKERS`). O `parameters.txt` é o formato anterior ao JSON: as
+  pastas antigas em `./outputs` só têm ele, e exigir `configs.json` sumia com
+  elas da listagem. `compare.read_config` lê os dois.
 - **Cada execução é uma pasta em `paths.runs_root()`** — `%LOCALAPPDATA%` no
   Windows, `~/.local/share/ConfortimetroKlimaa/execucoes` no Linux,
   `~/Library/Application Support` no macOS — e leva tudo consigo: `modelo.idf`
@@ -52,32 +56,61 @@ saídas e diagnóstico de erros.
 
 ## Interface gráfica (Tkinter)
 
-`confortimetro/gui/main_window.py` monta uma tela única: topbar de execução
-(`ControlPanel`), card rolável com caminhos + parâmetros (`PathConfigPanel` e
-`SimulationConfigPanel`) e um `BottomSheet` com o log (`ResultsPanel`), que
-abre sozinho quando a simulação começa. Não há abas.
+`confortimetro/gui/main_window.py` é um roteador de **páginas** — uma janela
+só, sem `Toplevel`. Todas ficam montadas em `self.page_host` e `show_page(nome)`
+troca quem está packado, com uma transição de 180 ms (`_slide`, `place` nas
+duas páginas; misturar `pack` e `place` no mesmo host empurra a que entra).
 
-O `PathConfigPanel` monta só os campos pedidos em `fields=`: a tela principal
-recebe `SIMULATION_FIELDS` (IDF e EPW, que mudam a cada rodada) e a janela
-**Configurações** da topbar, `MACHINE_FIELDS` (diretório de saída e caminho do
+- `runs` (inicial) — `SimulationsPanel`: topbar com todas as ações
+  (**Nova execução**, **Ver detalhes**, **Duplicar**, **Regerar
+  estatísticas**, **Abrir pasta**, **Atualizar** e **Comparar
+  selecionadas**), pasta de saídas e status na linha de baixo, listagem e
+  detalhes da selecionada ocupando o resto. **Configurações** fica no
+  cabeçalho da página.
+- `compare` — `ComparisonPanel` (`components/comparison_panel.py`): zona,
+  catálogo de gráficos com as opções de cada um, tabela comparativa,
+  exportação em CSV e a figura ao lado.
+- `detail` — configuração completa da execução escolhida (duplo clique na
+  lista também chega aqui), com **Duplicar** e **Abrir pasta**.
+- `editor` — topbar de execução (`ControlPanel`), card rolável com caminhos +
+  parâmetros (`PathConfigPanel` e `SimulationConfigPanel`) e um `BottomSheet`
+  com o log (`ResultsPanel`), que abre sozinho quando a simulação começa.
+- `settings` — `PathConfigPanel` com os caminhos da máquina, incluindo a pasta
+  de saída. A listagem só mostra a pasta; quem a edita é esta página, e
+  `on_output_path_changed` empurra a mudança com
+  `SimulationsPanel.set_outputs_path`. Qual pasta a listagem lê sai de
+  `compare.runs_root_for`: o campo aceita tanto a pasta de uma execução
+  (`outputs/run_001`, que nem existe antes de rodar) quanto a raiz que guarda
+  todas (`outputs`), e quem decide é o conteúdo. Derivar por `dirname` deixava
+  a listagem vazia para quem apontava a raiz.
+
+O `SimulationsPanel` não navega: ele chama `on_new_run`,
+`on_open_run_details(run)`, `on_duplicate_run(run)` e
+`on_compare_runs(runs, outputs_path)` no `callback` (a `MainWindow`).
+**Duplicar** relê o `configs.json` da execução, troca `idf_path` pelo
+`source_idf_path` e a saída por um `new_run_path()` — nunca escreve por cima
+de resultado que já existe.
+
+A listagem só é relida ao voltar para `runs` quando `_runs_dirty` está
+marcado (fim de simulação): o `database.sync` custa segundos e não vale a cada
+ida e volta.
+
+O `PathConfigPanel` monta só os campos pedidos em `fields=`: a página de
+execução recebe `SIMULATION_FIELDS` (IDF e EPW, que mudam a cada rodada) e a
+de configurações, `MACHINE_FIELDS` (diretório de saída e caminho do
 EnergyPlus). São **duas instâncias**: leia saída/EnergyPlus em
 `self.settings_panel`, IDF/EPW em `self.path_panel` — pedir o campo errado a um
-painel é `AttributeError`. A janela de configurações é montada junto com a
-principal e fica só escondida (`withdraw`), porque os campos são o contrato de
-leitura da configuração e precisam existir com ela fechada.
+painel é `AttributeError`. Toda página fica montada desde o início justamente
+porque esses campos são o contrato de leitura da configuração.
 
-O botão **Simulações** da topbar abre em uma janela própria o
-`SimulationsPanel` (`components/simulations_panel.py`): lista as execuções da
-pasta de saídas com módulo, IDF, clima, zonas e o estado das estatísticas,
-mostra o `configs.json` da selecionada, compara várias lado a lado (energia,
-desconforto, PMV, acionamentos) e desenha os gráficos de `results/charts.py`
-dentro do próprio card de comparação, ao lado da tabela, com a barra do
-matplotlib. Figuras de vários painéis (carpete, semana típica) passariam do
-espaço disponível — o layout do matplotlib colapsaria os eixos a zero —, então
-acima de 7,5 polegadas de altura elas vão para uma área rolável em tamanho
-natural. Toda a leitura vem de
-`confortimetro/results/` — mexa lá, não na interface, para mudar métricas,
-colunas ou gráficos.
+O `ComparisonPanel` recebe as execuções por `set_runs(runs, outputs_path)` e
+compara na hora: energia, desconforto, PMV e acionamentos na tabela, e os
+gráficos de `results/charts.py` no card ao lado, com a barra do matplotlib.
+Figuras de vários painéis (carpete, semana típica) passariam do espaço
+disponível — o layout do matplotlib colapsaria os eixos a zero —, então acima
+de 7,5 polegadas de altura elas vão para uma área rolável em tamanho natural.
+Toda a leitura vem de `confortimetro/results/` — mexa lá, não na interface,
+para mudar métricas, colunas ou gráficos.
 
 ## Resultados agregados
 
@@ -127,12 +160,14 @@ num `tk.Canvas` por `theme.rounded_rect`. O resto continua ttk plano.
 ```bash
 .venv/bin/python -c "
 from confortimetro.gui.main_window import MainWindow
-a = MainWindow(); a.update()
+a = MainWindow(); a.show_page('editor'); a.update()
 print(a.path_panel.winfo_ismapped(), a.simulation_panel.winfo_ismapped())
 a.destroy()"
 ```
 
-  O log só é mapeado com o `BottomSheet` aberto (`a.log_sheet.set_open(True)`).
+  O log só é mapeado com o `BottomSheet` aberto (`a.log_sheet.set_open(True)`),
+  e cada painel só é mapeado com a sua página visível. `tests/test_gui_pages.py`
+  cobre a troca de página e a duplicação (pula sem display).
 
 - **Painel dentro de card vai em `card.body`, não no `Card`.** O `Card` já usa
   `pack` para o próprio corpo; empacotar outra coisa nele mistura geometrias.
