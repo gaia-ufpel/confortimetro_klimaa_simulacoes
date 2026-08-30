@@ -83,7 +83,7 @@ class SimulationsPanel(ttk.Frame):
 
     def _build_ui(self):
         toolbar = Card(self, pad=SPACE[3])
-        toolbar.pack(fill="x", pady=(0, SPACE[3]))
+        toolbar.pack(fill="x", pady=(0, SPACE[4]))
         row = ttk.Frame(toolbar.body, style="Card.TFrame")
         row.pack(fill="x")
 
@@ -142,7 +142,7 @@ class SimulationsPanel(ttk.Frame):
 
         # --- Ações ---
         actions = Card(self, pad=SPACE[3])
-        actions.pack(fill="x", pady=(SPACE[3], 0))
+        actions.pack(fill="x", pady=(SPACE[4], 0))
         action_row = ttk.Frame(actions.body, style="Card.TFrame")
         action_row.pack(fill="x")
 
@@ -193,7 +193,7 @@ class SimulationsPanel(ttk.Frame):
 
         # --- Comparação: números à esquerda, gráfico à direita ---
         compare_card = Card(self, "Comparação de resultados")
-        compare_card.pack(fill="both", expand=True, pady=(SPACE[3], 0))
+        compare_card.pack(fill="both", expand=True, pady=(SPACE[4], 0))
         compare_panes = ttk.PanedWindow(compare_card.body, orient="horizontal")
         compare_panes.pack(fill="both", expand=True)
 

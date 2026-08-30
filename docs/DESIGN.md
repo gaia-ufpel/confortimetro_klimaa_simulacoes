@@ -65,9 +65,13 @@ continua vivo como `primary_h` e em fundos, não em texto.
 Escala de 4 px — `SPACE = (0, 4, 8, 12, 16, 24, 32)`. Só esses valores.
 
 - Janela: 24 de padding.
-- Entre cards: 16.
-- Dentro do card: 16.
+- Entre cards: 16 — inclusive na janela de simulações.
+- Dentro do card: 16 (`Card(pad=SPACE[4])`, o padrão). Barra de ações só com
+  botões e combos usa 12 (`pad=SPACE[3]`): a linha é baixa e 16 sobraria.
+- Entre linhas dentro de um mesmo card: 12.
 - Entre rótulo e campo: 4. Entre campos: 8.
+- Numa barra horizontal: 8 entre botões vizinhos, 12 ao trocar de grupo
+  (campo → botão, fim de um par rótulo+campo → o próximo).
 
 ### Raio
 
