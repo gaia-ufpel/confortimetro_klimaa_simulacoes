@@ -88,6 +88,12 @@ colunas ou gráficos.
 painéis em `components/` consomem `COLORS`/`SPACE`/`FONTS` e os nomes de
 estilo prontos, e não definem literais próprios.
 
+Os widgets ttk usam o tema **sv_ttk** (Sun Valley, visual Windows 11), ligado
+em `apply_theme`. Os sprites dele são PNG: entry, combobox, checkbutton,
+progressbar, treeview e scrollbar **não aceitam cor** — não tente reestilizá-los
+em `theme.py`, os estilos nomeados (`Field.TEntry`, `Modern.Treeview`, …) só
+herdam. O verde da marca vive nos widgets desenhados à mão e nos títulos.
+
 Tk **não** tem `border-radius`: card, botão e pill de status são desenhados
 num `tk.Canvas` por `theme.rounded_rect`. O resto continua ttk plano.
 

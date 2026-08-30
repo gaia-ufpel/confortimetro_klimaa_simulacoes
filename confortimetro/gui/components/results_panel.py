@@ -75,8 +75,8 @@ class ResultsPanel(ttk.Frame):
         self.results_text.pack(fill="both", expand=True)
         # ScrolledText embute um tk.Scrollbar (não ttk), fora do tema.
         self.results_text.vbar.configure(
-            background=COLORS["accent"], troughcolor=COLORS["surface_2"],
-            activebackground=COLORS["primary_h"], relief="flat", borderwidth=0,
+            background=COLORS["scroll"], troughcolor=COLORS["surface_2"],
+            activebackground=COLORS["text_mute"], relief="flat", borderwidth=0,
             highlightthickness=0, width=10)
 
         self.results_text.tag_configure("info", foreground=COLORS["primary"],
@@ -87,7 +87,7 @@ class ResultsPanel(ttk.Frame):
                                         font=FONTS["mono_bold"])
         self.results_text.tag_configure("success", foreground=COLORS["ok"],
                                         font=FONTS["mono_bold"])
-        self.results_text.tag_configure("timestamp", foreground=COLORS["accent"],
+        self.results_text.tag_configure("timestamp", foreground=COLORS["text_mute"],
                                         font=FONTS["mono_small"])
 
         status_frame = ttk.Frame(self, style="Card.TFrame")

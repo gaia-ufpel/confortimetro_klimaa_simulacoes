@@ -7,12 +7,18 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
 
+import sv_ttk
+
+# Chrome neutro do tema Sun Valley (sv_ttk) + o verde da marca como acento.
+# Os sprites do sv_ttk são imagens: a cor dos widgets ttk não é configurável,
+# então bg/surface/line seguem a paleta dele e o verde vive nos widgets
+# desenhados à mão (Card, RoundedButton, trilhos).
 COLORS = {
-    "bg": "#dad7cd",
+    "bg": "#fafafa",
     "surface": "#ffffff",
-    "surface_2": "#eef0ea",
-    "line": "#a3b18a",
-    "text": "#344e41",
+    "surface_2": "#f0f0f0",
+    "line": "#e0e0e0",
+    "text": "#1c1c1c",
     # Verdes de texto escurecidos: o #588157 da paleta reprova em contraste
     # (3.1:1 sobre a areia). Continuam servindo de fundo/detalhe, não de texto.
     "text_mute": "#406346",
@@ -20,6 +26,8 @@ COLORS = {
     "primary_h": "#588157",
     "primary_d": "#344e41",
     "accent": "#a3b18a",
+    # Cinza do polegar de scrollbar do sv_ttk, para as barras tk clássicas.
+    "scroll": "#c2c2c2",
     "ok": "#4e7a4d",
     "warn": "#a06b00",
     "danger": "#b3261e",
@@ -73,8 +81,8 @@ def apply_theme(root: tk.Misc) -> None:
         "mono_small": (mono, 8),
     })
 
+    sv_ttk.set_theme("light", root)
     style = ttk.Style(root)
-    style.theme_use("clam")
 
     style.configure("Main.TFrame", background=COLORS["bg"])
     style.configure("Card.TFrame", background=COLORS["surface"])
@@ -92,73 +100,18 @@ def apply_theme(root: tk.Misc) -> None:
     style.configure("Caption.TLabel", background=COLORS["surface"],
                     foreground=COLORS["text_mute"], font=FONTS["caption"])
 
-    for name in ("Field.TEntry", "Field.TCombobox"):
-        style.configure(name,
-                        foreground=COLORS["text"],
-                        fieldbackground=COLORS["surface_2"],
-                        background=COLORS["surface_2"],
-                        bordercolor=COLORS["line"],
-                        lightcolor=COLORS["line"],
-                        darkcolor=COLORS["line"],
-                        insertcolor=COLORS["text"],
-                        font=FONTS["body"],
-                        padding=SPACE[2],
-                        relief="flat",
-                        borderwidth=1)
-        style.map(name,
-                  bordercolor=[("focus", COLORS["primary"])],
-                  lightcolor=[("focus", COLORS["primary"])],
-                  darkcolor=[("focus", COLORS["primary"])])
-
-    style.configure("Field.TCombobox", arrowcolor=COLORS["primary"])
-    style.map("Field.TCombobox",
-              fieldbackground=[("readonly", COLORS["surface_2"])],
-              selectbackground=[("readonly", COLORS["surface_2"])],
-              selectforeground=[("readonly", COLORS["text"])])
-
-    style.configure("Card.TCheckbutton", background=COLORS["surface"],
-                    foreground=COLORS["text"], font=FONTS["body"],
-                    focuscolor=COLORS["surface"])
-    style.map("Card.TCheckbutton",
-              background=[("active", COLORS["surface"])],
-              indicatorcolor=[("selected", COLORS["primary"])])
-
-    style.configure("Modern.Horizontal.TProgressbar",
-                    background=COLORS["primary"],
-                    troughcolor=COLORS["surface_2"],
-                    bordercolor=COLORS["surface_2"],
-                    lightcolor=COLORS["primary"],
-                    darkcolor=COLORS["primary"],
-                    thickness=6,
-                    borderwidth=0)
+    # Entry, Combobox, Checkbutton, Progressbar, Treeview e Scrollbar não são
+    # configurados aqui: os estilos nomeados herdam o visual do sv_ttk. Só
+    # sobra o que ele não cobre (fundos de card, fontes, cores de texto).
 
     style.configure("Modern.TSeparator", background=COLORS["line"])
 
-    style.configure("Section.TLabelframe", background=COLORS["surface"],
-                    bordercolor=COLORS["line"], relief="solid", borderwidth=1)
+    style.configure("Section.TLabelframe", background=COLORS["surface"])
     style.configure("Section.TLabelframe.Label", background=COLORS["surface"],
                     foreground=COLORS["text_mute"], font=FONTS["label"])
 
-    # Tabelas (listagem de simulações e comparador).
-    style.configure("Modern.Treeview", background=COLORS["surface"],
-                    fieldbackground=COLORS["surface"], foreground=COLORS["text"],
-                    bordercolor=COLORS["line"], font=FONTS["body"],
-                    rowheight=26, borderwidth=1, relief="solid")
-    style.configure("Modern.Treeview.Heading", background=COLORS["surface_2"],
-                    foreground=COLORS["primary"], font=FONTS["label"],
-                    relief="flat", padding=SPACE[2])
-    style.map("Modern.Treeview.Heading",
-              background=[("active", COLORS["accent"])])
-    style.map("Modern.Treeview",
-              background=[("selected", COLORS["primary_h"])],
-              foreground=[("selected", "#ffffff")])
-
-    style.configure("Vertical.TScrollbar", background=COLORS["accent"],
-                    troughcolor=COLORS["surface_2"],
-                    bordercolor=COLORS["surface_2"],
-                    arrowcolor=COLORS["primary"], relief="flat", borderwidth=0)
-    style.map("Vertical.TScrollbar",
-              background=[("active", COLORS["primary_h"])])
+    style.configure("Modern.Treeview", rowheight=26, font=FONTS["body"])
+    style.configure("Modern.Treeview.Heading", font=FONTS["label"])
 
 
 class Card(tk.Frame):

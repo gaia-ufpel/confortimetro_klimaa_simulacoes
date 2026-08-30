@@ -24,15 +24,23 @@ Referência única para a aparência da GUI Tkinter. Todo token vive em
 
 ### Cor
 
-Paleta original do projeto, com papéis novos.
+Os widgets ttk usam o tema **Sun Valley** (`sv_ttk`, visual Windows 11):
+`apply_theme` chama `sv_ttk.set_theme("light", root)` antes de configurar os
+estilos nomeados. Os sprites do sv_ttk são imagens PNG — **a cor de entry,
+combobox, checkbutton, progressbar, treeview e scrollbar não é configurável**,
+então esses estilos não são mais tocados aqui e o chrome neutro dele define
+`bg`, `surface_2`, `line` e `text`. O verde da marca sobrevive nos widgets
+desenhados à mão (`Card`, `RoundedButton`, `RangeField`, `ChipSelect`) e nos
+títulos.
 
 | Token | Hex | Uso |
 |---|---|---|
-| `bg` | `#dad7cd` | fundo da janela |
+| `bg` | `#fafafa` | fundo da janela (chrome do sv_ttk) |
 | `surface` | `#ffffff` | fundo de card |
-| `surface_2` | `#eef0ea` | campo de entrada, hover fantasma, trilho |
-| `line` | `#a3b18a` | borda de 1px, separador |
-| `text` | `#344e41` | texto principal |
+| `surface_2` | `#f0f0f0` | campo de entrada, hover fantasma, trilho |
+| `line` | `#e0e0e0` | borda de 1px, separador |
+| `scroll` | `#c2c2c2` | polegar das scrollbars `tk` clássicas |
+| `text` | `#1c1c1c` | texto principal |
 | `text_mute` | `#406346` | legenda, unidade, rodapé |
 | `primary` | `#3a5a40` | ação primária, título de card |
 | `primary_h` | `#588157` | hover da ação primária |
@@ -45,7 +53,8 @@ Paleta original do projeto, com papéis novos.
 `warn` e `danger` estão fora da paleta de propósito: precisam se distinguir do
 verde.
 
-Os verdes **de texto** são versões escurecidas dos da paleta: `#588157` como
+Contraste: os verdes ficaram só como acento sobre branco/`#fafafa`, onde
+`primary` dá 8:1. Os verdes **de texto** são versões escurecidas dos da paleta: `#588157` como
 texto dá 3.1:1 sobre a areia e 3.9:1 sobre `surface_2` — reprova em contraste.
 `#406346` sobe para 4.7:1 e 5.9:1; `ok` foi de `#588157` para `#4e7a4d` porque
 também serve de fundo de pill com texto branco (4.5:1). O `#588157` da paleta
