@@ -171,12 +171,15 @@ class SimulationConfigPanel(ttk.Frame):
         """Zonas simuladas e módulo de condicionamento."""
         tab = self._tab("Zonas")
 
+        # Mesmo padding do rótulo e do campo que `_combo` usa: sem isso o
+        # seletor de salas descia quatro pixels e desalinhava do Módulo.
         ttk.Label(tab, text="Salas", style="Label.TLabel").grid(
-            row=0, column=0, columnspan=2, padx=SPACE[1], sticky="w")
+            row=0, column=0, columnspan=2, padx=SPACE[1],
+            pady=(0, SPACE[1]), sticky="w")
         self.rooms_select = ChipSelect(tab, "Selecione uma sala…",
                                        on_change=self._on_config_changed)
         self.rooms_select.grid(row=1, column=0, columnspan=2, padx=SPACE[1],
-                               pady=(SPACE[1], SPACE[2]), sticky="ew")
+                               pady=(0, SPACE[2]), sticky="new")
 
         self.selected_module = tk.StringVar()
         self.cbx_module = self._combo(tab, 0, 2, "Módulo",
