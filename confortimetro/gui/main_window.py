@@ -61,10 +61,13 @@ class MainWindow(tk.Tk):
 
         header = ttk.Frame(container, style="Main.TFrame")
         header.pack(fill="x", pady=(0, SPACE[3]))
-        ttk.Label(header, text="Confortímetro Klimaa",
-                  style="H1.TLabel").pack(anchor="w")
+        # `background` explícito: sobre o fundo da janela o estilo não basta
+        # (ver o tk_setPalette em theme.apply_theme).
+        ttk.Label(header, text="Confortímetro Klimaa", style="H1.TLabel",
+                  background=COLORS["bg"]).pack(anchor="w")
         ttk.Label(header, text="Simulações personalizadas com EnergyPlus",
-                  style="Sub.TLabel").pack(anchor="w", pady=(SPACE[1], 0))
+                  style="Sub.TLabel", background=COLORS["bg"]).pack(
+                      anchor="w", pady=(SPACE[1], 0))
 
         # --- Topbar: executar, salvar/carregar e estado da simulação ---
         topbar = Card(container, pad=SPACE[3])
@@ -93,7 +96,8 @@ class MainWindow(tk.Tk):
         self.results_panel.pack(fill="both", expand=True)
 
         ttk.Label(container, text="Desenvolvido para o GAIA — UFPel",
-                  style="Sub.TLabel").pack(pady=(SPACE[3], 0))
+                  style="Sub.TLabel", background=COLORS["bg"]).pack(
+                      pady=(SPACE[3], 0))
 
         self._build_settings_window()
 

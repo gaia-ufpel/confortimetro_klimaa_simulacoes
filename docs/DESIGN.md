@@ -44,6 +44,11 @@ Qualquer outro valor (branco puro, por exemplo) faz os widgets desenhados à mã
 diferente dentro das seções. Por isso `charts.BACKGROUND` repete a mesma cor:
 `results/` não importa a GUI, para continuar rodando no CLI sem Tk.
 
+O `tk_setPalette` que o sv_ttk executa grava `*background` no banco de opções
+do Tk, e `ttk.Label` tem `-background` própria — o banco ganha do estilo. Por
+isso `apply_theme` reescreve a opção para `surface` e o cabeçalho e o rodapé,
+que ficam sobre a janela, pedem `background=COLORS["bg"]` na criação.
+
 | Token | Hex | Uso |
 |---|---|---|
 | `bg` | `#f0f0f0` | fundo da janela |

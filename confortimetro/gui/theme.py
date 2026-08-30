@@ -84,6 +84,14 @@ def apply_theme(root: tk.Misc) -> None:
     })
 
     sv_ttk.set_theme("light", root)
+
+    # set_theme roda tk_setPalette, que grava `*background` no banco de opções
+    # do Tk. `ttk.Label` tem `-background` própria, e o valor herdado do banco
+    # vence o do estilo: sem isto, todo rótulo pinta o #fafafa do sv_ttk e os
+    # que ficam sobre o fundo da janela aparecem como retângulos claros.
+    # Os que vão sobre a janela pedem `background=COLORS["bg"]` na criação.
+    root.option_add("*background", COLORS["surface"])
+
     style = ttk.Style(root)
 
     style.configure("Main.TFrame", background=COLORS["bg"])
@@ -152,14 +160,18 @@ class Card(tk.Frame):
 
 
 def scrollable(parent) -> ttk.Frame:
-    """Área com rolagem vertical; devolve o frame onde o conteúdo vai."""
-    canvas = tk.Canvas(parent, bg=COLORS["bg"], highlightthickness=0, bd=0)
+    """Área com rolagem vertical; devolve o frame onde o conteúdo vai.
+
+    Só é usada dentro de card, então pinta a superfície do card: com o fundo
+    da janela, a parte não coberta pelo conteúdo virava uma faixa cinza.
+    """
+    canvas = tk.Canvas(parent, bg=COLORS["surface"], highlightthickness=0, bd=0)
     bar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
     canvas.configure(yscrollcommand=bar.set)
     canvas.pack(side="left", fill="both", expand=True)
     bar.pack(side="right", fill="y")
 
-    inner = ttk.Frame(canvas, style="Main.TFrame")
+    inner = ttk.Frame(canvas, style="Surface.TFrame")
     window = canvas.create_window((0, 0), window=inner, anchor="nw")
 
     inner.bind("<Configure>",

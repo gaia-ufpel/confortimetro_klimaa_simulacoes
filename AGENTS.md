@@ -103,6 +103,13 @@ progressbar, treeview e scrollbar **não aceitam cor** — não tente reestiliz�
 em `theme.py`, os estilos nomeados (`Field.TEntry`, `Modern.Treeview`, …) só
 herdam. O verde da marca vive nos widgets desenhados à mão e nos títulos.
 
+`sv_ttk.set_theme` roda `tk_setPalette`, que grava `*background` no banco de
+opções do Tk. Como `ttk.Label` tem `-background` própria, **o valor do banco
+vence o do estilo**: `apply_theme` reescreve a opção para `COLORS["surface"]` e
+os poucos rótulos que ficam sobre o fundo da janela (cabeçalho e rodapé)
+passam `background=COLORS["bg"]` na criação. Rótulo com retângulo de fundo
+errado é sempre isso.
+
 **Não reuse um nome de estilo do sv_ttk.** `Card.TFrame` já existe lá, com um
 sprite de moldura: nosso frame de fundo branco herdava a borda dele e cada
 linha de campo ganhava um retângulo fantasma. O estilo passou a se chamar
