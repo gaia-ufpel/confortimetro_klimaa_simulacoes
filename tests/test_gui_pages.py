@@ -73,6 +73,12 @@ def test_duplicar_reaproveita_parametros_com_saida_nova(window, tmp_path):
     assert os.path.abspath(window.configs.output_path) != os.path.abspath(run_path)
 
 
+def _toast_text(frame):
+    """Texto do toast (o rótulo é o segundo filho, depois da barra de cor)."""
+    return " ".join(child.cget("text") for child in frame.winfo_children()
+                    if "text" in child.keys())
+
+
 def test_comparar_abre_pagina_propria(window, tmp_path):
     runs = []
     for name in ("run_a", "run_b"):
@@ -89,4 +95,5 @@ def test_comparar_abre_pagina_propria(window, tmp_path):
     assert window._current_page == "compare"
     # Sem estatísticas não há o que comparar, mas o usuário precisa saber disso
     # na própria página, não numa tela em branco.
-    assert "estatísticas" in window.comparison_panel.status_var.get()
+    assert any("estatísticas" in _toast_text(frame)
+               for frame in getattr(window, "_toasts", []))

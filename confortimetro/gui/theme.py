@@ -277,6 +277,60 @@ def scrollable(parent) -> ttk.Frame:
     return inner
 
 
+#: Cor da borda esquerda de cada tipo de toast.
+_TOAST_KINDS = {
+    "info": "primary",
+    "ok": "ok",
+    "warn": "warn",
+    "error": "danger",
+}
+
+
+def toast(widget, message: str, kind: str = "info", timeout: int = 5000):
+    """Aviso flutuante no canto inferior direito da janela de `widget`.
+
+    Substitui o messagebox nos avisos de clique: não rouba o foco nem exige um
+    OK para continuar. Os toasts vivos empilham de baixo para cima.
+    """
+    window = widget.winfo_toplevel()
+    stack = getattr(window, "_toasts", None)
+    if stack is None:
+        stack = window._toasts = []
+
+    frame = tk.Frame(window, bg=COLORS["surface"], highlightthickness=1,
+                     highlightbackground=COLORS["line"])
+    tk.Frame(frame, bg=COLORS[_TOAST_KINDS.get(kind, "primary")], width=4).pack(
+        side="left", fill="y")
+    tk.Label(frame, text=message, bg=COLORS["surface"], fg=COLORS["text"],
+             font=FONTS.get("body"), justify="left", wraplength=320,
+             padx=SPACE[3], pady=SPACE[3]).pack(side="left")
+
+    def close(_event=None):
+        if frame in stack:
+            stack.remove(frame)
+            frame.destroy()
+            _place_toasts(stack)
+
+    # Clicar fecha antes do tempo; um erro longo às vezes atrapalha a leitura.
+    frame.bind("<Button-1>", close)
+    for child in frame.winfo_children():
+        child.bind("<Button-1>", close)
+
+    stack.append(frame)
+    _place_toasts(stack)
+    frame.after(timeout, close)
+    return frame
+
+
+def _place_toasts(stack):
+    offset = SPACE[4]
+    for frame in reversed(stack):
+        frame.update_idletasks()
+        frame.place(relx=1.0, rely=1.0, x=-SPACE[4], y=-offset, anchor="se")
+        frame.lift()
+        offset += frame.winfo_reqheight() + SPACE[2]
+
+
 _BUTTON_VARIANTS = {
     "primary": (COLORS["primary"], COLORS["primary_h"], COLORS["primary_d"],
                 "#ffffff", None),

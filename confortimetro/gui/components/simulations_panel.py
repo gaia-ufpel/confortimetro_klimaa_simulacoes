@@ -6,12 +6,12 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk
 
 from confortimetro.results import database
 from confortimetro.results.compare import list_runs, recompute_runs
 
-from ..theme import COLORS, FONTS, SPACE, Card, RoundedButton
+from ..theme import COLORS, FONTS, SPACE, Card, RoundedButton, toast
 
 # Colunas da listagem: (id, título, largura).
 _LIST_COLUMNS = [
@@ -81,12 +81,8 @@ class SimulationsPanel(ttk.Frame):
 
         info_row = ttk.Frame(toolbar.body, style="Surface.TFrame")
         info_row.pack(fill="x", pady=(SPACE[2], 0))
-        # A pasta de saídas é ajuste de máquina e se edita nas configurações;
-        # aqui ela só aparece.
-        ttk.Label(info_row, text="Pasta de saídas", style="Label.TLabel").pack(
-            side="left", padx=(0, SPACE[2]))
-        ttk.Label(info_row, textvariable=self.outputs_path,
-                  style="Caption.TLabel").pack(side="left", padx=(0, SPACE[4]))
+        # A pasta de saídas é ajuste de máquina: mora nas configurações e não
+        # ocupa espaço aqui.
         ttk.Label(info_row, textvariable=self.status_var,
                   style="Caption.TLabel").pack(side="right")
 
@@ -145,12 +141,13 @@ class SimulationsPanel(ttk.Frame):
             known = database.known_mtimes(database.database_path(outputs_path))
         except (OSError, sqlite3.Error) as error:
             ingested, known = 0, {}
-            self._set_status(f"Banco indisponível ({error}). Lendo direto das planilhas.")
+            toast(self, f"Banco indisponível ({error}). Lendo direto das planilhas.",
+                  "warn")
 
         try:
             self._runs = list_runs(outputs_path, known_mtimes=known)
         except OSError as error:
-            messagebox.showerror("Erro", f"Não foi possível ler a pasta: {error}")
+            toast(self, f"Não foi possível ler a pasta: {error}", "error")
             return
 
         self.tree.delete(*self.tree.get_children())
@@ -225,7 +222,7 @@ class SimulationsPanel(ttk.Frame):
         """Primeira execução selecionada, ou aviso no rodapé."""
         runs = self._selected_runs()
         if not runs:
-            self._set_status("Escolha uma execução na lista.")
+            toast(self, "Escolha uma execução na lista.", "warn")
             return None
         return runs[0]
 
@@ -243,7 +240,7 @@ class SimulationsPanel(ttk.Frame):
         """Manda as execuções escolhidas para a página de comparação."""
         runs = self._selected_runs()
         if len(runs) < 2:
-            self._set_status("Escolha ao menos duas execuções para comparar.")
+            toast(self, "Escolha ao menos duas execuções para comparar.", "warn")
             return
         if self.callback:
             self.callback.on_compare_runs(runs, self.outputs_path.get())
@@ -251,7 +248,7 @@ class SimulationsPanel(ttk.Frame):
     def open_selected_folder(self):
         runs = self._selected_runs()
         if not runs:
-            self._set_status("Escolha uma execução para abrir a pasta.")
+            toast(self, "Escolha uma execução para abrir a pasta.", "warn")
             return
         path = os.path.abspath(runs[0]['path'])
         if sys.platform == "win32":
@@ -266,7 +263,8 @@ class SimulationsPanel(ttk.Frame):
         runs = [run for run in self._selected_runs()
                 if run['status'] in ('desatualizada', 'sem estatísticas')]
         if not runs:
-            self._set_status("As execuções escolhidas já têm estatísticas atualizadas.")
+            toast(self, "As execuções escolhidas já têm estatísticas atualizadas.",
+                  "warn")
             return
 
         self._busy = True
@@ -288,7 +286,7 @@ class SimulationsPanel(ttk.Frame):
         if failed:
             detail = "\n".join(f"{os.path.basename(path)}: {error}"
                                for path, error in failed.items())
-            self._set_status(f"{len(failed)} execuções falharam ao regerar.")
-            messagebox.showwarning("Estatísticas", detail)
+            toast(self, f"{len(failed)} execuções falharam ao regerar:\n{detail}",
+                  "error", timeout=10000)
         else:
-            self._set_status(f"{len(errors)} execuções regeradas.")
+            toast(self, f"{len(errors)} execuções regeradas.", "ok")

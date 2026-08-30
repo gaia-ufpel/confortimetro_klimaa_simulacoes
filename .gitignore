@@ -27,3 +27,6 @@ backups/
 # empacotamento Windows
 dist/
 build/
+
+# banco de execuções gerado localmente
+simulacoes.db

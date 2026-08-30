@@ -36,6 +36,7 @@ from .theme import (
     RoundedButton,
     apply_theme,
     scrollable,
+    toast,
 )
 
 
@@ -421,25 +422,25 @@ class MainWindow(tk.Tk):
             
         except Exception as e:
             self.results_panel.append_error(f"Erro ao salvar configuração: {str(e)}")
-            messagebox.showerror("Erro", f"Erro ao salvar configuração: {str(e)}")
+            toast(self, f"Erro ao salvar configuração: {e}", "error")
     
     def _validate_configuration(self) -> bool:
         """Validate the current configuration."""
         if not self.configs:
-            messagebox.showerror("Erro", "Configuração não carregada!")
+            toast(self, "Configuração não carregada.", "error")
             return False
         
         # Check required paths
         if not os.path.exists(self.configs.idf_path):
-            messagebox.showerror("Erro", "Arquivo IDF não encontrado!")
+            toast(self, "Arquivo IDF não encontrado.", "error")
             return False
         
         if not os.path.exists(self.configs.epw_path):
-            messagebox.showerror("Erro", "Arquivo EPW não encontrado!")
+            toast(self, "Arquivo EPW não encontrado.", "error")
             return False
         
         if not os.path.exists(self.configs.energy_path):
-            messagebox.showerror("Erro", "Pasta do EnergyPlus não existe!")
+            toast(self, "Pasta do EnergyPlus não existe.", "error")
             return False
         
         # Check if output directory already exists
@@ -607,7 +608,7 @@ class MainWindow(tk.Tk):
             config = SimulationConfig.from_json(
                 os.path.join(run['path'], "configs.json"))
         except Exception as error:
-            messagebox.showerror("Erro", f"Não foi possível ler a configuração: {error}")
+            toast(self, f"Não foi possível ler a configuração: {error}", "error")
             return
 
         # `idf_path` da execução aponta para a cópia dentro dela; o modelo
@@ -649,7 +650,7 @@ class MainWindow(tk.Tk):
                 self.results_panel.append_success(f"Configuração carregada de: {file_path}")
             except Exception as e:
                 self.results_panel.append_error(f"Erro ao carregar configuração: {str(e)}")
-                messagebox.showerror("Erro", f"Erro ao carregar configuração: {str(e)}")
+                toast(self, f"Erro ao carregar configuração: {e}", "error")
 
 
 def main():

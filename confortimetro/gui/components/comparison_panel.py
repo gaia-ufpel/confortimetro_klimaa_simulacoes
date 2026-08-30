@@ -2,7 +2,7 @@
 
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, ttk
 
 from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg,
@@ -16,7 +16,7 @@ from confortimetro.results.compare import (
     mismatched_periods,
 )
 
-from ..theme import COLORS, SPACE, Card, RoundedButton, scrollable
+from ..theme import COLORS, SPACE, Card, RoundedButton, scrollable, toast
 
 # Os nomes das colunas de estatística são longos demais para caber no
 # cabeçalho da tabela comparativa.
@@ -201,14 +201,14 @@ class ComparisonPanel(ttk.Frame):
     def compare(self):
         runs = self._runs
         if len(runs) < 2:
-            self._set_status("Volte à listagem e escolha ao menos duas execuções.")
+            toast(self, "Volte à listagem e escolha ao menos duas execuções.", "warn")
             return
 
         incomplete = [run for run in runs if run['status'] != 'pronta']
         df = self._comparison_frame(runs, self.room_var.get() or None)
         if df.empty:
-            self._set_status("Nenhuma das execuções tem estatísticas completas. "
-                             "Regere as que faltam na listagem.")
+            toast(self, "Nenhuma das execuções tem estatísticas completas. "
+                  "Regere as que faltam na listagem.", "warn")
             return
 
         self._comparison = df
@@ -255,8 +255,8 @@ class ComparisonPanel(ttk.Frame):
         """Desenha o gráfico escolhido para as execuções em comparação."""
         runs = [run for run in self._runs if run['status'] == 'pronta']
         if len(runs) < 2:
-            self._set_status("O gráfico precisa de duas execuções com estatísticas "
-                             "completas. Regere as que faltam na listagem.")
+            toast(self, "O gráfico precisa de duas execuções com estatísticas "
+                  "completas. Regere as que faltam na listagem.", "warn")
             return
 
         room = self.room_var.get()
@@ -267,18 +267,18 @@ class ComparisonPanel(ttk.Frame):
         # Só a leitura das séries é exclusiva; um gráfico agregado sai na hora
         # e não tem por que esperar a leitura anterior terminar.
         if needs_series and self._busy:
-            self._set_status("Espere a leitura das séries terminar.")
+            toast(self, "Espere a leitura das séries terminar.", "warn")
             return
 
         if not needs_series:
             df = self._comparison_frame(runs, room)
             if df.empty:
-                self._set_status("Sem dados agregados para essas execuções.")
+                toast(self, "Sem dados agregados para essas execuções.", "warn")
                 return
             try:
                 figure = function(df, **options)
             except ValueError as error:
-                self._set_status(str(error))
+                toast(self, str(error), "error")
                 return
             self._show_figure(figure, f"{name} — {room}")
             self._set_status(f"{name}: {len(df)} execuções na zona {room}."
@@ -288,7 +288,8 @@ class ComparisonPanel(ttk.Frame):
         missing = [run['run'] for run in runs
                    if room not in run['rooms_disponiveis']]
         if missing:
-            self._set_status(f"{', '.join(missing)} não tem a planilha da zona {room}.")
+            toast(self, f"{', '.join(missing)} não tem a planilha da zona {room}.",
+                  "warn")
             return
 
         self._busy = True
@@ -322,8 +323,7 @@ class ComparisonPanel(ttk.Frame):
 
     def _plot_failed(self, error):
         self._busy = False
-        self._set_status(f"Falha ao gerar o gráfico: {error}")
-        messagebox.showerror("Gráfico", str(error))
+        toast(self, f"Falha ao gerar o gráfico: {error}", "error", timeout=10000)
 
     def _clear_chart(self):
         """Solta o canvas anterior; sem isso cada gráfico empilha um widget."""
@@ -381,7 +381,7 @@ class ComparisonPanel(ttk.Frame):
 
     def export_comparison(self):
         if self._comparison is None or self._comparison.empty:
-            self._set_status("Compare as execuções antes de exportar.")
+            toast(self, "Compare as execuções antes de exportar.", "warn")
             return
         path = filedialog.asksaveasfilename(
             title="Exportar comparação", defaultextension=".csv",
