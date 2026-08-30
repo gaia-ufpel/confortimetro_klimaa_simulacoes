@@ -4,10 +4,15 @@ Processadores para manipulação de arquivos e dados da simulação.
 
 from confortimetro.idf.processor import (
     IDFProcessor,
+    PEOPLE_METHODS,
+    PEOPLE_METHOD_FIELD,
+    read_people,
     read_run_period,
     read_timesteps_per_hour,
     read_zone_names,
+    write_idf_fields,
 )
 
 __all__ = ['IDFProcessor', 'read_zone_names', 'read_run_period',
-           'read_timesteps_per_hour']
+           'read_timesteps_per_hour', 'read_people', 'write_idf_fields',
+           'PEOPLE_METHODS', 'PEOPLE_METHOD_FIELD']

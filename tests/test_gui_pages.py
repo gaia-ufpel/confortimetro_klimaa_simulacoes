@@ -69,8 +69,9 @@ def test_duplicar_reaproveita_parametros_com_saida_nova(window, tmp_path):
     assert window.configs.pmv_upperbound == 0.9
     # O modelo escolhido pelo usuário, não a cópia dentro da execução…
     assert window.configs.idf_path == str(idf)
-    # …e nunca a mesma pasta de saída.
-    assert os.path.abspath(window.configs.output_path) != os.path.abspath(run_path)
+    # …e nenhuma pasta de saída herdada: ela nasce da raiz quando a simulação
+    # começa, então nunca escreve por cima da execução duplicada.
+    assert window.configs.output_path is None
 
 
 def _toast_text(frame):

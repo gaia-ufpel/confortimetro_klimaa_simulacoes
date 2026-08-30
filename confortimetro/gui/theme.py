@@ -66,6 +66,8 @@ ICONS = {
     "browse": 57681,
     "detect": 58199,
     "chart": 58021,
+    "edit": 58143,
+    "timestep": 57824,
     "recompute": 57673,
     "chevron-right": 57455,
     "chevron-down": 57453,
@@ -199,6 +201,11 @@ def apply_theme(root: tk.Misc) -> None:
     # pintar o fundo por cima come a borda.
     style.configure("Section.TLabelframe.Label", background=COLORS["surface"],
                     foreground=COLORS["text_mute"], font=FONTS["label"])
+
+    # Só o fundo da faixa de abas: as abas em si são sprites do sv_ttk.
+    style.configure("Section.TNotebook", background=COLORS["surface"],
+                    borderwidth=0)
+    style.configure("Section.TNotebook.Tab", font=FONTS["label"])
 
     style.configure("Modern.Treeview", rowheight=26, font=FONTS["body"])
     style.configure("Modern.Treeview.Heading", font=FONTS["label"])

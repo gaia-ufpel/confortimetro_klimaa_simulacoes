@@ -12,16 +12,15 @@ from queue import Queue
 import copy
 from typing import Optional
 
-from confortimetro.simulation import Simulation
 from confortimetro.config import SimulationConfig
-from confortimetro.idf import read_zone_names
+from confortimetro.idf import read_zone_names, write_idf_fields
 from confortimetro.paths import new_run_path, runs_root
-from confortimetro.results.compare import runs_root_for
 from .components import (
     MACHINE_FIELDS,
     SIMULATION_FIELDS,
     PathConfigPanel,
     SimulationConfigPanel,
+    IDFEditorPanel,
     ResultsPanel,
     ControlPanel,
     SimulationsPanel,
@@ -35,7 +34,6 @@ from .theme import (
     Card,
     RoundedButton,
     apply_theme,
-    scrollable,
     toast,
 )
 
@@ -54,7 +52,6 @@ class MainWindow(tk.Tk):
         self._runs_dirty = False
         self._detail_run: Optional[dict] = None
         # `after` da transição de página em andamento, se houver.
-        self._sliding: Optional[str] = None
         
         self._setup_window()
         apply_theme(self)
@@ -71,7 +68,7 @@ class MainWindow(tk.Tk):
 
     def _build_ui(self):
         """Uma página por vez no mesmo host: execuções, detalhes, execução e
-        configurações. Todas ficam montadas; navegar é `pack`/`pack_forget`.
+        configurações. Todas ficam montadas; navegar é `place`.
         """
         from tkinter import ttk
 
@@ -101,6 +98,7 @@ class MainWindow(tk.Tk):
             "compare": self._build_compare_page(),
             "detail": self._build_detail_page(),
             "editor": self._build_editor_page(),
+            "idf": self._build_idf_page(),
             "settings": self._build_settings_page(),
         }
         self._current_page = None
@@ -113,24 +111,15 @@ class MainWindow(tk.Tk):
         "compare": "Comparação entre execuções",
         "detail": "Detalhes da execução",
         "editor": "Nova execução com EnergyPlus",
+        "idf": "Campos do modelo usados pela simulação",
         "settings": "Configurações desta máquina",
     }
 
-    # Ordem das páginas na navegação: define para que lado a transição corre
-    # (ir para a direita, voltar para a esquerda).
-    _PAGE_ORDER = ("runs", "compare", "detail", "editor", "settings")
-
-    # Uma transição curta orienta sem atrasar; acima disso a navegação começa
-    # a parecer lenta.
-    _SLIDE_MS = 180
-    _SLIDE_FRAMES = 12
-
     def show_page(self, name: str):
-        """Mostra uma página e desliza a anterior para fora."""
+        """Mostra uma página trazendo-a para a frente da pilha."""
         if self._current_page == name:
             return
 
-        previous = self._current_page
         self._current_page = name
         self.subtitle_label.configure(text=self._PAGE_SUBTITLES[name])
 
@@ -140,54 +129,12 @@ class MainWindow(tk.Tk):
             self._runs_dirty = False
             self.simulations_panel.refresh()
 
-        if previous is None:
-            self._pages[name].pack(fill="both", expand=True)
-            return
-
-        forward = (self._PAGE_ORDER.index(name)
-                   > self._PAGE_ORDER.index(previous))
-        self._slide(self._pages[previous], self._pages[name],
-                    direction=1 if forward else -1)
-
-    def _slide(self, outgoing, incoming, direction: int):
-        """Troca as páginas deslizando as duas, com `place` sobre o host.
-
-        Durante a animação ninguém fica packado: misturar `pack` e `place` no
-        mesmo host faz a página que entra reservar espaço e empurrar a outra.
-        """
-        if self._sliding:
-            # Clique rápido em dois botões: a animação anterior é abandonada e
-            # a página dela sai de cena antes que esta comece.
-            self.after_cancel(self._sliding)
-            self._sliding = None
-            for page in self._pages.values():
-                page.place_forget()
-                page.pack_forget()
-
-        outgoing.pack_forget()
-        outgoing.place(relx=0, rely=0, relwidth=1, relheight=1)
-        incoming.place(relx=direction, rely=0, relwidth=1, relheight=1)
-        incoming.lift()
-
-        step = [0]
-
-        def frame():
-            step[0] += 1
-            progress = step[0] / self._SLIDE_FRAMES
-            if progress >= 1:
-                self._sliding = None
-                outgoing.place_forget()
-                incoming.place_forget()
-                incoming.pack(fill="both", expand=True)
-                return
-            # Desaceleração no fim: o movimento linear parece mecânico.
-            eased = 1 - (1 - progress) ** 3
-            outgoing.place_configure(relx=-direction * eased)
-            incoming.place_configure(relx=direction * (1 - eased))
-            self._sliding = self.after(self._SLIDE_MS // self._SLIDE_FRAMES,
-                                       frame)
-
-        self._sliding = self.after(self._SLIDE_MS // self._SLIDE_FRAMES, frame)
+        # Todas as páginas ficam empilhadas no mesmo lugar e a troca é só um
+        # `lift`. Animar o deslize repintava a página inteira a cada quadro e
+        # o Tk, sem double buffering, pisca.
+        page = self._pages[name]
+        page.place(relx=0, rely=0, relwidth=1, relheight=1)
+        page.lift()
 
     def _page_nav(self, page, title: str, back_to: str = None):
         """Cabeçalho da página: título e, quando faz sentido, o botão voltar."""
@@ -273,11 +220,14 @@ class MainWindow(tk.Tk):
         topbar.pack(fill="x", pady=(0, SPACE[4]))
         self.control_panel = ControlPanel(topbar.body, callback=self)
         self.control_panel.pack(fill="x")
+        RoundedButton(topbar.body, text="Editar IDF", variant="ghost",
+                      icon="edit", command=self.on_edit_idf).pack(
+                          side="left", pady=(SPACE[2], 0))
 
         # --- Parâmetros: caminhos e simulação no mesmo card ---
         params_card = Card(page, "Parâmetros da simulação")
         params_card.pack(fill="both", expand=True)
-        params = scrollable(params_card.body)
+        params = params_card.body
 
         self.path_panel = PathConfigPanel(params, callback=self,
                                           fields=SIMULATION_FIELDS)
@@ -293,6 +243,27 @@ class MainWindow(tk.Tk):
         self.log_sheet.pack(fill="x", pady=(SPACE[4], 0))
         self.results_panel = ResultsPanel(self.log_sheet.body, callback=self)
         self.results_panel.pack(fill="both", expand=True)
+        return page
+
+    def _build_idf_page(self):
+        """Campos do IDF que a simulação usa, gravados numa cópia nova."""
+        from tkinter import ttk
+
+        page = ttk.Frame(self.page_host, style="Main.TFrame")
+        self._page_nav(page, "Editar IDF", back_to="editor")
+
+        card = Card(page, "Campos do modelo")
+        card.pack(fill="both", expand=True)
+        self.idf_editor_panel = IDFEditorPanel(card.body)
+        self.idf_editor_panel.pack(fill="both", expand=True)
+
+        row = ttk.Frame(card.body, style="Surface.TFrame")
+        row.pack(fill="x", pady=(SPACE[3], 0))
+        RoundedButton(row, text="Salvar como novo IDF", icon="save",
+                      command=self.on_save_idf_copy).pack(side="left")
+        RoundedButton(row, text="Cancelar", variant="ghost",
+                      command=lambda: self.show_page("editor")).pack(
+                          side="left", padx=(SPACE[2], 0))
         return page
 
     def _build_settings_page(self):
@@ -313,13 +284,12 @@ class MainWindow(tk.Tk):
         return page
 
     def _outputs_root(self) -> str:
-        """Pasta que a listagem lê, a partir do que está nas configurações."""
-        output_path = (self.settings_panel.get_output_path()
-                       if hasattr(self, "settings_panel") else "")
-        if not output_path and self.configs:
-            output_path = self.configs.output_path or ""
+        """Pasta que a listagem lê: a raiz das execuções, das configurações."""
+        outputs_root = (self.settings_panel.get_output_path()
+                        if hasattr(self, "settings_panel") else "")
+        if not outputs_root and self.configs:
+            outputs_root = self.configs.runs_root_path or ""
 
-        outputs_root = runs_root_for(output_path)
         if not outputs_root or not os.path.isdir(outputs_root):
             outputs_root = runs_root(create=True)
         return outputs_root
@@ -362,7 +332,7 @@ class MainWindow(tk.Tk):
         # Update path panel
         self.path_panel.set_idf_path(self.configs.idf_path)
         self.settings_panel.set_output_path(
-            self.configs.output_path or new_run_path())
+            self.configs.runs_root_path or runs_root())
         self.path_panel.set_epw_path(self.configs.epw_path)
         self.settings_panel.set_energy_path(self.configs.energy_path)
         
@@ -398,7 +368,7 @@ class MainWindow(tk.Tk):
         
         # Update from path panel
         self.configs.idf_path = self.path_panel.get_idf_path()
-        self.configs.output_path = self.settings_panel.get_output_path()
+        self.configs.runs_root_path = self.settings_panel.get_output_path()
         self.configs.epw_path = self.path_panel.get_epw_path()
         self.configs.energy_path = self.settings_panel.get_energy_path()
         
@@ -443,15 +413,6 @@ class MainWindow(tk.Tk):
             toast(self, "Pasta do EnergyPlus não existe.", "error")
             return False
         
-        # Check if output directory already exists
-        if os.path.exists(self.configs.output_path):
-            want_proceed = messagebox.askokcancel(
-                "Alerta", 
-                "Uma pasta de saída com esse nome já existe, tem certeza que deseja continuar?"
-            )
-            if not want_proceed:
-                return False
-        
         return True
     
     def _run_simulation_thread(self, q: Queue):
@@ -459,6 +420,10 @@ class MainWindow(tk.Tk):
         try:
             if self.configs is None:
                 raise ValueError("Configuration not loaded")
+            # Importado aqui, e não no topo: pythermalcomfort compila com numba
+            # ao ser importado e custa ~12 s — a GUI abre sem ele.
+            from confortimetro.simulation import Simulation
+
             simulation = Simulation(copy.deepcopy(self.configs))
             simulation.run(q)
         except Exception as e:
@@ -496,16 +461,62 @@ class MainWindow(tk.Tk):
             self.configs.idf_path = path
         self._refresh_room_options(path)
 
+    # ------------------------------------------------------------ editor IDF
+
+    def on_edit_idf(self):
+        """Abre a página de edição com o IDF escolhido na execução."""
+        idf_path = self.path_panel.get_idf_path().strip()
+        if not idf_path or not os.path.isfile(idf_path):
+            toast(self, "Escolha um arquivo IDF antes de editá-lo.", "warn")
+            return
+        self.idf_editor_panel.load(idf_path)
+        self.show_page("idf")
+
+    def on_save_idf_copy(self):
+        """Grava um IDF novo ao lado do original e passa a usá-lo.
+
+        O arquivo escolhido pelo usuário nunca é reescrito: cada edição vira
+        um `<nome>_editado.idf` (com sufixo numérico se já existir).
+        """
+        source = self.idf_editor_panel.idf_path
+        updates = self.idf_editor_panel.get_updates()
+        if updates is None:      # já avisou qual campo está inválido
+            return
+        if not updates:
+            toast(self, "Nenhum campo foi alterado.", "info")
+            return
+
+        target = self._new_idf_name(source)
+        try:
+            write_idf_fields(source, target, updates)
+        except (OSError, IndexError) as error:
+            toast(self, f"Não foi possível gravar o IDF: {error}", "error")
+            return
+
+        self.path_panel.set_idf_path(target)
+        self.on_idf_path_changed(target)
+        self.show_page("editor")
+        toast(self, f"IDF salvo em {os.path.basename(target)}.", "ok")
+
+    @staticmethod
+    def _new_idf_name(source: str) -> str:
+        """`<nome>_editado.idf`, numerado enquanto o nome já existir."""
+        base, extension = os.path.splitext(source)
+        candidate = f"{base}_editado{extension}"
+        counter = 2
+        while os.path.exists(candidate):
+            candidate = f"{base}_editado_{counter}{extension}"
+            counter += 1
+        return candidate
+
     def _refresh_room_options(self, idf_path: str):
         """Ofereça as zonas do IDF escolhido no seletor de salas."""
         self.simulation_panel.set_room_options(read_zone_names(idf_path))
     
     def on_output_path_changed(self, path: str):
-        """Handle output path change."""
+        """Handle runs root change."""
         if self.configs:
-            self.configs.output_path = path
-        # O campo é a pasta da próxima execução; a listagem mostra a pasta que
-        # a contém, onde ficam todas as anteriores.
+            self.configs.runs_root_path = path
         self.simulations_panel.set_outputs_path(self._outputs_root())
     
     def on_epw_path_changed(self, path: str):
@@ -541,6 +552,10 @@ class MainWindow(tk.Tk):
         # Validate configuration
         if not self._validate_configuration():
             return
+
+        # Cada rodada escreve numa subpasta nova da raiz configurada; nunca
+        # por cima da anterior.
+        self.configs.output_path = new_run_path(root=self.configs.runs_root_path)
         
         # Start simulation
         self.control_panel.set_running_state(True)
@@ -571,8 +586,7 @@ class MainWindow(tk.Tk):
     # --- Callbacks do SimulationsPanel ---
 
     def on_new_run(self):
-        """Página de execução com uma pasta de saída nova."""
-        self.settings_panel.set_output_path(new_run_path())
+        """Página de execução; a pasta de saída sai da raiz ao rodar."""
         self.show_page("editor")
 
     def on_compare_runs(self, runs: list, outputs_path: str):
@@ -615,7 +629,8 @@ class MainWindow(tk.Tk):
         # escolhido pelo usuário é o `source_idf_path`.
         if config.source_idf_path:
             config.idf_path = config.source_idf_path
-        config.output_path = new_run_path()
+        config.output_path = None
+        config.runs_root_path = self._outputs_root()
 
         self.configs = config
         self._update_ui_from_config()

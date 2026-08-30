@@ -46,13 +46,18 @@ def runs_root(create: bool = False) -> str:
     return path
 
 
-def new_run_path(name: str = None) -> str:
-    """Caminho de uma execução nova, sem repetir uma que já exista."""
+def new_run_path(name: str = None, root: str = None) -> str:
+    """Caminho de uma execução nova, sem repetir uma que já exista.
+
+    `root` é a pasta que guarda todas as execuções; sem ela, a padrão da
+    plataforma.
+    """
     name = name or datetime.datetime.now().strftime("execucao_%Y%m%d_%H%M")
-    candidate = os.path.join(runs_root(), name)
+    root = root or runs_root()
+    candidate = os.path.join(root, name)
 
     suffix = 2
     while os.path.exists(candidate):
-        candidate = os.path.join(runs_root(), f"{name}_{suffix}")
+        candidate = os.path.join(root, f"{name}_{suffix}")
         suffix += 1
     return candidate

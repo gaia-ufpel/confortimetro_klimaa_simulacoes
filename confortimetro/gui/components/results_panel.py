@@ -153,9 +153,6 @@ class ResultsPanel(ttk.Frame):
         
         # Update status
         self.status_var.set(f"Última mensagem: {time_str}")
-        
-        # Update the GUI
-        self.update_idletasks()
     
     def _filter_messages(self, event=None):
         """Filter messages based on selected type."""

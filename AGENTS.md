@@ -75,6 +75,14 @@ duas páginas; misturar `pack` e `place` no mesmo host empurra a que entra).
 - `editor` — topbar de execução (`ControlPanel`), card rolável com caminhos +
   parâmetros (`PathConfigPanel` e `SimulationConfigPanel`) e um `BottomSheet`
   com o log (`ResultsPanel`), que abre sozinho quando a simulação começa.
+- `idf` — `IDFEditorPanel` (`components/idf_editor_panel.py`), aberta pelo
+  **Editar IDF** da topbar de execução: período,
+  passos por hora e ocupação lidos do IDF escolhido. **Salvar como novo IDF**
+  grava `<nome>_editado.idf` ao lado do original (numerado se já existir) e
+  aponta o campo de IDF da execução para ele; o arquivo do usuário nunca é
+  reescrito. O painel só devolve o que mudou (`get_updates`, no formato de
+  `write_idf_fields`) — campo em branco mantém o valor do IDF — e devolve
+  `None` com toast quando uma data ou número está inválido.
 - `settings` — `PathConfigPanel` com os caminhos da máquina, incluindo a pasta
   de saída. A listagem só mostra a pasta; quem a edita é esta página, e
   `on_output_path_changed` empurra a mudança com
@@ -186,13 +194,21 @@ a.destroy()"
 - **Painel dentro de card vai em `card.body`, não no `Card`.** O `Card` já usa
   `pack` para o próprio corpo; empacotar outra coisa nele mistura geometrias.
 
+- **A edição do IDF é textual, sem eppy.** `_parse_objects` devolve os campos
+  de cada objeto **com os vazios preservados** e as linhas que ele ocupa, e
+  `write_idf_fields(origem, destino, {(tipo, índice): {posição: valor}})`
+  reescreve só esses objetos — o resto do arquivo sai igual, mas os
+  comentários de campo do objeto tocado se perdem. Usar eppy aqui exigiria o
+  IDD do EnergyPlus, que a GUI não tem por que precisar. `_self_check()`
+  (`python -m confortimetro.idf.processor`) faz a ida e volta.
+
 - **As salas vêm do IDF.** `read_zone_names` (em `confortimetro/idf/processor.py`)
   lê os nomes de zona do texto do IDF sem eppy nem IDD; `MainWindow._refresh_room_options`
   alimenta o `ChipSelect`. IDF inválido → lista vazia e campo de texto livre,
   nunca exceção.
 
-- `SimulationConfigPanel` usa um `ttk.LabelFrame` por seção. Adicionar um campo
-  é chamar `_field(section, coluna, rótulo)`; não há numeração global de linhas
+- `SimulationConfigPanel` usa um `ttk.Notebook` com uma aba por seção.
+  Adicionar um campo é chamar `_field(aba, linha, coluna, rótulo)`; não há numeração global de linhas
   para reajustar. Os nomes dos atributos (`self.*_entry`) são o contrato com
   `get_configuration`/`set_configuration` — renomear um quebra a leitura da
   configuração em silêncio, porque `get_configuration` engole `ValueError` e

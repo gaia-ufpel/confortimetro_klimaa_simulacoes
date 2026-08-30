@@ -38,6 +38,7 @@ def resolve_config_path() -> str:
         data["input_path"] = os.path.dirname(data["_idf_path"])
         # Saída e EnergyPlus vazios: caem nos padrões da plataforma
         # (paths.new_run_path e find_energy_path) ao carregar a configuração.
+        data["runs_root_path"] = ""
         data["output_path"] = ""
         data["expanded_idf_path"] = ""
         data["energy_path"] = ""

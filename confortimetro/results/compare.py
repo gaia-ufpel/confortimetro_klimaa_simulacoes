@@ -126,21 +126,6 @@ def read_run(run_path, known_mtimes=None):
     }
 
 
-def runs_root_for(path):
-    """Pasta que contém as execuções, a partir do caminho configurado.
-
-    O campo de saída aceita as duas coisas que o usuário escreve na prática: a
-    pasta de uma execução (`outputs/run_001`, que nem existe antes de rodar) e
-    a raiz que guarda todas (`outputs`). Quem decide é o conteúdo, não o nome:
-    vale a primeira das duas que já tenha uma execução dentro.
-    """
-    path = (path or '').rstrip(os.sep)
-    for candidate in (path, os.path.dirname(path)):
-        if candidate and has_runs(candidate):
-            return candidate
-    return os.path.dirname(path) or path
-
-
 def has_runs(path) -> bool:
     """Verdadeiro se a pasta tem ao menos uma execução dentro."""
     try:

@@ -7,7 +7,7 @@ import re
 import shutil
 
 from confortimetro.module_type import ModuleType
-from confortimetro.paths import new_run_path
+from confortimetro.paths import new_run_path, runs_root
 
 # Banda do modelo adaptativo por nível de aceitação (ASHRAE 55).
 PORCENT2ADAPTATIVE = {
@@ -30,6 +30,31 @@ def _platform_globs() -> list[str]:
     if system == "Darwin":
         return ["/Applications/EnergyPlus-*"]
     return ["/usr/local/EnergyPlus-*", "/opt/EnergyPlus-*"]
+
+
+def migrated_runs_root(output_path: str) -> str:
+    """Raiz das execuções a partir do antigo campo de saída único.
+
+    O usuário escrevia ali as duas coisas: a raiz (`outputs`) ou a pasta de uma
+    execução (`outputs/run_001`). Quem decide é o conteúdo: vale a primeira das
+    duas que já tenha uma execução dentro; sem nenhuma, a pasta que existir.
+    """
+    from confortimetro.results.compare import has_runs
+
+    path = (output_path or "").rstrip(os.sep)
+    if not path:
+        return runs_root()
+
+    parent = os.path.dirname(path)
+    for candidate in (path, parent):
+        if candidate and has_runs(candidate):
+            return candidate
+    # Sem execução em nenhuma das duas: a pasta que já existe é a raiz (raiz
+    # nova e ainda vazia), e a que não existe era a subpasta da próxima
+    # execução — nesse caso a raiz é a de cima.
+    if os.path.isdir(path):
+        return path
+    return parent or runs_root()
 
 
 def default_energy_path() -> str:
@@ -148,6 +173,9 @@ class SimulationConfig:
     clo_delta: float = 0.1
     clo_priority: bool = True
 
+    # Pasta que guarda todas as execuções; `output_path` é a subpasta desta
+    # execução, criada quando a simulação começa.
+    runs_root_path: str = None
     input_path: str = None
     expanded_idf_path: str = None
     # IDF escolhido pelo usuário; `_idf_path` passa a apontar para a cópia
@@ -163,8 +191,10 @@ class SimulationConfig:
         # Sem saída escolhida, cada execução ganha a sua subpasta na pasta de
         # dados da aplicação — o diretório do repositório (ou o do executável,
         # que pode ser somente leitura) não é lugar de resultado.
+        if not self.runs_root_path:
+            self.runs_root_path = runs_root()
         if not self.output_path:
-            self.output_path = new_run_path()
+            self.output_path = new_run_path(root=self.runs_root_path)
         self.input_path = os.path.dirname(self.idf_path)
         # O IDF expandido é artefato da execução e mora com ela; deixá-lo ao
         # lado do IDF de entrada fazia execuções paralelas se atropelarem.
@@ -204,6 +234,11 @@ class SimulationConfig:
             data = json.load(reader)
         
         config = SimulationConfig(**data)
+
+        # Config anterior ao `runs_root_path`: o campo de saída guardava a
+        # pasta de uma execução ou a raiz que as contém, sem distinção.
+        if not data.get("runs_root_path"):
+            config.runs_root_path = migrated_runs_root(data.get("output_path"))
 
         # O config.json versionado traz caminhos de Linux; numa máquina sem esse
         # diretório, redetecta em vez de abrir a GUI com um caminho quebrado.

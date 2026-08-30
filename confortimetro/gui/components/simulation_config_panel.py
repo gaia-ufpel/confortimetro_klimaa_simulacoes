@@ -7,7 +7,6 @@ from tkinter import ttk
 from typing import Protocol, Optional
 
 from ..theme import SPACE, ChipSelect, RangeField
-from confortimetro.control import MODULES_MAPPER
 from confortimetro.config import ADAPTATIVE2PORCENT, PORCENT2ADAPTATIVE
 from confortimetro.module_type import ModuleType
 
@@ -43,119 +42,112 @@ class SimulationConfigPanel(ttk.Frame):
         self._build_ui()
     
     def _build_ui(self):
-        """Build the UI components, one LabelFrame per logical section."""
-        self._build_pmv_section()
-        self._build_temperature_section()
-        self._build_comfort_section()
-        self._build_clothing_section()
-        self._build_rooms_module_section()
+        """Build the UI components: one notebook tab per logical group."""
+        self.notebook = ttk.Notebook(self, style="Section.TNotebook")
+        self.notebook.pack(fill="both", expand=True)
+        self._build_comfort_tab()
+        self._build_equipment_tab()
+        self._build_rooms_module_tab()
 
-    def _section(self, title: str) -> ttk.LabelFrame:
-        """Create a titled section that stretches with the window."""
-        frame = ttk.LabelFrame(self, text=title, style="Section.TLabelframe",
-                               padding=SPACE[3])
-        frame.pack(fill="x", pady=(0, SPACE[3]))
+    def _tab(self, title: str) -> ttk.Frame:
+        """Create a notebook tab whose four columns share the width."""
+        frame = ttk.Frame(self.notebook, style="Surface.TFrame",
+                          padding=SPACE[3])
+        self.notebook.add(frame, text=title)
         for column in range(4):
             frame.columnconfigure(column, weight=1, uniform="fields")
         return frame
 
-    def _range(self, parent, column: int, label: str, lower: float,
+    def _range(self, parent, row: int, column: int, label: str, lower: float,
                upper: float, step: float = 0.1) -> RangeField:
         """Create a min-max range spanning two columns of `parent`."""
         field = RangeField(parent, label, lower, upper, step,
                            on_change=self._on_config_changed)
-        field.grid(row=0, column=column, columnspan=2, rowspan=2,
+        field.grid(row=row, column=column, columnspan=2, rowspan=2,
                    padx=SPACE[1], pady=(0, SPACE[2]), sticky="ew")
         return field
 
-    def _field(self, parent, column: int, label: str) -> ttk.Entry:
+    def _field(self, parent, row: int, column: int, label: str) -> ttk.Entry:
         """Create a labeled entry in `column` of `parent`."""
         ttk.Label(parent, text=label, style="Label.TLabel").grid(
-            row=0, column=column, padx=SPACE[1], pady=(0, SPACE[1]), sticky="w")
+            row=row, column=column, padx=SPACE[1], pady=(0, SPACE[1]),
+            sticky="w")
         entry = ttk.Entry(parent, style="Field.TEntry")
-        entry.grid(row=1, column=column, padx=SPACE[1], pady=(0, SPACE[2]),
-                   sticky="ew")
+        entry.grid(row=row + 1, column=column, padx=SPACE[1],
+                   pady=(0, SPACE[2]), sticky="ew")
         entry.bind('<FocusOut>', self._on_config_changed)
         return entry
 
-    def _build_pmv_section(self):
-        """Build PMV configuration section."""
-        section = self._section("Conforto PMV")
+    def _combo(self, parent, row: int, column: int, label: str, values,
+               variable: tk.StringVar, columnspan: int = 1) -> ttk.Combobox:
+        """Create a labeled read-only combobox in `column` of `parent`."""
+        ttk.Label(parent, text=label, style="Label.TLabel").grid(
+            row=row, column=column, columnspan=columnspan, padx=SPACE[1],
+            pady=(0, SPACE[1]), sticky="w")
+        combo = ttk.Combobox(parent, textvariable=variable,
+                             style="Field.TCombobox", state="readonly",
+                             values=values)
+        combo.grid(row=row + 1, column=column, columnspan=columnspan,
+                   padx=SPACE[1], pady=(0, SPACE[2]), sticky="ew")
+        combo.bind('<<ComboboxSelected>>', self._on_config_changed)
+        return combo
+
+    def _build_comfort_tab(self):
+        """PMV, metabolismo e vestimenta: as entradas do conforto do ocupante."""
+        tab = self._tab("Conforto")
 
         # Faixa do PMV na escala ASHRAE (-3 frio … +3 quente).
-        self.pmv_range = self._range(section, 0, "Faixa de PMV", -3.0, 3.0)
+        self.pmv_range = self._range(tab, 0, 0, "Faixa de PMV", -3.0, 3.0)
+        self.comfort_bound_entry = self._field(tab, 0, 2, "Banda de conforto")
 
-        self.vel_max_entry = self._field(section, 2, "Velocidade máxima")
-
-        ttk.Label(section, text="Margem do adaptativo", style="Label.TLabel").grid(
-            row=0, column=3, padx=SPACE[1], pady=(0, SPACE[1]), sticky="w")
+        self.met_entry = self._field(tab, 2, 0, "Met")
+        self.wme_entry = self._field(tab, 2, 1, "Wme")
         self.selected_adaptative = tk.StringVar()
-        self.cbx_adaptative = ttk.Combobox(
-            section, textvariable=self.selected_adaptative,
-            style="Field.TCombobox")
-        self.cbx_adaptative["values"] = ("80%", "90%")
-        self.cbx_adaptative["state"] = "readonly"
-        self.cbx_adaptative.grid(row=1, column=3, padx=SPACE[1], pady=SPACE[1], sticky="ew")
-        self.cbx_adaptative.bind('<<ComboboxSelected>>', self._on_config_changed)
+        self.cbx_adaptative = self._combo(tab, 2, 2, "Margem do adaptativo",
+                                          ("80%", "90%"),
+                                          self.selected_adaptative)
 
-    def _build_temperature_section(self):
-        """Build temperature configuration section."""
-        section = self._section("Condicionamento e metabolismo")
-
-        self.temp_ac_range = self._range(
-            section, 0, "Faixa de temperatura do AC (°C)", 10.0, 35.0, 0.5)
-
-        self.met_entry = self._field(section, 2, "Met")
-        self.wme_entry = self._field(section, 3, "Wme")
-
-    def _build_comfort_section(self):
-        """Build comfort configuration section."""
-        section = self._section("Conforto e qualidade do ar")
-
-        self.comfort_bound_entry = self._field(section, 0, "Banda de conforto")
-        self.co2_limit_entry = self._field(section, 1, "Limite de CO2")
-        self.air_speed_delta_entry = self._field(
-            section, 2, "Variação da vel. de ventilação")
-        self.temp_open_window_bound_entry = self._field(
-            section, 3, "Margem de temp. p/ abrir janela")
-
-    def _build_clothing_section(self):
-        """Build clothing configuration section."""
-        section = self._section("Vestimenta (Clo)")
-
-        self.clo_range = self._range(section, 0, "Faixa de Clo", 0.0, 2.0, 0.05)
-
-        self.clo_delta_entry = self._field(section, 2, "Variação do Clo")
+        self.clo_range = self._range(tab, 4, 0, "Faixa de Clo", 0.0, 2.0, 0.05)
+        self.clo_delta_entry = self._field(tab, 4, 2, "Variação do Clo")
 
         # Prioridade do Clo sobre os equipamentos
         self.clo_priority_var = tk.BooleanVar(value=True)
         self.clo_priority_check = ttk.Checkbutton(
-            section, text="Ajustar Clo antes dos equipamentos",
+            tab, text="Ajustar Clo antes dos equipamentos",
             variable=self.clo_priority_var, command=self._on_config_changed,
             style="Card.TCheckbutton")
-        self.clo_priority_check.grid(row=1, column=3, padx=SPACE[1], pady=SPACE[1], sticky="w")
+        self.clo_priority_check.grid(row=5, column=3, padx=SPACE[1],
+                                     pady=(0, SPACE[2]), sticky="w")
 
-    def _build_rooms_module_section(self):
-        """Build rooms and module configuration section."""
-        section = self._section("Zonas e módulo de condicionamento")
+    def _build_equipment_tab(self):
+        """Ar-condicionado, ventilação e janela: o que o módulo aciona."""
+        tab = self._tab("Equipamentos")
 
-        ttk.Label(section, text="Salas", style="Label.TLabel").grid(
+        self.temp_ac_range = self._range(
+            tab, 0, 0, "Faixa de temperatura do AC (°C)", 10.0, 35.0, 0.5)
+        self.vel_max_entry = self._field(tab, 0, 2, "Velocidade máxima")
+        self.air_speed_delta_entry = self._field(
+            tab, 0, 3, "Variação da vel. de ventilação")
+
+        self.temp_open_window_bound_entry = self._field(
+            tab, 2, 0, "Margem de temp. p/ abrir janela")
+        self.co2_limit_entry = self._field(tab, 2, 1, "Limite de CO2")
+
+    def _build_rooms_module_tab(self):
+        """Zonas simuladas e módulo de condicionamento."""
+        tab = self._tab("Zonas")
+
+        ttk.Label(tab, text="Salas", style="Label.TLabel").grid(
             row=0, column=0, columnspan=2, padx=SPACE[1], sticky="w")
-        self.rooms_select = ChipSelect(section, "Selecione uma sala…",
+        self.rooms_select = ChipSelect(tab, "Selecione uma sala…",
                                        on_change=self._on_config_changed)
         self.rooms_select.grid(row=1, column=0, columnspan=2, padx=SPACE[1],
                                pady=(SPACE[1], SPACE[2]), sticky="ew")
 
-        ttk.Label(section, text="Módulo", style="Label.TLabel").grid(
-            row=0, column=2, columnspan=2, padx=SPACE[1], sticky="w")
         self.selected_module = tk.StringVar()
-        self.cbx_module = ttk.Combobox(section, textvariable=self.selected_module,
-                                       style="Field.TCombobox")
-        self.cbx_module["values"] = [MODULE_LABELS[m] for m in MODULES_MAPPER]
-        self.cbx_module["state"] = "readonly"
-        self.cbx_module.grid(row=1, column=2, columnspan=2, padx=SPACE[1],
-                             pady=(SPACE[1], SPACE[2]), sticky="new")
-        self.cbx_module.bind('<<ComboboxSelected>>', self._on_config_changed)
+        self.cbx_module = self._combo(tab, 0, 2, "Módulo",
+                                      list(MODULE_LABELS.values()),
+                                      self.selected_module, columnspan=2)
 
     def set_room_options(self, rooms):
         """Zonas oferecidas no seletor de salas (lidas do IDF escolhido)."""

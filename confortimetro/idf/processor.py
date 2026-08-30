@@ -5,12 +5,12 @@ Este módulo é responsável por todas as modificações e manipulações
 de arquivos IDF necessárias para as simulações.
 """
 
+from __future__ import annotations
+
 import os
 from datetime import datetime, timedelta
 from typing import Any, List
 import logging
-
-from eppy.modeleditor import IDF
 
 from confortimetro.config import SimulationConfig
 from confortimetro.module_type import ModuleType
@@ -48,35 +48,138 @@ def read_zone_names(idf_path: str) -> List[str]:
     return names
 
 
-def _idf_objects(idf_path: str, object_type: str) -> List[List[str]]:
-    """Campos de cada objeto de um tipo, lendo o texto do IDF.
+def _parse_objects(text: str, object_type: str) -> List[tuple]:
+    """Objetos de um tipo como `(campos, primeira_linha, última_linha)`.
 
-    Mesmo motivo de `read_zone_names`: carregar pelo eppy exige o IDD do
-    EnergyPlus e alguns segundos, e aqui só queremos dois números.
+    Lê o texto do IDF em vez de usar o eppy: carregar pelo eppy exige o IDD do
+    EnergyPlus e alguns segundos, e a interface só quer alguns campos. Campos
+    vazios são preservados — a posição de cada um é o que dá sentido a eles.
     """
+    lines = text.splitlines()
+    objects, index = [], 0
+    while index < len(lines):
+        head = lines[index].split("!")[0].strip()
+        if not head:
+            index += 1
+            continue
+
+        # O tipo é o primeiro token do objeto; o resto segue até o ';'.
+        name = head.split(",")[0].split(";")[0].strip()
+        start = index
+        chunk = ""
+        while index < len(lines):
+            piece = lines[index].split("!")[0]
+            chunk += piece
+            if ";" in piece:
+                break
+            index += 1
+        end = index
+        index += 1
+
+        if name.lower() != object_type.lower():
+            continue
+        fields = [field.strip() for field in chunk.split(";")[0].split(",")]
+        objects.append((fields[1:], start, end))
+    return objects
+
+
+def _read_text(idf_path: str) -> str:
+    """Texto do IDF, ou string vazia se o arquivo não puder ser lido."""
     try:
         with open(idf_path, "r", encoding="latin-1") as handle:
-            text = handle.read()
+            return handle.read()
     except OSError:
-        return []
+        return ""
 
-    objects, fields, collecting = [], [], False
-    for line in text.splitlines():
-        line = line.split("!")[0].strip()
-        if not line:
-            continue
-        for token in line.replace(";", ",").split(","):
-            token = token.strip()
-            if not token:
-                continue
-            if not collecting:
-                collecting = token.lower() == object_type.lower()
-                continue
-            fields.append(token)
-        if line.endswith(";") and collecting:
-            objects.append(fields)
-            fields, collecting = [], False
-    return objects
+
+def _idf_objects(idf_path: str, object_type: str) -> List[List[str]]:
+    """Campos de cada objeto de um tipo, lendo o texto do IDF."""
+    return [fields for fields, _, _ in
+            _parse_objects(_read_text(idf_path), object_type)]
+
+
+# Posição de cada campo do objeto `People` que a interface edita (IDD 9.4).
+PEOPLE_FIELDS = {
+    "name": 0,
+    "zone": 1,
+    "schedule": 2,
+    "method": 3,
+    "people": 4,
+    "people_per_area": 5,
+    "area_per_person": 6,
+}
+PEOPLE_METHODS = ("People", "People/Area", "Area/Person")
+# Qual campo cada método de cálculo usa.
+PEOPLE_METHOD_FIELD = {
+    "people": "people",
+    "people/area": "people_per_area",
+    "area/person": "area_per_person",
+}
+
+
+def read_people(idf_path: str) -> List[dict]:
+    """Objetos `People` do IDF, na ordem em que aparecem.
+
+    Cada item traz os campos de `PEOPLE_FIELDS` mais o `index` do objeto, que
+    é o que `write_idf_fields` usa para endereçá-lo.
+    """
+    people = []
+    for index, fields in enumerate(_idf_objects(idf_path, "People")):
+        entry = {"index": index}
+        for key, position in PEOPLE_FIELDS.items():
+            entry[key] = fields[position] if position < len(fields) else ""
+        people.append(entry)
+    return people
+
+
+def _serialize_object(object_type: str, fields: List[str]) -> List[str]:
+    """Objeto IDF em linhas, uma por campo.
+
+    Os comentários de campo do objeto reescrito se perdem — o resto do arquivo
+    sai intacto, porque só as linhas dele são trocadas.
+    """
+    lines = [f"{object_type},"]
+    for position, value in enumerate(fields):
+        end = ";" if position == len(fields) - 1 else ","
+        lines.append(f"    {value}{end}")
+    return lines
+
+
+def write_idf_fields(src_path: str, dst_path: str, updates: dict) -> None:
+    """Copia o IDF trocando alguns campos.
+
+    `updates` mapeia `(tipo, índice do objeto)` para `{posição: valor}`, como
+    em `{("Timestep", 0): {0: "6"}}`. O arquivo de origem não é tocado.
+    """
+    text = _read_text(src_path)
+    if not text:
+        raise OSError(f"IDF ilegível: {src_path}")
+
+    lines = text.splitlines()
+    replacements = {}
+    for (object_type, index), changes in updates.items():
+        objects = _parse_objects(text, object_type)
+        if index >= len(objects):
+            raise IndexError(f"{object_type}[{index}] não existe em {src_path}")
+        fields, start, end = objects[index]
+        for position, value in changes.items():
+            while len(fields) <= position:
+                fields.append("")
+            fields[position] = value
+        replacements[start] = (end, _serialize_object(object_type, fields))
+
+    output, index = [], 0
+    while index < len(lines):
+        if index in replacements:
+            end, new_lines = replacements[index]
+            output.extend(new_lines)
+            index = end + 1
+        else:
+            output.append(lines[index])
+            index += 1
+
+    with open(dst_path, "w", encoding="latin-1") as handle:
+        handle.write("\n".join(output) + "\n")
 
 
 def read_timesteps_per_hour(idf_path: str, default: int = 6) -> int:
@@ -153,6 +256,8 @@ class IDFProcessor:
             if not os.path.exists(idd_path):
                 raise FileNotFoundError(f"IDD file not found: {idd_path}")
             
+            from eppy.modeleditor import IDF
+
             IDF.setiddname(idd_path)
             self.logger.info(f"Eppy configured with IDD: {idd_path}")
             
@@ -171,6 +276,9 @@ class IDFProcessor:
             self.logger.info(f"Starting IDF processing: {self.configs.idf_path}")
             
             # Carregar arquivo IDF
+            # eppy importado só aqui: custa ~0,4 s e a GUI abre sem ele.
+            from eppy.modeleditor import IDF
+
             idf = IDF(self.configs.idf_path)
             
             # Aplicar modificações em sequência
@@ -483,6 +591,8 @@ class IDFProcessor:
             
             # Tentar carregar o arquivo IDF
             try:
+                from eppy.modeleditor import IDF
+
                 idf = IDF(self.configs.idf_path)
                 
                 # Verificar se tem objetos essenciais
@@ -500,3 +610,31 @@ class IDFProcessor:
         
         return errors
     
+
+
+def _self_check() -> None:
+    """Ida e volta da edição textual, sem EnergyPlus nem eppy."""
+    import tempfile
+
+    source = os.path.join("examples", "idf", "SALA", "SALA_PTHP.idf")
+    zones = read_zone_names(source)
+    with tempfile.TemporaryDirectory() as directory:
+        target = os.path.join(directory, "editado.idf")
+        write_idf_fields(source, target, {
+            ("Timestep", 0): {0: "4"},
+            ("RunPeriod", 0): {1: "3", 2: "10", 4: "3", 5: "17"},
+            ("People", 0): {PEOPLE_FIELDS["people"]: "12"},
+        })
+        assert read_timesteps_per_hour(target) == 4
+        start, end = read_run_period(target)
+        assert (start.month, start.day) == (3, 10), start
+        assert (end.month, end.day) == (3, 18), end  # fim exclusivo
+        assert read_people(target)[0]["people"] == "12"
+        assert read_zone_names(target) == zones
+        # O original continua intacto.
+        assert read_timesteps_per_hour(source) == 6
+    print("ok")
+
+
+if __name__ == "__main__":
+    _self_check()
