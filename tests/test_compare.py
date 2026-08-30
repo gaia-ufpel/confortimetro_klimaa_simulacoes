@@ -2,7 +2,6 @@
 
 import json
 
-import pandas
 import pytest
 
 from confortimetro.results.compare import (

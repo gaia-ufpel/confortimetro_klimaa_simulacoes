@@ -16,17 +16,14 @@ from confortimetro.results import (
     split_target_period_excel,
 )
 from confortimetro.config import SimulationConfig
-from confortimetro.module_type import ModuleType
 from confortimetro.idf import IDFProcessor, read_run_period, read_timesteps_per_hour
 
 EnergyPlusAPI = None
 
 EXPAND_OBJECTS_APP = "ExpandObjects"
-TO_CSV_APP = "runreadvars"
 
 if platform.system() == "Windows":
     EXPAND_OBJECTS_APP = "ExpandObjects.exe"
-    TO_CSV_APP = "PostProcess/ReadVarsESO.exe"
 
 class Simulation:
     """Classe principal para execução de simulações EnergyPlus."""

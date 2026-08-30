@@ -2,7 +2,6 @@
 Control panel component.
 """
 
-import tkinter as tk
 from tkinter import ttk
 from typing import Protocol, Optional
 

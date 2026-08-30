@@ -4,7 +4,7 @@ Simulation configuration panel component.
 
 import tkinter as tk
 from tkinter import ttk
-from typing import Protocol, Optional, List
+from typing import Protocol, Optional
 
 from ..theme import SPACE, ChipSelect, RangeField
 from confortimetro.control import MODULES_MAPPER
@@ -84,8 +84,6 @@ class SimulationConfigPanel(ttk.Frame):
 
         # Faixa do PMV na escala ASHRAE (-3 frio … +3 quente).
         self.pmv_range = self._range(section, 0, "Faixa de PMV", -3.0, 3.0)
-        self.pmv_lowerbound_entry = self.pmv_range.min_entry
-        self.pmv_upperbound_entry = self.pmv_range.max_entry
 
         self.vel_max_entry = self._field(section, 2, "Velocidade máxima")
 
@@ -106,8 +104,6 @@ class SimulationConfigPanel(ttk.Frame):
 
         self.temp_ac_range = self._range(
             section, 0, "Faixa de temperatura do AC (°C)", 10.0, 35.0, 0.5)
-        self.temp_ac_min_entry = self.temp_ac_range.min_entry
-        self.temp_ac_max_entry = self.temp_ac_range.max_entry
 
         self.met_entry = self._field(section, 2, "Met")
         self.wme_entry = self._field(section, 3, "Wme")
@@ -128,8 +124,6 @@ class SimulationConfigPanel(ttk.Frame):
         section = self._section("Vestimenta (Clo)")
 
         self.clo_range = self._range(section, 0, "Faixa de Clo", 0.0, 2.0, 0.05)
-        self.clo_min_entry = self.clo_range.min_entry
-        self.clo_max_entry = self.clo_range.max_entry
 
         self.clo_delta_entry = self._field(section, 2, "Variação do Clo")
 
