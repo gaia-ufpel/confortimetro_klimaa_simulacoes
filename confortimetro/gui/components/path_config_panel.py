@@ -117,21 +117,29 @@ class PathConfigPanel(ttk.Frame):
         setattr(self, f"{entry_var_name}_status", status_label)
 
     def _create_tooltip(self, widget, text):
-        """Create a simple tooltip for a widget."""
-        def show_tooltip(event):
-            tooltip = tk.Toplevel()
+        """Balão de ajuda enquanto o ponteiro está sobre o widget."""
+        # Um balão por widget: sem isso, cada <Enter> criava um Toplevel novo
+        # que só sumia por timeout, e eles se empilhavam na tela.
+        state = {'window': None}
+
+        def hide(_event=None):
+            if state['window'] is not None:
+                state['window'].destroy()
+                state['window'] = None
+
+        def show(event):
+            hide()
+            tooltip = tk.Toplevel(widget)
+            state['window'] = tooltip
             tooltip.wm_overrideredirect(True)
-            tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
-            
-            label = ttk.Label(tooltip, text=text, style="Caption.TLabel",
-                              background=COLORS["bg"], relief="solid",
-                              borderwidth=1, padding=SPACE[2])
-            label.pack()
-            
-            # Auto-hide after 3 seconds
-            tooltip.after(3000, tooltip.destroy)
-        
-        widget.bind('<Enter>', show_tooltip)
+            tooltip.wm_geometry(f"+{event.x_root + 10}+{event.y_root + 10}")
+            ttk.Label(tooltip, text=text, style="Caption.TLabel",
+                      background=COLORS["bg"], relief="solid",
+                      borderwidth=1, padding=SPACE[2]).pack()
+
+        widget.bind('<Enter>', show)
+        widget.bind('<Leave>', hide)
+        widget.bind('<Destroy>', hide)
     
     def detect_energy_path(self):
         """Procura a instalação do EnergyPlus e preenche o campo."""
