@@ -30,6 +30,9 @@ COLORS = {
     "primary_h": "#588157",
     "primary_d": "#344e41",
     "accent": "#a3b18a",
+    # Laranja do bulbo da logo. Só decorativo (2.6:1 sobre `surface`): serve de
+    # preenchimento em barra/indicador de calor, nunca de cor de texto.
+    "hot": "#f67a24",
     # Cinza do polegar de scrollbar do sv_ttk, para as barras tk clássicas.
     "scroll": "#c2c2c2",
     "ok": "#4e7a4d",

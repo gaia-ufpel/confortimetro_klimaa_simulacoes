@@ -64,7 +64,24 @@ class MainWindow(tk.Tk):
         self.geometry("1200x900")
         self.minsize(800, 600)
         self.configure(background=COLORS["bg"])
+        self._set_icon()
         self.center_window()
+
+    def _set_icon(self):
+        """Ícone da janela. Vários tamanhos porque o Tk reduz imagem sem
+        suavizar: entregar um PNG grande só deixa o ícone da barra serrilhado.
+        Cada tamanho é rasterizado do `logo.svg`; o gerenciador de janela pega
+        o mais próximo. Falha silenciosa: nem todo WM suporta `iconphoto`."""
+        assets = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "assets")
+        try:
+            self._icons = [
+                tk.PhotoImage(file=os.path.join(assets, f"logo-{size}.png"))
+                for size in (32, 48, 64, 128, 256, 512)
+            ]
+            self.iconphoto(True, *self._icons)
+        except tk.TclError:
+            pass
 
     def _build_ui(self):
         """Uma página por vez no mesmo host: execuções, detalhes, execução e
