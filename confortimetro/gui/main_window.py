@@ -15,6 +15,8 @@ from confortimetro.config import SimulationConfig
 from confortimetro.idf import read_zone_names
 from confortimetro.paths import new_run_path, runs_root
 from .components import (
+    MACHINE_FIELDS,
+    SIMULATION_FIELDS,
     PathConfigPanel,
     SimulationConfigPanel,
     ResultsPanel,
@@ -35,6 +37,7 @@ class MainWindow(tk.Tk):
         self.simulation_thread: Optional[threading.Thread] = None
         self.simulation_queue: Optional[Queue] = None
         self._simulations_window: Optional[tk.Toplevel] = None
+        self._settings_window: Optional[tk.Toplevel] = None
         
         self._setup_window()
         apply_theme(self)
@@ -74,7 +77,8 @@ class MainWindow(tk.Tk):
         params_card.pack(fill="both", expand=True)
         params = scrollable(params_card.body)
 
-        self.path_panel = PathConfigPanel(params, callback=self)
+        self.path_panel = PathConfigPanel(params, callback=self,
+                                          fields=SIMULATION_FIELDS)
         self.path_panel.pack(fill="x")
         ttk.Separator(params, orient="horizontal",
                       style="Modern.TSeparator").pack(fill="x",
@@ -90,6 +94,33 @@ class MainWindow(tk.Tk):
 
         ttk.Label(container, text="Desenvolvido para o GAIA — UFPel",
                   style="Sub.TLabel").pack(pady=(SPACE[3], 0))
+
+        self._build_settings_window()
+
+    def _build_settings_window(self):
+        """Janela de configurações: os caminhos que são da máquina, não da
+        simulação. Fica montada e escondida — os campos são o contrato de
+        leitura da configuração e precisam existir mesmo com a janela fechada.
+        """
+        from tkinter import ttk
+
+        window = tk.Toplevel(self)
+        window.withdraw()
+        window.title("Configurações")
+        window.configure(background=COLORS["bg"])
+        window.minsize(720, 300)
+        window.protocol("WM_DELETE_WINDOW", window.withdraw)
+
+        card = Card(window, "Configurações da máquina")
+        card.pack(fill="both", expand=True, padx=SPACE[5], pady=SPACE[5])
+        self.settings_panel = PathConfigPanel(card.body, callback=self,
+                                              fields=MACHINE_FIELDS)
+        self.settings_panel.pack(fill="x")
+        ttk.Label(card.body, text="Valem para todas as simulações desta "
+                                  "máquina e são salvos junto da configuração.",
+                  style="Caption.TLabel").pack(anchor="w", pady=(SPACE[3], 0))
+
+        self._settings_window = window
 
     def center_window(self):
         """Center the window on the screen."""
@@ -127,10 +158,10 @@ class MainWindow(tk.Tk):
         
         # Update path panel
         self.path_panel.set_idf_path(self.configs.idf_path)
-        self.path_panel.set_output_path(
+        self.settings_panel.set_output_path(
             self.configs.output_path or new_run_path())
         self.path_panel.set_epw_path(self.configs.epw_path)
-        self.path_panel.set_energy_path(self.configs.energy_path)
+        self.settings_panel.set_energy_path(self.configs.energy_path)
         
         self._refresh_room_options(self.configs.idf_path)
 
@@ -164,9 +195,9 @@ class MainWindow(tk.Tk):
         
         # Update from path panel
         self.configs.idf_path = self.path_panel.get_idf_path()
-        self.configs.output_path = self.path_panel.get_output_path()
+        self.configs.output_path = self.settings_panel.get_output_path()
         self.configs.epw_path = self.path_panel.get_epw_path()
-        self.configs.energy_path = self.path_panel.get_energy_path()
+        self.configs.energy_path = self.settings_panel.get_energy_path()
         
         # Update from simulation panel
         sim_config = self.simulation_panel.get_configuration()
@@ -339,12 +370,18 @@ class MainWindow(tk.Tk):
 
         # A pasta configurada é a da próxima execução; a listagem interessa na
         # pasta que a contém, onde ficam todas as execuções anteriores.
-        output_path = self.path_panel.get_output_path()
+        output_path = self.settings_panel.get_output_path()
         outputs_root = os.path.dirname(output_path.rstrip(os.sep))
         if not outputs_root or not os.path.isdir(outputs_root):
             outputs_root = runs_root(create=True)
 
         self._simulations_window = open_simulations_window(self, outputs_root)
+
+    def on_open_settings(self):
+        """Mostra a janela de configurações (montada junto com a principal)."""
+        self._settings_window.deiconify()
+        self._settings_window.lift()
+        self._settings_window.focus_force()
 
     def on_save_config(self):
         """Handle save configuration request."""

@@ -36,31 +36,46 @@ class PathConfigCallback(Protocol):
         ...
 
 
+#: Todos os campos de caminho, na ordem em que aparecem. A chave é o que
+#: `PathConfigPanel(fields=...)` seleciona: a tela principal mostra os
+#: caminhos que mudam a cada simulação e a janela de configurações, os que
+#: são da máquina.
+FIELD_KEYS = ("idf", "output", "epw", "energy")
+
+SIMULATION_FIELDS = ("idf", "epw")
+MACHINE_FIELDS = ("output", "energy")
+
+
 class PathConfigPanel(ttk.Frame):
     """Panel for path configuration."""
-    
-    def __init__(self, parent, callback: Optional[PathConfigCallback] = None):
+
+    def __init__(self, parent, callback: Optional[PathConfigCallback] = None,
+                 fields: tuple = FIELD_KEYS):
         super().__init__(parent, style="Card.TFrame")
         self.callback = callback
+        self._fields = fields
         self._build_ui()
     
     def _build_ui(self):
         """Build the UI components: one labeled path field per row."""
         self.grid_columnconfigure(0, weight=1)
 
-        fields = (
-            ("Arquivo IDF", "inputfile_entry", self._browse_idf,
-             self._on_idf_changed,
-             "Arquivo de entrada do modelo EnergyPlus (.idf)"),
-            ("Diretório de saída", "outputfolder_entry", self._browse_output,
-             self._on_output_changed,
-             "Pasta onde os resultados serão salvos"),
-            ("Arquivo climático (EPW)", "epwfile_entry", self._browse_weather,
-             self._on_epw_changed, "Arquivo de dados climáticos (.epw)"),
-            ("Caminho do EnergyPlus", "energy_path_entry", self._browse_energy,
-             self._on_energy_changed, "Diretório de instalação do EnergyPlus"),
-        )
-        for index, (label, name, browse, changed, tooltip) in enumerate(fields):
+        fields = {
+            "idf": ("Arquivo IDF", "inputfile_entry", self._browse_idf,
+                    self._on_idf_changed,
+                    "Arquivo de entrada do modelo EnergyPlus (.idf)"),
+            "output": ("Diretório de saída", "outputfolder_entry",
+                       self._browse_output, self._on_output_changed,
+                       "Pasta onde os resultados serão salvos"),
+            "epw": ("Arquivo climático (EPW)", "epwfile_entry",
+                    self._browse_weather, self._on_epw_changed,
+                    "Arquivo de dados climáticos (.epw)"),
+            "energy": ("Caminho do EnergyPlus", "energy_path_entry",
+                       self._browse_energy, self._on_energy_changed,
+                       "Diretório de instalação do EnergyPlus"),
+        }
+        for index, key in enumerate(self._fields):
+            label, name, browse, changed, tooltip = fields[key]
             self._create_path_field(index, label, name, browse, changed, tooltip)
 
     def _create_path_field(self, index, label, entry_var_name, browse_command,

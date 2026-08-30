@@ -57,6 +57,15 @@ saídas e diagnóstico de erros.
 `SimulationConfigPanel`) e um `BottomSheet` com o log (`ResultsPanel`), que
 abre sozinho quando a simulação começa. Não há abas.
 
+O `PathConfigPanel` monta só os campos pedidos em `fields=`: a tela principal
+recebe `SIMULATION_FIELDS` (IDF e EPW, que mudam a cada rodada) e a janela
+**Configurações** da topbar, `MACHINE_FIELDS` (diretório de saída e caminho do
+EnergyPlus). São **duas instâncias**: leia saída/EnergyPlus em
+`self.settings_panel`, IDF/EPW em `self.path_panel` — pedir o campo errado a um
+painel é `AttributeError`. A janela de configurações é montada junto com a
+principal e fica só escondida (`withdraw`), porque os campos são o contrato de
+leitura da configuração e precisam existir com ela fechada.
+
 O botão **Simulações** da topbar abre em uma janela própria o
 `SimulationsPanel` (`components/simulations_panel.py`): lista as execuções da
 pasta de saídas com módulo, IDF, clima, zonas e o estado das estatísticas,

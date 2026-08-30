@@ -31,6 +31,10 @@ class ControlPanelCallback(Protocol):
         """Called when the simulations listing is requested."""
         ...
 
+    def on_open_settings(self) -> None:
+        """Called when the settings window is requested."""
+        ...
+
 
 class ControlPanel(ttk.Frame):
     """Panel for simulation controls."""
@@ -66,6 +70,11 @@ class ControlPanel(ttk.Frame):
             command=self._on_simulations_clicked)
         self.simulations_button.pack(side="left", padx=(SPACE[2], 0))
 
+        self.settings_button = RoundedButton(
+            row, text="Configurações", variant="ghost", width=140,
+            command=self._on_settings_clicked)
+        self.settings_button.pack(side="left", padx=(SPACE[2], 0))
+
         self.status_pill = StatusPill(row, "Pronto para executar", "info")
         self.status_pill.pack(side="right")
 
@@ -97,6 +106,11 @@ class ControlPanel(ttk.Frame):
         """Handle simulations listing button click."""
         if self.callback:
             self.callback.on_open_simulations()
+
+    def _on_settings_clicked(self):
+        """Handle settings button click."""
+        if self.callback:
+            self.callback.on_open_settings()
 
     def set_running_state(self, is_running: bool):
         """
