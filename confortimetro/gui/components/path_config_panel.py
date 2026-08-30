@@ -9,7 +9,9 @@ from typing import Protocol, Optional
 
 from ..theme import COLORS, SPACE, RoundedButton, icon
 from confortimetro.config import (
+    REQUIRED_EP_API_VERSION,
     REQUIRED_EP_VERSION,
+    energy_api_version,
     energy_path_version,
     find_energy_path,
     is_energy_path,
@@ -167,16 +169,27 @@ class PathConfigPanel(ttk.Frame):
             return
 
         version = energy_path_version(path)
+        api_version = energy_api_version(path)
+        api_suffix = f" (API Python {api_version})" if api_version else ""
+        if api_version and api_version != REQUIRED_EP_API_VERSION:
+            status_label.config(
+                text=f" API Python {api_version} encontrada. O programa espera "
+                     f"a {REQUIRED_EP_API_VERSION} (EnergyPlus "
+                     f"{REQUIRED_EP_VERSION}) e a simulação pode falhar",
+                foreground=COLORS["warn"],
+                image=icon("warning", 14, COLORS["warn"], master=self), compound="left"
+            )
+            return
         if version == REQUIRED_EP_VERSION or not version:
             status_label.config(
-                text=f"EnergyPlus {version or 'detectado'}",
+                text=f"EnergyPlus {version or 'detectado'}{api_suffix}",
                 foreground=COLORS["ok"],
                 image=icon("success", 14, COLORS["ok"], master=self), compound="left"
             )
         else:
             status_label.config(
-                text=f" Versão {version} encontrada. O programa espera a "
-                     f"{REQUIRED_EP_VERSION} e a simulação pode falhar",
+                text=f" Versão {version}{api_suffix} encontrada. O programa "
+                     f"espera a {REQUIRED_EP_VERSION} e a simulação pode falhar",
                 foreground=COLORS["warn"],
                 image=icon("warning", 14, COLORS["warn"], master=self), compound="left"
             )

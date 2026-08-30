@@ -5,6 +5,8 @@ import os
 import pytest
 
 from confortimetro.config import (
+    REQUIRED_EP_API_VERSION,
+    energy_api_version,
     energy_path_version,
     find_energy_path,
     is_energy_path,
@@ -40,6 +42,48 @@ def test_is_energy_path_exige_idd_e_api(tmp_path):
 ])
 def test_energy_path_version(nome, esperado):
     assert energy_path_version(os.path.join("/opt", nome)) == esperado
+
+
+def test_energy_path_version_prefere_o_executavel(tmp_path, monkeypatch):
+    # Pasta renomeada: o nome não diz nada, o executável diz.
+    instalacao = make_install(tmp_path, "eplus")
+    monkeypatch.setattr(
+        "confortimetro.config._energyplus_cli_version",
+        lambda path: "9.4" if path == str(instalacao) else "",
+    )
+    assert energy_path_version(str(instalacao)) == "9.4"
+
+
+def test_cli_version_le_a_saida_do_executavel(tmp_path):
+    instalacao = make_install(tmp_path, "eplus")
+    executavel = instalacao / "energyplus"
+    executavel.write_text(
+        "#!/bin/sh\necho 'EnergyPlus, Version 9.4.0-998c4b761e'\n"
+    )
+    executavel.chmod(0o755)
+    assert energy_path_version(str(instalacao)) == "9.4"
+
+
+def test_energy_api_version(tmp_path):
+    instalacao = make_install(tmp_path, "EnergyPlus-9-4-0")
+    assert energy_api_version(str(instalacao)) == ""
+
+    # Formato do 9.4: a versão vem como string.
+    (instalacao / "pyenergyplus" / "api.py").write_text(
+        "class EnergyPlusAPI:\n"
+        "    @staticmethod\n"
+        "    def api_version() -> str:\n"
+        '        return "0.2"\n'
+    )
+    assert energy_api_version(str(instalacao)) == REQUIRED_EP_API_VERSION
+
+    # Formato antigo, sem aspas.
+    (instalacao / "pyenergyplus" / "api.py").write_text(
+        "class EnergyPlusAPI:\n"
+        "    def api_version(self) -> float:\n"
+        "        return 0.1\n"
+    )
+    assert energy_api_version(str(instalacao)) == "0.1"
 
 
 def test_find_prefere_9_4_mesmo_com_versao_mais_nova(tmp_path, monkeypatch):
