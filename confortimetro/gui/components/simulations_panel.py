@@ -1,5 +1,6 @@
 """Listagem das simulações já executadas."""
 
+import datetime
 import os
 import sqlite3
 import subprocess
@@ -47,6 +48,8 @@ class SimulationsPanel(ttk.Frame):
         self.outputs_path = tk.StringVar(value=outputs_path)
         self.status_var = tk.StringVar(value="")
         self._runs: list[dict] = []
+        # Execuções em andamento: entram na listagem antes de existir pasta.
+        self._running: dict[str, dict] = {}
         self._busy = False
         self._sort_state = (None, False)
 
@@ -120,6 +123,7 @@ class SimulationsPanel(ttk.Frame):
         # Execuções sem estatísticas não entram na comparação: marcá-las
         # evita que o usuário selecione e receba uma tabela vazia sem motivo.
         self.tree.tag_configure("incompleta", foreground=COLORS["text_mute"])
+        self.tree.tag_configure("executando", foreground=COLORS["primary"])
 
         # --- Detalhes ---
         detail_card = Card(panes, "Detalhes")
@@ -150,15 +154,24 @@ class SimulationsPanel(ttk.Frame):
             toast(self, f"Não foi possível ler a pasta: {error}", "error")
             return
 
+        # As em andamento vêm primeiro e podem ainda não ter pasta na listagem.
+        listed = {run['path'] for run in self._runs}
+        rows = [self._running[path] for path in self._running if path not in listed]
+        rows += self._runs
+
         self.tree.delete(*self.tree.get_children())
-        for run in self._runs:
+        for run in rows:
+            running = run['path'] in self._running
+            status = 'em simulação' if running else run['status']
+            tags = ("executando",) if running else (
+                () if run['status'] == 'pronta' else ("incompleta",))
             self.tree.insert(
                 "", "end", iid=run['path'],
                 values=(run['run'], run['module_type'] or "—", run['idf'] or "—",
                         run['epw'] or "—", len(run['rooms_disponiveis']),
-                        _STATUS_TEXT.get(run['status'], run['status']),
+                        _STATUS_TEXT.get(status, status),
                         run['modificado'].strftime("%d/%m/%Y %H:%M")),
-                tags=() if run['status'] == 'pronta' else ("incompleta",))
+                tags=tags)
 
         ready = sum(1 for run in self._runs if run['status'] == 'pronta')
         message = (f"{len(self._runs)} execuções, {ready} com estatísticas "
@@ -166,6 +179,26 @@ class SimulationsPanel(ttk.Frame):
         if ingested:
             message += f". {ingested} ingeridas no banco agora"
         self._set_status(message)
+
+    def set_running(self, path: str, config=None):
+        """Marca uma execução como em andamento e a mostra já na listagem."""
+        self._running[path] = {
+            'run': os.path.basename(os.path.normpath(path)),
+            'path': path,
+            'status': 'em simulação',
+            'module_type': getattr(config, 'module_type', None),
+            'idf': os.path.basename(getattr(config, 'idf_path', '') or ''),
+            'epw': os.path.basename(getattr(config, 'epw_path', '') or ''),
+            'rooms_disponiveis': getattr(config, 'rooms', None) or [],
+            'modificado': datetime.datetime.now(),
+            'config': {},
+        }
+        self.refresh()
+
+    def clear_running(self, path: str):
+        """Execução terminou: sai do estado 'em simulação'."""
+        if self._running.pop(path, None) is not None:
+            self.refresh()
 
     def _sort_by(self, column):
         rows = [(self.tree.set(item, column), item) for item in self.tree.get_children()]

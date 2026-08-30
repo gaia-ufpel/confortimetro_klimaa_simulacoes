@@ -52,7 +52,7 @@ def new_run_path(name: str = None, root: str = None) -> str:
     `root` é a pasta que guarda todas as execuções; sem ela, a padrão da
     plataforma.
     """
-    name = name or datetime.datetime.now().strftime("execucao_%Y%m%d_%H%M")
+    name = name or datetime.datetime.now().strftime("%Y%m%d_%H%M")
     root = root or runs_root()
     candidate = os.path.join(root, name)
 

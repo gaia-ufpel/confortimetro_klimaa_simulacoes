@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import threading
+import webbrowser
 import tkinter as tk
 from tkinter import messagebox, filedialog
 from queue import Queue
@@ -47,6 +48,8 @@ class MainWindow(tk.Tk):
         self.config_path = config_path
         self.configs: Optional[SimulationConfig] = None
         self.simulation_thread: Optional[threading.Thread] = None
+        # A simulação em andamento, para poder pedir o cancelamento a ela.
+        self.simulation = None
         self.simulation_queue: Optional[Queue] = None
         # A listagem só é relida quando alguma execução termina.
         self._runs_dirty = False
@@ -106,9 +109,16 @@ class MainWindow(tk.Tk):
         self.page_host = ttk.Frame(container, style="Main.TFrame")
         self.page_host.pack(fill="both", expand=True)
 
-        ttk.Label(container, text="Desenvolvido para o GAIA — UFPel",
-                  style="Sub.TLabel", background=COLORS["bg"]).pack(
-                      pady=(SPACE[3], 0))
+        footer = ttk.Frame(container, style="Main.TFrame")
+        footer.pack(pady=(SPACE[3], 0))
+        ttk.Label(footer, text="Feito por ",
+                  style="Sub.TLabel", background=COLORS["bg"]).pack(side="left")
+        link = ttk.Label(footer, text="glbessa", style="Sub.TLabel",
+                         background=COLORS["bg"], cursor="hand2")
+        link.configure(foreground=COLORS["accent"], font=FONTS["caption"] + ("underline",))
+        link.pack(side="left")
+        link.bind("<Button-1>",
+                  lambda _e: webbrowser.open("https://github.com/glbessa"))
 
         self._pages = {
             "runs": self._build_runs_page(),
@@ -437,35 +447,51 @@ class MainWindow(tk.Tk):
             # ao ser importado e custa ~12 s — a GUI abre sem ele.
             from confortimetro.simulation import Simulation
 
-            simulation = Simulation(copy.deepcopy(self.configs))
-            simulation.run(q)
+            self.simulation = Simulation(copy.deepcopy(self.configs))
+            self.simulation.run(q)
         except Exception as e:
             q.put(f"Erro durante a simulação: {str(e)}\n")
     
+    def _handle_simulation_message(self, message: str):
+        """Mensagem da simulação: percentual vai para a barra, o resto, no log."""
+        message = message.strip()
+        if message.startswith("PROGRESS "):
+            self.control_panel.set_progress(float(message.split()[1]))
+            return
+        self.results_panel.append_info(message)
+        self.control_panel.set_status(message, "running")
+
     def _check_simulation_thread(self):
         """Check simulation thread status and update UI."""
         if self.simulation_thread and self.simulation_thread.is_alive():
             # Get messages from queue
             while not self.simulation_queue.empty():
-                message = self.simulation_queue.get()
-                self.results_panel.append_info(message.strip())
-                # Update control panel status
-                self.control_panel.set_status(message.strip(), "running")
+                self._handle_simulation_message(self.simulation_queue.get())
             
             # Schedule next check
             self.after(100, self._check_simulation_thread)
         else:
-            # Simulation finished
-            self.control_panel.set_running_state(False)
-            self.results_panel.append_success("Simulação concluída!")
-            self._runs_dirty = True
-            self.control_panel.set_status("Simulação concluída", "success")
-            
-            # Get any remaining messages
+            # Simulation finished: as mensagens que sobraram na fila entram
+            # antes do status final, senão elas o sobrescrevem.
             if self.simulation_queue:
                 while not self.simulation_queue.empty():
-                    message = self.simulation_queue.get()
-                    self.results_panel.append_info(message.strip())
+                    self._handle_simulation_message(self.simulation_queue.get())
+
+            self.control_panel.set_running_state(False)
+            self.control_panel.run_button.configure(state="normal")
+            interrupted = bool(self.simulation and self.simulation.stop_requested)
+            if interrupted:
+                self.results_panel.append_warning("Simulação interrompida.")
+            else:
+                self.results_panel.append_success("Simulação concluída!")
+            self._runs_dirty = True
+            if getattr(self, "_running_run_path", None):
+                self.simulations_panel.clear_running(self._running_run_path)
+                self._running_run_path = None
+            self.control_panel.set_status(
+                "Simulação interrompida" if interrupted else "Simulação concluída",
+                "warning" if interrupted else "success")
+            self.simulation = None
     
     # Callback implementations for PathConfigPanel
     def on_idf_path_changed(self, path: str):
@@ -569,6 +595,10 @@ class MainWindow(tk.Tk):
         # Cada rodada escreve numa subpasta nova da raiz configurada; nunca
         # por cima da anterior.
         self.configs.output_path = new_run_path(root=self.configs.runs_root_path)
+        # Entra na listagem como "em simulação" já na largada, antes de a
+        # pasta existir.
+        self._running_run_path = self.configs.output_path
+        self.simulations_panel.set_running(self._running_run_path, self.configs)
         
         # Start simulation
         self.control_panel.set_running_state(True)
@@ -590,11 +620,16 @@ class MainWindow(tk.Tk):
     
     def on_stop_simulation(self):
         """Handle stop simulation request."""
-        if self.simulation_thread and self.simulation_thread.is_alive():
-            # Note: This is a simplified stop - in practice you might need
-            # a more sophisticated way to stop the simulation
-            self.results_panel.append_warning("Parada de simulação solicitada...")
-            self.control_panel.set_running_state(False)
+        if not (self.simulation_thread and self.simulation_thread.is_alive()):
+            return
+        # `stop_simulation` da API do EnergyPlus: ele encerra no próximo passo,
+        # então a thread continua viva por alguns segundos e o botão fica
+        # desabilitado até ela terminar de verdade.
+        self.results_panel.append_warning("Parada de simulação solicitada...")
+        self.control_panel.set_status("Interrompendo simulação...", "warning")
+        self.control_panel.run_button.configure(state="disabled")
+        if self.simulation:
+            self.simulation.stop()
     
     # --- Callbacks do SimulationsPanel ---
 

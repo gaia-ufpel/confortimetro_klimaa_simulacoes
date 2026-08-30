@@ -113,6 +113,9 @@ class ControlPanel(ttk.Frame):
             self.save_button.configure(state="disabled")
             self.load_button.configure(state="disabled")
             self.edit_idf_button.configure(state="disabled")
+            # Volta ao indeterminado: a etapa de preparo não reporta
+            # percentual, só o EnergyPlus reporta.
+            self.progress_bar.configure(mode="indeterminate", value=0)
             self.progress_bar.pack(fill="x", pady=(SPACE[3], 0))
             self.progress_bar.start(10)
             self.set_status("Executando simulação...", "running")
@@ -125,6 +128,14 @@ class ControlPanel(ttk.Frame):
             self.progress_bar.stop()
             self.progress_bar.pack_forget()
             self.set_status("Pronto para executar", "info")
+
+    def set_progress(self, percent: float):
+        """Progresso real do EnergyPlus. Troca a barra de indeterminada para
+        determinada no primeiro percentual que chega."""
+        if str(self.progress_bar.cget("mode")) != "determinate":
+            self.progress_bar.stop()
+            self.progress_bar.configure(mode="determinate", maximum=100)
+        self.progress_bar.configure(value=max(0, min(100, percent)))
 
     def set_status(self, status: str, status_type: str = "info"):
         """

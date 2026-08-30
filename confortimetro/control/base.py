@@ -126,6 +126,99 @@ class Conditioner:
     def room_conditioner(self, state, room):
         raise NotImplementedError("Method room_conditioner must be implemented!")
 
+    def read_room(self, state, room, outdoor=True):
+        """Leitura de início de timestep, comum a todos os módulos.
+
+        Devolve `(people_count, temp_neutra, temp_max, temp_min, co2, temp_op,
+        temp_ar, tdb)` — o adaptativo já somado/subtraído da banda.
+        `outdoor=False` para quem decide sem operativa nem externa (janela
+        sempre fechada): esses dois voltam `None` e nem são lidos."""
+        get = self.ep_api.exchange.get_variable_value
+        temp_neutra = get(state, self.adaptativo_handler[room])
+        return (
+            get(state, self.people_count_handler[room]),
+            temp_neutra,
+            temp_neutra + self.configs.adaptative_bound,
+            temp_neutra - self.configs.adaptative_bound,
+            get(state, self.co2_handler[room]),
+            get(state, self.temp_op_handler[room]) if outdoor else None,
+            get(state, self.temp_ar_handler[room]),
+            get(state, self.tdb_handler) if outdoor else None,
+        )
+
+    def ac_timed_out(self, room) -> bool:
+        """Verdadeiro (e zera o contador) se o AC passou do tempo máximo ligado."""
+        if self.ac_on_counter[room] < self.ac_on_max_timesteps:
+            return False
+        self.ac_on_counter[room] = 0
+        return True
+
+    def can_open_window(self, tdb, temp_ar, temp_max_adaptativo, status_ac) -> bool:
+        """Externa dentro da faixa e AC desligado — pré-requisito para abrir."""
+        return (tdb <= temp_max_adaptativo
+                and tdb >= temp_ar - self.configs.temp_open_window_bound
+                and status_ac == 0)
+
+    def window_by_adaptative(self, tdb, temp_ar, temp_op, temp_min_adaptativo,
+                             temp_max_adaptativo, status_ac) -> int:
+        """Janela aberta só quando a operativa também está dentro do adaptativo."""
+        if not self.can_open_window(tdb, temp_ar, temp_max_adaptativo, status_ac):
+            return 0
+        return 1 if temp_min_adaptativo <= temp_op <= temp_max_adaptativo else 0
+
+    def window_without_people(self, state, room, tdb, temp_ar, temp_op,
+                              temp_neutra_adaptativo, temp_min_adaptativo,
+                              temp_max_adaptativo) -> int:
+        """Janela na sala vazia: abre para eliminar CO2, mas trava depois de
+        esfriar demais e só destrava quando a operativa volta à neutra."""
+        if temp_op <= temp_min_adaptativo:
+            self.janela_sem_pessoas_bloqueada = True
+
+        if not (tdb < temp_max_adaptativo
+                and self.ep_api.exchange.month(state) not in self.periodo_inverno
+                and tdb >= temp_ar - self.configs.temp_open_window_bound
+                and temp_op > temp_min_adaptativo):
+            return 0
+
+        if not self.janela_sem_pessoas_bloqueada:
+            return 1
+        if temp_op >= temp_neutra_adaptativo:
+            self.janela_sem_pessoas_bloqueada = False
+            return 1
+        return 0
+
+    def write_room(self, state, room, *, status_janela, status_ac, status_doas,
+                   pmv, em_conforto, clo=None, vel=0.0, temp_cool_ac=None,
+                   temp_heat_ac=None, temp_op_max=0.0, equipment=True):
+        """Devolve ao EnergyPlus o estado decidido no timestep.
+
+        `equipment=False` para os módulos sem ventilador e com AC de setpoint
+        fixo: escrever vel/temperaturas do AC ali sobrescreveria o que o IDF
+        já fixou. `clo=None` deixa a roupagem como está (sala vazia)."""
+        set_value = self.ep_api.exchange.set_actuator_value
+        if clo is not None:
+            set_value(state, self.clo_handler[room], clo)
+        set_value(state, self.status_ac_handler[room], status_ac)
+        set_value(state, self.status_doas_handler[room], status_doas)
+        set_value(state, self.status_janela_handler[room], status_janela)
+        set_value(state, self.pmv_handler[room], pmv)
+        set_value(state, self.em_conforto_handler[room], em_conforto)
+        if equipment:
+            set_value(state, self.status_vent_handler[room], 1 if vel > 0 else 0)
+            set_value(state, self.vel_handler[room], vel)
+            set_value(state, self.temp_cool_ac_handler[room],
+                      self.configs.temp_ac_max if temp_cool_ac is None else temp_cool_ac)
+            set_value(state, self.temp_heat_ac_handler[room],
+                      self.configs.temp_ac_min if temp_heat_ac is None else temp_heat_ac)
+            set_value(state, self.temp_op_max_handler[room], temp_op_max)
+
+    def write_adaptative(self, state, room, temp_min_adaptativo, temp_max_adaptativo):
+        """Limites do adaptativo, escritos no fim de todo timestep."""
+        self.ep_api.exchange.set_actuator_value(
+            state, self.adaptativo_max_handler[room], temp_max_adaptativo)
+        self.ep_api.exchange.set_actuator_value(
+            state, self.adaptativo_min_handler[room], temp_min_adaptativo)
+
     def get_best_velocity_with_adaptative(self, temp_op) -> tuple[float, int]:
         status_janela = 1
         nova_vel = math.ceil(self.get_vel_adap(temp_op) / self.configs.air_speed_delta) * self.configs.air_speed_delta

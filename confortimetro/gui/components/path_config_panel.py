@@ -48,6 +48,35 @@ SIMULATION_FIELDS = ("idf", "epw")
 MACHINE_FIELDS = ("output", "energy")
 
 
+#: Tudo o que muda de um campo para o outro: rótulo, atributo do Entry,
+#: dica, título do seletor e o método do callback. `filetypes=None` marca os
+#: campos que escolhem uma pasta em vez de um arquivo.
+FIELDS = {
+    "idf": dict(
+        label="Arquivo IDF", entry="inputfile_entry",
+        tooltip="Arquivo de entrada do modelo EnergyPlus (.idf)",
+        title="Selecione o arquivo IDF",
+        filetypes=(("Arquivos IDF", "*.idf"), ("Todos os arquivos", "*.*")),
+        callback="on_idf_path_changed"),
+    "output": dict(
+        label="Pasta das execuções", entry="outputfolder_entry",
+        tooltip="Raiz onde cada execução ganha a sua própria subpasta",
+        title="Selecione a pasta das execuções", filetypes=None,
+        callback="on_output_path_changed"),
+    "epw": dict(
+        label="Arquivo climático (EPW)", entry="epwfile_entry",
+        tooltip="Arquivo de dados climáticos (.epw)",
+        title="Selecione o arquivo climático",
+        filetypes=(("Arquivos EPW", "*.epw"), ("Todos os arquivos", "*.*")),
+        callback="on_epw_path_changed"),
+    "energy": dict(
+        label="Caminho do EnergyPlus", entry="energy_path_entry",
+        tooltip="Diretório de instalação do EnergyPlus",
+        title="Selecione a pasta do EnergyPlus", filetypes=None,
+        callback="on_energy_path_changed"),
+}
+
+
 class PathConfigPanel(ttk.Frame):
     """Panel for path configuration."""
 
@@ -62,27 +91,15 @@ class PathConfigPanel(ttk.Frame):
         """Build the UI components: one labeled path field per row."""
         self.grid_columnconfigure(0, weight=1)
 
-        fields = {
-            "idf": ("Arquivo IDF", "inputfile_entry", self._browse_idf,
-                    self._on_idf_changed,
-                    "Arquivo de entrada do modelo EnergyPlus (.idf)"),
-            "output": ("Pasta das execuções", "outputfolder_entry",
-                       self._browse_output, self._on_output_changed,
-                       "Raiz onde cada execução ganha a sua própria subpasta"),
-            "epw": ("Arquivo climático (EPW)", "epwfile_entry",
-                    self._browse_weather, self._on_epw_changed,
-                    "Arquivo de dados climáticos (.epw)"),
-            "energy": ("Caminho do EnergyPlus", "energy_path_entry",
-                       self._browse_energy, self._on_energy_changed,
-                       "Diretório de instalação do EnergyPlus"),
-        }
         for index, key in enumerate(self._fields):
-            label, name, browse, changed, tooltip = fields[key]
-            self._create_path_field(index, label, name, browse, changed, tooltip)
+            self._create_path_field(index, key)
 
-    def _create_path_field(self, index, label, entry_var_name, browse_command,
-                           change_callback, tooltip=""):
+    def _create_path_field(self, index, key):
         """Create a path field: label above, entry + actions, status below."""
+        spec = FIELDS[key]
+        label, entry_var_name, tooltip = spec["label"], spec["entry"], spec["tooltip"]
+        change_callback = lambda event=None, k=key: self._notify(k)
+        browse_command = lambda k=key: self._browse(k)
         field = ttk.Frame(self, style="Surface.TFrame")
         field.grid(row=index, column=0, sticky="ew", pady=(0, SPACE[4]))
         field.grid_columnconfigure(0, weight=1)
@@ -96,7 +113,7 @@ class PathConfigPanel(ttk.Frame):
         entry = ttk.Entry(field, style="Field.TEntry")
         entry.grid(row=1, column=0, sticky="ew", padx=(0, SPACE[2]))
         entry.bind('<FocusOut>', change_callback)
-        entry.bind('<KeyRelease>', lambda e: self._validate_path(entry))
+        entry.bind('<KeyRelease>', lambda e, k=key: self._validate_path(k))
 
         RoundedButton(field, text="Procurar", variant="ghost", icon="browse",
                       command=browse_command).grid(row=1, column=1)
@@ -148,7 +165,7 @@ class PathConfigPanel(ttk.Frame):
         path = find_energy_path()
         if path:
             self.set_energy_path(path)
-            self._on_energy_changed()
+            self._notify('energy')
         else:
             self.energy_path_entry_status.config(
                 text=f"❌ EnergyPlus {REQUIRED_EP_VERSION} não encontrado — "
@@ -194,125 +211,57 @@ class PathConfigPanel(ttk.Frame):
                 image=icon("warning", 14, COLORS["warn"], master=self), compound="left"
             )
 
-    def _validate_path(self, entry):
+    def _validate_path(self, key):
         """Validate path and show visual feedback."""
+        entry = getattr(self, FIELDS[key]["entry"])
+        status_label = getattr(self, f'{FIELDS[key]["entry"]}_status')
         path = entry.get().strip()
-        
-        # Get the corresponding status label
-        entry_name = None
-        for attr_name in dir(self):
-            if getattr(self, attr_name, None) is entry:
-                entry_name = attr_name
-                break
-        
-        if not entry_name:
-            return
-        
-        status_label = getattr(self, f"{entry_name}_status", None)
-        if not status_label:
-            return
 
         if not path:
             status_label.grid_remove()
             return
 
         status_label.grid()
-        
-        # Validate based on entry type
-        if entry_name == "energy_path_entry":
+
+        if key == "energy":
             self._validate_energy_path(path, status_label)
-        elif "file" in entry_name:
-            # File validation
-            if os.path.isfile(path):
-                status_label.config(text=" Arquivo encontrado", foreground=COLORS["ok"],
-                                    image=icon("success", 14, COLORS["ok"], master=self),
-                                    compound="left")
-                entry.config(style="Field.TEntry")
-            else:
-                status_label.config(text=" Arquivo não encontrado",
-                                    foreground=COLORS["danger"],
-                                    image=icon("error", 14, COLORS["danger"], master=self),
-                                    compound="left")
-                # Could add error styling here
+            return
+
+        # Arquivo ou diretório, conforme o campo.
+        is_file = FIELDS[key]["filetypes"] is not None
+        found = os.path.isfile(path) if is_file else os.path.isdir(path)
+        noun = "Arquivo" if is_file else "Diretório"
+        if found:
+            status_label.config(text=f" {noun} encontrado", foreground=COLORS["ok"],
+                                image=icon("success", 14, COLORS["ok"], master=self),
+                                compound="left")
+            entry.config(style="Field.TEntry")
         else:
-            # Directory validation  
-            if os.path.isdir(path):
-                status_label.config(text=" Diretório válido", foreground=COLORS["ok"],
-                                    image=icon("success", 14, COLORS["ok"], master=self),
-                                    compound="left")
-                entry.config(style="Field.TEntry")
-            else:
-                status_label.config(text=" Diretório não encontrado",
-                                    foreground=COLORS["danger"],
-                                    image=icon("error", 14, COLORS["danger"], master=self),
-                                    compound="left")
-    
-    def _browse_idf(self):
-        """Browse for IDF file."""
-        filename = filedialog.askopenfilename(
-            initialdir=".", 
-            title="Select IDF File", 
-            filetypes=(("IDF Files", "*.idf"), ("all files", "*.*"))
-        )
+            status_label.config(text=f" {noun} não encontrado",
+                                foreground=COLORS["danger"],
+                                image=icon("error", 14, COLORS["danger"], master=self),
+                                compound="left")
+
+    def _browse(self, key):
+        """Seletor de arquivo ou de pasta, conforme o campo."""
+        spec = FIELDS[key]
+        if spec["filetypes"] is None:
+            filename = filedialog.askdirectory(initialdir=".", title=spec["title"])
+        else:
+            filename = filedialog.askopenfilename(
+                initialdir=".", title=spec["title"], filetypes=spec["filetypes"])
         if filename:
-            self.inputfile_entry.delete(0, tk.END)
-            self.inputfile_entry.insert(0, filename)
-            self._on_idf_changed()
-    
-    def _browse_output(self):
-        """Browse for output directory."""
-        filename = filedialog.askdirectory(
-            initialdir=".", 
-            title="Select Output Folder"
-        )
-        if filename:
-            self.outputfolder_entry.delete(0, 'end')
-            self.outputfolder_entry.insert(0, filename)
-            self._on_output_changed()
-    
-    def _browse_weather(self):
-        """Browse for weather file."""
-        filename = filedialog.askopenfilename(
-            initialdir=".", 
-            title="Select Weather File", 
-            filetypes=(("EPW Files", "*.epw"), ("all files", "*.*"))
-        )
-        if filename:
-            self.epwfile_entry.delete(0, 'end')
-            self.epwfile_entry.insert(0, filename)
-            self._on_epw_changed()
-    
-    def _browse_energy(self):
-        """Browse for Energy directory."""
-        filename = filedialog.askdirectory(
-            initialdir=".", 
-            title="Select Energy Folder"
-        )
-        if filename:
-            self.energy_path_entry.delete(0, 'end')
-            self.energy_path_entry.insert(0, filename)
-            self._on_energy_changed()
-    
-    def _on_idf_changed(self, event=None):
-        """Handle IDF path change."""
+            entry = getattr(self, spec["entry"])
+            entry.delete(0, tk.END)
+            entry.insert(0, filename)
+            self._notify(key)
+
+    def _notify(self, key):
+        """Avisa a janela principal que o caminho mudou."""
         if self.callback:
-            self.callback.on_idf_path_changed(self.inputfile_entry.get())
-    
-    def _on_output_changed(self, event=None):
-        """Handle output path change."""
-        if self.callback:
-            self.callback.on_output_path_changed(self.outputfolder_entry.get())
-    
-    def _on_epw_changed(self, event=None):
-        """Handle EPW path change."""
-        if self.callback:
-            self.callback.on_epw_path_changed(self.epwfile_entry.get())
-    
-    def _on_energy_changed(self, event=None):
-        """Handle energy path change."""
-        if self.callback:
-            self.callback.on_energy_path_changed(self.energy_path_entry.get())
-    
+            getattr(self.callback, FIELDS[key]["callback"])(
+                getattr(self, FIELDS[key]["entry"]).get())
+
     def set_idf_path(self, path: str):
         """Set IDF path."""
         self.inputfile_entry.delete(0, tk.END)
@@ -332,7 +281,7 @@ class PathConfigPanel(ttk.Frame):
         """Set energy path."""
         self.energy_path_entry.delete(0, tk.END)
         self.energy_path_entry.insert(0, path)
-        self._validate_path(self.energy_path_entry)
+        self._validate_path('energy')
     
     def get_idf_path(self) -> str:
         """Get IDF path."""

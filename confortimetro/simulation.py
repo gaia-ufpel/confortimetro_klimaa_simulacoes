@@ -31,6 +31,10 @@ class Simulation:
     def __init__(self, configs: SimulationConfig):
         self.conditioner = None  # type: Optional[object]
         self.stop_requested = False
+        # Só vale pedir o stop à API enquanto o EnergyPlus está rodando.
+        self._ep_running = False
+        # Fila da GUI, para o callback de progresso do EnergyPlus.
+        self._queue = None  # type: Optional[Queue]
         self.configs = configs
         self.logger = logging.getLogger("simulation")
 
@@ -52,6 +56,7 @@ class Simulation:
             q: Queue para comunicação com interface gráfica
         """
         try:
+            self._queue = q
             self.logger.info("Iniciando simulação")
             q.put("Iniciando simulação...")
             
@@ -172,6 +177,7 @@ class Simulation:
             self.ep_api.runtime.callback_begin_zone_timestep_after_init_heat_balance(
                 self.state, self.conditioner
             )
+            self._register_progress_callback()
             
             # Executar simulação
             cmd_args = [
@@ -180,7 +186,11 @@ class Simulation:
                 self.configs.expanded_idf_path
             ]
             
-            exit_code = self.ep_api.runtime.run_energyplus(self.state, cmd_args)
+            self._ep_running = True
+            try:
+                exit_code = self.ep_api.runtime.run_energyplus(self.state, cmd_args)
+            finally:
+                self._ep_running = False
             self.ep_api.state_manager.reset_state(self.state)
 
             # Exceções do condicionador são engolidas pelo ctypes durante o run;
@@ -203,6 +213,27 @@ class Simulation:
         except Exception as e:
             self.logger.error(f"Erro na simulação EnergyPlus: {e}")
             raise
+
+    def _register_progress_callback(self):
+        """Percentual do EnergyPlus na fila, como `PROGRESS <n>`.
+
+        O callback roda na thread do EnergyPlus: só empilha o número, quem
+        desenha é a GUI. Falha silenciosa — versões antigas da API não têm
+        `callback_progress` e a barra só fica indeterminada."""
+        callback = getattr(self.ep_api.runtime, "callback_progress", None)
+        if callback is None or self._queue is None:
+            return
+        queue = self._queue
+        last = [-1]
+
+        def on_progress(percent: int):
+            # Um evento por ponto percentual: o EnergyPlus chama isso muitas
+            # vezes por porcentagem e encheria a fila à toa.
+            if percent != last[0]:
+                last[0] = percent
+                queue.put(f"PROGRESS {percent}")
+
+        callback(self.state, on_progress)
 
     def _check_energyplus_errors(self):
         """Abortar se o EnergyPlus não tiver terminado com sucesso.
@@ -228,19 +259,36 @@ class Simulation:
 
         self.logger.info(status)
 
+    def _say(self, q: Queue, message: str):
+        """Mesma mensagem para a GUI (fila) e para quem roda pela CLI (stdout)."""
+        q.put(message)
+        print(message)
+
+    def _stopped(self, q: Queue) -> bool:
+        """Verdadeiro se o cancelamento já foi pedido — checado entre as etapas
+        do pós-processamento, que são longas e não interrompíveis por dentro."""
+        if not self.stop_requested:
+            return False
+        self.logger.info("Pós-processamento interrompido")
+        q.put("Simulação interrompida")
+        return True
+
     def stop(self):
-        """Solicitar que o EnergyPlus encerre a execução atual."""
+        """Pedir o cancelamento: encerra o EnergyPlus se ele estiver rodando;
+        no pós-processamento a flag basta, checada entre as etapas."""
         self.stop_requested = True
-        request_stop(self.ep_api, self.state)
+        if self._ep_running:
+            request_stop(self.ep_api, self.state)
     
     def _process_results(self, q: Queue):
         """Processar resultados da simulação."""
         try:
-            q.put("Simulação finalizada!")
-            print("Simulação finalizada!")
+            self._say(q, "Simulação finalizada!")
             
-            q.put("Extraindo resultados...")
-            print("Extraindo resultados...")
+            if self._stopped(q):
+                return
+
+            self._say(q, "Extraindo resultados...")
             # O período e o passo vêm do IDF simulado: com valores fixos, um
             # modelo de outro ano ou outro timestep sairia com datas erradas.
             start, end = read_run_period(self.configs.idf_path)
@@ -248,22 +296,25 @@ class Simulation:
                 self.configs.output_path, self.configs.rooms,
                 timesteps_per_hour=read_timesteps_per_hour(self.configs.idf_path),
                 start_date=start, end_date=end)
-            q.put("Resultados extraidos com sucesso!")
-            print("Resultados extraidos com sucesso!")
+            self._say(q, "Resultados extraidos com sucesso!")
             
-            q.put("Extraindo estatísticas...")
-            print("Extraindo estatísticas...")
+            if self._stopped(q):
+                return
+
+            self._say(q, "Extraindo estatísticas...")
             get_stats_from_simulation(self.configs.output_path, self.configs.rooms)
-            q.put("Estatísticas extraidas com sucesso!")
-            print("Estatísticas extraidas com sucesso!")
+            self._say(q, "Estatísticas extraidas com sucesso!")
             
-            q.put("Dividindo resultados por período...")
-            print("Dividindo resultados por período...")
+            if self._stopped(q):
+                return
+
+            self._say(q, "Dividindo resultados por período...")
             for room in self.configs.rooms:
+                if self._stopped(q):
+                    return
                 split_target_period_excel(
                     os.path.join(self.configs.output_path, f"{room}.xlsx"), room)
-            q.put("Resultados divididos com sucesso!")
-            print("Resultados divididos com sucesso!")
+            self._say(q, "Resultados divididos com sucesso!")
             
             q.put("EXIT")
             
