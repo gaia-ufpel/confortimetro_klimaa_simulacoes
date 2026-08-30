@@ -47,13 +47,43 @@ def _room_files(run_path, rooms):
             if os.path.exists(os.path.join(run_path, f"{room}.xlsx"))]
 
 
-def read_run(run_path, known_mtimes=None):
-    """Metadados de uma execução, sem abrir nenhuma planilha grande."""
-    config = {}
+#: O que marca um diretório como execução. O `parameters.txt` é o formato
+#: antigo, anterior ao `configs.json`: as pastas em `./outputs` de antes da
+#: mudança só têm ele, e sem isso sumiam da listagem.
+RUN_MARKERS = ('configs.json', 'parameters.txt')
+
+
+def is_run(path) -> bool:
+    """Verdadeiro se o diretório é uma execução."""
+    return any(os.path.exists(os.path.join(path, marker))
+               for marker in RUN_MARKERS)
+
+
+def read_config(run_path) -> dict:
+    """Configuração da execução, do `configs.json` ou do `parameters.txt`."""
     config_path = os.path.join(run_path, 'configs.json')
     if os.path.exists(config_path):
         with open(config_path, encoding='utf-8') as config_file:
-            config = json.load(config_file)
+            return json.load(config_file)
+
+    legacy_path = os.path.join(run_path, 'parameters.txt')
+    if not os.path.exists(legacy_path):
+        return {}
+
+    # `chave=valor` por linha; os valores ficam como texto, que é tudo o que a
+    # listagem mostra deles.
+    config = {}
+    with open(legacy_path, encoding='utf-8', errors='replace') as legacy:
+        for line in legacy:
+            key, separator, value = line.partition('=')
+            if separator:
+                config[key.strip()] = value.strip()
+    return config
+
+
+def read_run(run_path, known_mtimes=None):
+    """Metadados de uma execução, sem abrir nenhuma planilha grande."""
+    config = read_config(run_path)
 
     rooms = config.get('rooms') or []
     available = _room_files(run_path, rooms)
@@ -82,6 +112,30 @@ def read_run(run_path, known_mtimes=None):
     }
 
 
+def runs_root_for(path):
+    """Pasta que contém as execuções, a partir do caminho configurado.
+
+    O campo de saída aceita as duas coisas que o usuário escreve na prática: a
+    pasta de uma execução (`outputs/run_001`, que nem existe antes de rodar) e
+    a raiz que guarda todas (`outputs`). Quem decide é o conteúdo, não o nome:
+    vale a primeira das duas que já tenha uma execução dentro.
+    """
+    path = (path or '').rstrip(os.sep)
+    for candidate in (path, os.path.dirname(path)):
+        if candidate and has_runs(candidate):
+            return candidate
+    return os.path.dirname(path) or path
+
+
+def has_runs(path) -> bool:
+    """Verdadeiro se a pasta tem ao menos uma execução dentro."""
+    try:
+        with os.scandir(path) as entries:
+            return any(entry.is_dir() and is_run(entry.path) for entry in entries)
+    except OSError:
+        return False
+
+
 def list_runs(outputs_path='./outputs', patterns=None, known_mtimes=None):
     """Todas as execuções (diretórios com configs.json), mais recentes primeiro."""
     if not os.path.isdir(outputs_path):
@@ -92,7 +146,7 @@ def list_runs(outputs_path='./outputs', patterns=None, known_mtimes=None):
         run_path = os.path.join(outputs_path, name)
         if not os.path.isdir(run_path):
             continue
-        if not os.path.exists(os.path.join(run_path, 'configs.json')):
+        if not is_run(run_path):
             continue
         if patterns and not any(fnmatch.fnmatch(name, pattern) for pattern in patterns):
             continue

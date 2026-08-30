@@ -88,3 +88,21 @@ def test_compara_ignora_execucao_sem_estatisticas(tmp_path):
     df = compare_runs([str(pronta), str(crua)], room=ROOM)
 
     assert list(df['Execução']) == ['PRONTA']
+
+
+def test_execucao_antiga_com_parameters_txt_aparece(tmp_path):
+    """Antes do configs.json a execução só tinha parameters.txt."""
+    from confortimetro.results.compare import list_runs, runs_root_for
+
+    run_path = tmp_path / "FAURB_50_1"
+    run_path.mkdir()
+    (run_path / "parameters.txt").write_text("pmv_upperbound=0.5\nmet=1.2\n")
+
+    runs = list_runs(str(tmp_path))
+    assert [run['run'] for run in runs] == ["FAURB_50_1"]
+    assert runs[0]['config']['met'] == "1.2"
+
+    # A pasta de saída configurada pode ser a raiz que guarda as execuções…
+    assert runs_root_for(str(tmp_path)) == str(tmp_path)
+    # …ou a pasta de uma execução, que ainda nem existe na primeira rodada.
+    assert runs_root_for(str(tmp_path / "run_999")) == str(tmp_path)
