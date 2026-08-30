@@ -21,6 +21,10 @@ from .series import load_zone_series
 PALETTE = ['#3a5a40', '#a06b00', '#588157', '#b3261e', '#406346', '#7a6f9b']
 GRID_COLOR = '#d5d8cf'
 TEXT_COLOR = '#344e41'
+# Mesmo fundo dos cards da interface (COLORS["surface"] em gui/theme.py): a
+# figura é embutida num deles e um branco puro vira um retângulo destacado.
+# Duplicado de propósito — `results/` não importa a GUI, roda no CLI headless.
+BACKGROUND = '#fafafa'
 
 FIGURE_SIZE = (11, 6)
 
@@ -28,13 +32,13 @@ FIGURE_SIZE = (11, 6)
 def _figure(title, size=FIGURE_SIZE):
     # `constrained` em vez de tight_layout: a figura é embutida no painel e
     # precisa recompor as margens a cada redimensionamento, não só uma vez.
-    figure = Figure(figsize=size, dpi=100, facecolor='white', layout='constrained')
+    figure = Figure(figsize=size, dpi=100, facecolor=BACKGROUND, layout='constrained')
     figure.suptitle(title, color=TEXT_COLOR, fontsize=13, fontweight='bold')
     return figure
 
 
 def _style(axes, xlabel='', ylabel=''):
-    axes.set_facecolor('white')
+    axes.set_facecolor(BACKGROUND)
     axes.grid(True, color=GRID_COLOR, linewidth=0.8, alpha=0.9)
     axes.set_axisbelow(True)
     for side in ('top', 'right'):

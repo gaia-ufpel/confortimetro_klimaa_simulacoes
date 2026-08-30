@@ -38,12 +38,18 @@ Os nomes de estilo próprios não podem colidir com os do sv_ttk: `Card.TFrame`
 `Surface.TFrame`. E `Section.TLabelframe` não define `background`, senão o
 fundo cobre a moldura desenhada pelo sprite.
 
+`surface` **é** o `#fafafa` que o sprite de card/labelframe do sv_ttk pinta.
+Qualquer outro valor (branco puro, por exemplo) faz os widgets desenhados à mão
+— trilho da faixa, rótulo, figura do matplotlib — virarem retângulos de fundo
+diferente dentro das seções. Por isso `charts.BACKGROUND` repete a mesma cor:
+`results/` não importa a GUI, para continuar rodando no CLI sem Tk.
+
 | Token | Hex | Uso |
 |---|---|---|
-| `bg` | `#fafafa` | fundo da janela (chrome do sv_ttk) |
-| `surface` | `#ffffff` | fundo de card |
-| `surface_2` | `#f0f0f0` | campo de entrada, hover fantasma, trilho |
-| `line` | `#e0e0e0` | borda de 1px, separador |
+| `bg` | `#f0f0f0` | fundo da janela |
+| `surface` | `#fafafa` | fundo de card — o mesmo do sprite do sv_ttk |
+| `surface_2` | `#eaeaea` | hover fantasma, trilho, chip, pill |
+| `line` | `#d8d8d8` | borda de 1px, separador |
 | `scroll` | `#c2c2c2` | polegar das scrollbars `tk` clássicas |
 | `text` | `#1c1c1c` | texto principal |
 | `text_mute` | `#406346` | legenda, unidade, rodapé |

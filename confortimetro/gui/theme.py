@@ -14,10 +14,12 @@ import sv_ttk
 # então bg/surface/line seguem a paleta dele e o verde vive nos widgets
 # desenhados à mão (Card, RoundedButton, trilhos).
 COLORS = {
-    "bg": "#fafafa",
-    "surface": "#ffffff",
-    "surface_2": "#f0f0f0",
-    "line": "#e0e0e0",
+    # `surface` é o #fafafa do sprite de card/labelframe do sv_ttk: qualquer
+    # outro valor deixa um retângulo de fundo diferente dentro das seções.
+    "bg": "#f0f0f0",
+    "surface": "#fafafa",
+    "surface_2": "#eaeaea",
+    "line": "#d8d8d8",
     "text": "#1c1c1c",
     # Verdes de texto escurecidos: o #588157 da paleta reprova em contraste
     # (3.1:1 sobre a areia). Continuam servindo de fundo/detalhe, não de texto.
