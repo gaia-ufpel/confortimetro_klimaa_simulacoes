@@ -289,6 +289,16 @@ _BUTTON_VARIANTS = {
 }
 
 
+def widget_background(widget) -> str:
+    """Cor de fundo real do widget, seja ele tk ou ttk."""
+    try:
+        return widget.cget("background") or COLORS["surface"]
+    except tk.TclError:
+        # ttk: a cor vive no estilo, não no widget.
+        style = widget.cget("style") or widget.winfo_class()
+        return ttk.Style().lookup(style, "background") or COLORS["surface"]
+
+
 class RoundedButton(tk.Canvas):
     """Botão de cantos arredondados. Variantes: primary, ghost, bar, danger.
 
@@ -308,7 +318,7 @@ class RoundedButton(tk.Canvas):
                  radius: int = RADIUS["control"]):
         super().__init__(parent, height=self._HEIGHT,
                          width=width or self._width_for(text, icon),
-                         bg=COLORS["surface"], highlightthickness=0, bd=0,
+                         bg=widget_background(parent), highlightthickness=0, bd=0,
                          takefocus=1)
         self._fixed_width = width
         self._icon = icon
@@ -358,6 +368,10 @@ class RoundedButton(tk.Canvas):
 
     def _colors(self):
         base, hover, pressed, fg, outline = _BUTTON_VARIANTS[self._variant]
+        # Ghost e bar não têm cor própria: são o fundo de quem os hospeda. Fixar
+        # `surface` deixava o botão claro sobre um pai cinza (e vice-versa).
+        if self._variant in ("ghost", "bar"):
+            base = widget_background(self.master)
         if self._state == "disabled":
             return COLORS["surface_2"], COLORS["text_mute"], COLORS["line"]
         if self._pressed:
