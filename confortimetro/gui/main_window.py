@@ -13,6 +13,7 @@ from typing import Optional
 from confortimetro.simulation import Simulation
 from confortimetro.config import SimulationConfig
 from confortimetro.idf import read_zone_names
+from confortimetro.paths import new_run_path, runs_root
 from .components import (
     PathConfigPanel,
     SimulationConfigPanel,
@@ -126,7 +127,8 @@ class MainWindow(tk.Tk):
         
         # Update path panel
         self.path_panel.set_idf_path(self.configs.idf_path)
-        self.path_panel.set_output_path(self.configs.output_path)
+        self.path_panel.set_output_path(
+            self.configs.output_path or new_run_path())
         self.path_panel.set_epw_path(self.configs.epw_path)
         self.path_panel.set_energy_path(self.configs.energy_path)
         
@@ -338,9 +340,9 @@ class MainWindow(tk.Tk):
         # A pasta configurada é a da próxima execução; a listagem interessa na
         # pasta que a contém, onde ficam todas as execuções anteriores.
         output_path = self.path_panel.get_output_path()
-        outputs_root = os.path.dirname(output_path.rstrip(os.sep)) or "."
-        if not os.path.isdir(outputs_root):
-            outputs_root = "."
+        outputs_root = os.path.dirname(output_path.rstrip(os.sep))
+        if not outputs_root or not os.path.isdir(outputs_root):
+            outputs_root = runs_root(create=True)
 
         self._simulations_window = open_simulations_window(self, outputs_root)
 
