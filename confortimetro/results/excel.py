@@ -1,6 +1,7 @@
 """Exportação dos resultados do EnergyPlus (.eso/.csv) para planilhas."""
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 import esoreader
 import pandas
