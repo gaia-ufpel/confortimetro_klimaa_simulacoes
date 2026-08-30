@@ -38,7 +38,7 @@ class SimulationConfigPanel(ttk.Frame):
     """Panel for simulation configuration."""
     
     def __init__(self, parent, callback: Optional[SimulationConfigCallback] = None):
-        super().__init__(parent, style="Card.TFrame")
+        super().__init__(parent, style="Surface.TFrame")
         self.callback = callback
         self._build_ui()
     

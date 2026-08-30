@@ -84,7 +84,7 @@ class SimulationsPanel(ttk.Frame):
     def _build_ui(self):
         toolbar = Card(self, pad=SPACE[3])
         toolbar.pack(fill="x", pady=(0, SPACE[4]))
-        row = ttk.Frame(toolbar.body, style="Card.TFrame")
+        row = ttk.Frame(toolbar.body, style="Surface.TFrame")
         row.pack(fill="x")
 
         ttk.Label(row, text="Pasta de saídas", style="Label.TLabel").pack(
@@ -143,7 +143,7 @@ class SimulationsPanel(ttk.Frame):
         # --- Ações ---
         actions = Card(self, pad=SPACE[3])
         actions.pack(fill="x", pady=(SPACE[4], 0))
-        action_row = ttk.Frame(actions.body, style="Card.TFrame")
+        action_row = ttk.Frame(actions.body, style="Surface.TFrame")
         action_row.pack(fill="x")
 
         ttk.Label(action_row, text="Zona", style="Label.TLabel").pack(
@@ -165,7 +165,7 @@ class SimulationsPanel(ttk.Frame):
         RoundedButton(action_row, text="Exportar CSV", variant="ghost", width=150,
                       command=self.export_comparison).pack(side="right")
 
-        chart_row = ttk.Frame(actions.body, style="Card.TFrame")
+        chart_row = ttk.Frame(actions.body, style="Surface.TFrame")
         chart_row.pack(fill="x", pady=(SPACE[3], 0))
         ttk.Label(chart_row, text="Gráfico", style="Label.TLabel").pack(
             side="left", padx=(0, SPACE[2]))
@@ -178,7 +178,7 @@ class SimulationsPanel(ttk.Frame):
                       command=self.plot_selected).pack(side="left", padx=(SPACE[3], 0))
 
         # Cada gráfico mostra só as suas opções; o resto some da barra.
-        self.option_row = ttk.Frame(actions.body, style="Card.TFrame")
+        self.option_row = ttk.Frame(actions.body, style="Surface.TFrame")
         self.option_row.pack(fill="x", pady=(SPACE[2], 0))
         self._option_widgets = {}
         self._build_option_fields()
@@ -197,7 +197,7 @@ class SimulationsPanel(ttk.Frame):
         compare_panes = ttk.PanedWindow(compare_card.body, orient="horizontal")
         compare_panes.pack(fill="both", expand=True)
 
-        table_frame = ttk.Frame(compare_panes, style="Card.TFrame")
+        table_frame = ttk.Frame(compare_panes, style="Surface.TFrame")
         compare_panes.add(table_frame, weight=2)
 
         self.compare_tree = ttk.Treeview(table_frame, style="Modern.Treeview",
@@ -212,14 +212,14 @@ class SimulationsPanel(ttk.Frame):
         compare_scroll_y.pack(side="right", fill="y")
         self.compare_tree.pack(side="left", fill="both", expand=True)
 
-        self.chart_frame = ttk.Frame(compare_panes, style="Card.TFrame")
+        self.chart_frame = ttk.Frame(compare_panes, style="Surface.TFrame")
         compare_panes.add(self.chart_frame, weight=5)
         self._chart_widgets = []
         self._show_chart_placeholder()
 
     def _build_option_fields(self):
         """Um campo por opção declarada no catálogo de gráficos."""
-        baseline = ttk.Frame(self.option_row, style="Card.TFrame")
+        baseline = ttk.Frame(self.option_row, style="Surface.TFrame")
         ttk.Label(baseline, text="Referência", style="Label.TLabel").pack(
             side="left", padx=(0, SPACE[2]))
         self.baseline_combo = ttk.Combobox(baseline, textvariable=self.baseline_var,
@@ -228,7 +228,7 @@ class SimulationsPanel(ttk.Frame):
         self.baseline_combo.pack(side="left")
         self._option_widgets['baseline'] = baseline
 
-        variable = ttk.Frame(self.option_row, style="Card.TFrame")
+        variable = ttk.Frame(self.option_row, style="Surface.TFrame")
         ttk.Label(variable, text="Variável", style="Label.TLabel").pack(
             side="left", padx=(0, SPACE[2]))
         ttk.Combobox(variable, textvariable=self.variable_var, style="Field.TCombobox",
@@ -236,7 +236,7 @@ class SimulationsPanel(ttk.Frame):
                      values=list(charts.CARPET_VARIABLES)).pack(side="left")
         self._option_widgets['variable'] = variable
 
-        period = ttk.Frame(self.option_row, style="Card.TFrame")
+        period = ttk.Frame(self.option_row, style="Surface.TFrame")
         ttk.Label(period, text="Início", style="Label.TLabel").pack(
             side="left", padx=(0, SPACE[2]))
         ttk.Entry(period, textvariable=self.start_var, style="Field.TEntry",
@@ -566,7 +566,7 @@ class SimulationsPanel(ttk.Frame):
             canvas = FigureCanvasTkAgg(figure, master=self.chart_frame)
             widget = canvas.get_tk_widget()
         else:
-            host = ttk.Frame(self.chart_frame, style="Card.TFrame")
+            host = ttk.Frame(self.chart_frame, style="Surface.TFrame")
             inner = scrollable(host)
             canvas = FigureCanvasTkAgg(figure, master=inner)
             widget = canvas.get_tk_widget()

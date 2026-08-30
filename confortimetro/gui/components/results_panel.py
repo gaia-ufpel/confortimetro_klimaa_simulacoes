@@ -25,13 +25,13 @@ class ResultsPanel(ttk.Frame):
     """Panel for displaying simulation results."""
     
     def __init__(self, parent, callback: Optional[ResultsPanelCallback] = None):
-        super().__init__(parent, style="Card.TFrame")
+        super().__init__(parent, style="Surface.TFrame")
         self.callback = callback
         self._build_ui()
     
     def _build_ui(self):
         """Build the UI: toolbar, log area, status bar."""
-        toolbar = ttk.Frame(self, style="Card.TFrame")
+        toolbar = ttk.Frame(self, style="Surface.TFrame")
         toolbar.pack(fill="x", pady=(0, SPACE[2]))
 
         ttk.Label(toolbar, text="Filtro", style="Label.TLabel").pack(
@@ -90,7 +90,7 @@ class ResultsPanel(ttk.Frame):
         self.results_text.tag_configure("timestamp", foreground=COLORS["text_mute"],
                                         font=FONTS["mono_small"])
 
-        status_frame = ttk.Frame(self, style="Card.TFrame")
+        status_frame = ttk.Frame(self, style="Surface.TFrame")
         status_frame.pack(fill="x", pady=(SPACE[2], 0))
 
         self.status_var = tk.StringVar(value="Pronto")

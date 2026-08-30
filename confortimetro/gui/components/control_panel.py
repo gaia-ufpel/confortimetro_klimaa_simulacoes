@@ -40,14 +40,14 @@ class ControlPanel(ttk.Frame):
     """Panel for simulation controls."""
     
     def __init__(self, parent, callback: Optional[ControlPanelCallback] = None):
-        super().__init__(parent, style="Card.TFrame")
+        super().__init__(parent, style="Surface.TFrame")
         self.callback = callback
         self.is_running = False
         self._build_ui()
     
     def _build_ui(self):
         """Build the topbar row: actions on the left, status on the right."""
-        row = ttk.Frame(self, style="Card.TFrame")
+        row = ttk.Frame(self, style="Surface.TFrame")
         row.pack(fill="x")
 
         self.run_button = RoundedButton(

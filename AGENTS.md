@@ -103,6 +103,12 @@ progressbar, treeview e scrollbar **não aceitam cor** — não tente reestiliz�
 em `theme.py`, os estilos nomeados (`Field.TEntry`, `Modern.Treeview`, …) só
 herdam. O verde da marca vive nos widgets desenhados à mão e nos títulos.
 
+**Não reuse um nome de estilo do sv_ttk.** `Card.TFrame` já existe lá, com um
+sprite de moldura: nosso frame de fundo branco herdava a borda dele e cada
+linha de campo ganhava um retângulo fantasma. O estilo passou a se chamar
+`Surface.TFrame`. Pelo mesmo motivo `Section.TLabelframe` não define
+`background` — pintar por cima do sprite come a moldura.
+
 Tk **não** tem `border-radius`: card, botão e pill de status são desenhados
 num `tk.Canvas` por `theme.rounded_rect`. O resto continua ttk plano.
 

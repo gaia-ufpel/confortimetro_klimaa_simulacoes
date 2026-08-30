@@ -85,7 +85,9 @@ def apply_theme(root: tk.Misc) -> None:
     style = ttk.Style(root)
 
     style.configure("Main.TFrame", background=COLORS["bg"])
-    style.configure("Card.TFrame", background=COLORS["surface"])
+    # Nome próprio, não "Card.TFrame": esse já existe no sv_ttk, com um sprite
+    # de moldura que aparecia por baixo de cada linha de campo.
+    style.configure("Surface.TFrame", background=COLORS["surface"])
 
     style.configure("H1.TLabel", background=COLORS["bg"],
                     foreground=COLORS["primary"], font=FONTS["h1"])
@@ -106,7 +108,8 @@ def apply_theme(root: tk.Misc) -> None:
 
     style.configure("Modern.TSeparator", background=COLORS["line"])
 
-    style.configure("Section.TLabelframe", background=COLORS["surface"])
+    # Sem background próprio: o TLabelframe do sv_ttk é um sprite de moldura e
+    # pintar o fundo por cima come a borda.
     style.configure("Section.TLabelframe.Label", background=COLORS["surface"],
                     foreground=COLORS["text_mute"], font=FONTS["label"])
 
@@ -127,7 +130,7 @@ class Card(tk.Frame):
         self._bg = tk.Canvas(self, bg=COLORS["bg"], highlightthickness=0, bd=0)
         self._bg.place(x=0, y=0, relwidth=1, relheight=1)
 
-        self.body = ttk.Frame(self, style="Card.TFrame")
+        self.body = ttk.Frame(self, style="Surface.TFrame")
         self.body.pack(fill="both", expand=True, padx=pad, pady=pad)
 
         if title:
@@ -159,8 +162,10 @@ def scrollable(parent) -> ttk.Frame:
 
     inner.bind("<Configure>",
                lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    # Menos a largura da barra: sem isso a última coluna de botões fica por
+    # baixo dela.
     canvas.bind("<Configure>",
-                lambda e: canvas.itemconfigure(window, width=e.width))
+                lambda e: canvas.itemconfigure(window, width=e.width - SPACE[3]))
 
     # A roda só chega ao canvas via bind_all (filhos não propagam), então a
     # captura vale apenas enquanto o ponteiro está sobre esta área — senão o
@@ -287,7 +292,7 @@ class RangeField(ttk.Frame):
 
     def __init__(self, parent, label: str, lower: float, upper: float,
                  step: float = 0.1, on_change=None, entry_width: int = 7):
-        super().__init__(parent, style="Card.TFrame")
+        super().__init__(parent, style="Surface.TFrame")
         self._lower, self._upper, self._step = lower, upper, step
         self._on_change = on_change
         self._dragging = None
@@ -464,7 +469,7 @@ class ChipSelect(ttk.Frame):
     ainda não lido, por exemplo)."""
 
     def __init__(self, parent, placeholder: str = "Adicionar…", on_change=None):
-        super().__init__(parent, style="Card.TFrame")
+        super().__init__(parent, style="Surface.TFrame")
         self._placeholder = placeholder
         self._on_change = on_change
         self._values: list = []
@@ -477,7 +482,7 @@ class ChipSelect(ttk.Frame):
         self._combo.bind("<Return>", self._on_pick)
         self.columnconfigure(0, weight=1)
 
-        self._chips = ttk.Frame(self, style="Card.TFrame")
+        self._chips = ttk.Frame(self, style="Surface.TFrame")
         self._chips.grid(row=1, column=0, sticky="ew", pady=(SPACE[2], 0))
 
         self.set_options([])

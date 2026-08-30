@@ -51,7 +51,7 @@ class PathConfigPanel(ttk.Frame):
 
     def __init__(self, parent, callback: Optional[PathConfigCallback] = None,
                  fields: tuple = FIELD_KEYS):
-        super().__init__(parent, style="Card.TFrame")
+        super().__init__(parent, style="Surface.TFrame")
         self.callback = callback
         self._fields = fields
         self._build_ui()
@@ -81,7 +81,7 @@ class PathConfigPanel(ttk.Frame):
     def _create_path_field(self, index, label, entry_var_name, browse_command,
                            change_callback, tooltip=""):
         """Create a path field: label above, entry + actions, status below."""
-        field = ttk.Frame(self, style="Card.TFrame")
+        field = ttk.Frame(self, style="Surface.TFrame")
         field.grid(row=index, column=0, sticky="ew", pady=(0, SPACE[4]))
         field.grid_columnconfigure(0, weight=1)
 
@@ -108,9 +108,12 @@ class PathConfigPanel(ttk.Frame):
 
         setattr(self, entry_var_name, entry)
 
+        # Só ocupa espaço quando tem o que dizer: vazio, deixava um buraco de
+        # 15 px entre um campo e o próximo.
         status_label = ttk.Label(field, text="", style="Caption.TLabel")
         status_label.grid(row=2, column=0, columnspan=3, sticky="w",
                           pady=(SPACE[1], 0))
+        status_label.grid_remove()
         setattr(self, f"{entry_var_name}_status", status_label)
 
     def _create_tooltip(self, widget, text):
@@ -142,6 +145,7 @@ class PathConfigPanel(ttk.Frame):
                      "instale-o ou informe a pasta em Procurar",
                 foreground=COLORS["danger"]
             )
+            self.energy_path_entry_status.grid()
 
     def _validate_energy_path(self, path: str, status_label):
         """Feedback do campo do EnergyPlus: precisa do IDD e do pyenergyplus."""
@@ -168,8 +172,6 @@ class PathConfigPanel(ttk.Frame):
     def _validate_path(self, entry):
         """Validate path and show visual feedback."""
         path = entry.get().strip()
-        if not path:
-            return
         
         # Get the corresponding status label
         entry_name = None
@@ -184,6 +186,12 @@ class PathConfigPanel(ttk.Frame):
         status_label = getattr(self, f"{entry_name}_status", None)
         if not status_label:
             return
+
+        if not path:
+            status_label.grid_remove()
+            return
+
+        status_label.grid()
         
         # Validate based on entry type
         if entry_name == "energy_path_entry":

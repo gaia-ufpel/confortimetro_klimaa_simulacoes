@@ -33,6 +33,11 @@ então esses estilos não são mais tocados aqui e o chrome neutro dele define
 desenhados à mão (`Card`, `RoundedButton`, `RangeField`, `ChipSelect`) e nos
 títulos.
 
+Os nomes de estilo próprios não podem colidir com os do sv_ttk: `Card.TFrame`
+é dele (sprite de moldura), então a superfície branca dos painéis chama-se
+`Surface.TFrame`. E `Section.TLabelframe` não define `background`, senão o
+fundo cobre a moldura desenhada pelo sprite.
+
 | Token | Hex | Uso |
 |---|---|---|
 | `bg` | `#fafafa` | fundo da janela (chrome do sv_ttk) |
@@ -70,6 +75,9 @@ Escala de 4 px — `SPACE = (0, 4, 8, 12, 16, 24, 32)`. Só esses valores.
   botões e combos usa 12 (`pad=SPACE[3]`): a linha é baixa e 16 sobraria.
 - Entre linhas dentro de um mesmo card: 12.
 - Entre rótulo e campo: 4. Entre campos: 8.
+- Linha de status de um campo (`✅ Arquivo encontrado`) só ocupa espaço quando
+  tem texto: fica em `grid_remove` enquanto vazia, senão o ritmo entre os
+  campos varia sem motivo visível.
 - Numa barra horizontal: 8 entre botões vizinhos, 12 ao trocar de grupo
   (campo → botão, fim de um par rótulo+campo → o próximo).
 
