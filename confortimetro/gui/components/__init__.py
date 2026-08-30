@@ -10,7 +10,8 @@ from .path_config_panel import (
 from .simulation_config_panel import SimulationConfigPanel
 from .results_panel import ResultsPanel
 from .control_panel import ControlPanel
-from .simulations_panel import SimulationsPanel, open_simulations_window
+from .simulations_panel import SimulationsPanel
+from .comparison_panel import ComparisonPanel
 
 __all__ = [
     'MACHINE_FIELDS',
@@ -20,5 +21,5 @@ __all__ = [
     'ResultsPanel',
     'ControlPanel',
     'SimulationsPanel',
-    'open_simulations_window'
+    'ComparisonPanel',
 ]
