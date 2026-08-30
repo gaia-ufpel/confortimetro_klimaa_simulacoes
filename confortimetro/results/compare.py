@@ -43,8 +43,22 @@ def needs_recompute(run_path, known_mtimes=None):
 
 
 def _room_files(run_path, rooms):
-    return [room for room in rooms
-            if os.path.exists(os.path.join(run_path, f"{room}.xlsx"))]
+    """Zonas com planilha na pasta da execução.
+
+    As execuções antigas (`parameters.txt`) não gravam a lista de zonas: nesse
+    caso as próprias planilhas são a lista.
+    """
+    if rooms:
+        return [room for room in rooms
+                if os.path.exists(os.path.join(run_path, f"{room}.xlsx"))]
+    try:
+        names = sorted(os.path.splitext(entry.name)[0]
+                       for entry in os.scandir(run_path)
+                       if entry.is_file() and entry.name.endswith('.xlsx')
+                       and entry.name != 'ESTATISTICAS.xlsx')
+    except OSError:
+        return []
+    return names
 
 
 #: O que marca um diretório como execução. O `parameters.txt` é o formato
