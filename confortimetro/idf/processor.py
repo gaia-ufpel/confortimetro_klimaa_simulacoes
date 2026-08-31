@@ -268,14 +268,21 @@ def _template_choice_note(templates: List[tuple], chosen_room: str,
 
 
 def plan_equipment_fixes(idf_path: str, rooms: List[str],
-                         module_type: ModuleType):
+                         module_type: ModuleType, template_rooms: dict = None):
     """`(correções, pendências)` para o equipamento que falta em cada zona.
 
     Cada correção é um dicionário com a descrição para o usuário e o que
     `apply_equipment_fixes` precisa gravar. As pendências são as faltas que
     dependem de decisão de modelagem — janela sem abertura no
     `AirflowNetwork`, ar-condicionado num IDF que não tem nenhum para copiar.
+
+    `template_rooms` escolhe de qual zona copiar cada equipamento
+    (`{"AC": "RECEPCAO"}`); sem isso vale o primeiro molde encontrado. Cada
+    correção leva em `templates` os moldes disponíveis — é o que a interface
+    oferece no seletor.
     """
+    template_rooms = {key.upper(): str(value).upper()
+                      for key, value in (template_rooms or {}).items()}
     text = _read_text(idf_path)
     fixes, pending = [], []
     for room, prefix, label in missing_equipment(idf_path, rooms, module_type):
@@ -299,7 +306,7 @@ def plan_equipment_fixes(idf_path: str, rooms: List[str],
                                 f"AirflowNetwork ao schedule {schedule}."),
                 "details": [f"AirflowNetwork:MultiZone:Zone: {room} "
                             f"(Venting Availability Schedule = {schedule})"],
-                "note": "",
+                "note": "", "templates": [], "prefix": prefix,
                 "updates": {("AirflowNetwork:MultiZone:Zone", index): changes},
                 "objects": [],
             })
@@ -316,7 +323,7 @@ def plan_equipment_fixes(idf_path: str, rooms: List[str],
                                     f"VENTILADOR_{room.upper()} (27 W) "
                                     f"acionado por {schedule}."),
                     "details": [f"ElectricEquipment: VENTILADOR_{room.upper()}"],
-                    "note": "",
+                    "note": "", "templates": [], "prefix": prefix,
                     "updates": {},
                     "objects": [("ElectricEquipment", fields)],
                 })
@@ -326,7 +333,10 @@ def plan_equipment_fixes(idf_path: str, rooms: List[str],
                 "molde, então ele precisa ser modelado antes.")
             continue
 
-        object_type, fields, template_room = templates[0]
+        wanted = template_rooms.get(prefix)
+        object_type, fields, template_room = next(
+            (candidate for candidate in templates if candidate[2] == wanted),
+            templates[0])
         objects = _clone_for_room(text, object_type, fields, template_room, room)
         fixes.append({
             "room": room, "label": label,
@@ -337,6 +347,8 @@ def plan_equipment_fixes(idf_path: str, rooms: List[str],
             # copiado e o que exatamente entra no modelo por causa disso.
             "details": _clone_details(objects),
             "note": _template_choice_note(templates, template_room, label),
+            "templates": [(kind, source) for kind, _, source in templates],
+            "prefix": prefix,
             "updates": {},
             "objects": objects,
         })

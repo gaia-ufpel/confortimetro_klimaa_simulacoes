@@ -37,6 +37,7 @@ from .theme import (
     Card,
     RoundedButton,
     apply_theme,
+    ask_choices,
     toast,
 )
 
@@ -434,11 +435,40 @@ class MainWindow(tk.Tk):
         for problem in problems:
             self.results_panel.append_warning(problem)
 
-        fixes, _ = plan_equipment_fixes(self.configs.idf_path,
-                                        self.configs.rooms or [],
+        rooms = self.configs.rooms or []
+        fixes, _ = plan_equipment_fixes(self.configs.idf_path, rooms,
                                         self.configs.module_type)
         if not fixes:
             return problems
+
+        # Com mais de um sistema para copiar, quem escolhe é o usuário: o
+        # ar-condicionado de cada zona pode ser um equipamento diferente.
+        choices = {}
+        for fix in fixes:
+            if len(fix["templates"]) > 1:
+                choices.setdefault(
+                    fix["prefix"],
+                    (f"Copiar o {fix['label']} de:",
+                     [f"{source} ({kind})"
+                      for kind, source in dict.fromkeys(fix["templates"])]))
+        if choices:
+            answer = ask_choices(
+                self, "Incluir o equipamento que falta?",
+                f"{len(fixes)} zona(s) sem o equipamento que o módulo "
+                f"{self.configs.module_type} controla. O IDF escolhido não é "
+                "alterado: as inclusões vão para um arquivo novo ao lado dele, "
+                "que passa a ser o modelo desta simulação.\n\nDe qual zona "
+                "copiar o equipamento?",
+                {label: options for label, options in choices.values()},
+                confirm="Incluir", cancel="Agora não")
+            if answer is None:
+                return problems
+            template_rooms = {}
+            for prefix, (label, _) in choices.items():
+                template_rooms[prefix] = answer[label].split(" (")[0]
+            fixes, _ = plan_equipment_fixes(self.configs.idf_path, rooms,
+                                            self.configs.module_type,
+                                            template_rooms)
 
         # O log leva o inventário completo: um IDF costuma ter mais de um
         # sistema de ar-condicionado, e o usuário precisa ver qual foi copiado
@@ -468,6 +498,8 @@ class MainWindow(tk.Tk):
                                 for object_type, count in sorted(created.items()))
             detail += f"\n\nObjetos criados: {summary} (nomes no log)."
 
+        # Confirmação final mesmo depois do seletor: só aqui a lista reflete
+        # o molde escolhido.
         if not messagebox.askyesno(
                 "Incluir o equipamento que falta?",
                 f"{detail}\n\nO IDF escolhido não é alterado: as inclusões vão "

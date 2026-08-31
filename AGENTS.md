@@ -57,7 +57,9 @@ saídas e diagnóstico de erros.
 ## Interface gráfica (Tkinter)
 
 `confortimetro/gui/main_window.py` é um roteador de **páginas** — uma janela
-só, sem `Toplevel`. Todas ficam montadas em `self.page_host` e `show_page(nome)`
+só, sem `Toplevel` (a exceção são os diálogos modais: `messagebox` e
+`theme.ask_choices`, o seletor usado quando a correção de equipamento pode
+copiar de mais de uma zona). Todas ficam montadas em `self.page_host` e `show_page(nome)`
 troca quem está packado, com uma transição de 180 ms (`_slide`, `place` nas
 duas páginas; misturar `pack` e `place` no mesmo host empurra a que entra).
 

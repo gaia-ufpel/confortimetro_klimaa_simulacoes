@@ -138,8 +138,9 @@ já modelada no `AirflowNetwork` ao schedule. As vazões copiadas viram
 `autosize`, e `apply_equipment_fixes` grava tudo num `<nome>_equipamentos.idf`
 ao lado do original, que passa a ser o modelo da simulação — o arquivo
 escolhido pelo usuário nunca é reescrito. Quando o IDF tem mais de um sistema
-de ar-condicionado, o diálogo diz quantos são, em que zonas estão e qual foi
-copiado; o log lista, por zona, cada objeto criado com o nome — do
+de ar-condicionado, um seletor pergunta de qual zona copiar antes de montar o
+plano (`plan_equipment_fixes` aceita `template_rooms`), e a confirmação diz o
+que entra; o log lista, por zona, cada objeto criado com o nome — do
 `HVACTemplate:Zone:*` aos schedules e ao DOAS que ele arrasta junto. O que exige decisão de modelagem
 (janela sem abertura no `AirflowNetwork`, ar-condicionado num IDF que não tem
 nenhum para copiar) continua como aviso, e aí resta rodar assim mesmo com
