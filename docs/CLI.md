@@ -111,6 +111,7 @@ Validar sem simular:
 | `co2_limit` | 900.0 | Limite de CO₂ (ppm) que aciona a ventilação/DOAS. |
 | `rooms` | lista | Zonas do IDF processadas e exportadas. |
 | `module_type` | `COMPLETE` | Estratégia de condicionamento (seção 4). |
+| `ignore_missing_equipment` | `false` | Roda mesmo com zonas sem o equipamento exigido pelo módulo (só avisa no log). |
 
 ## 4. Módulos de condicionamento (`module_type`)
 
@@ -122,6 +123,28 @@ Definidos em `confortimetro/control/`, mapeados em `MODULES_MAPPER`:
 | `CLOSED_WINDOW` | `ConditionerClosedWindow` | Janela sempre fechada. |
 | `FIXED_AC_WITHOUT_FAN` | `ConditionerFixedAcWithoutFan` | Setpoint fixo de ar-condicionado, sem ventilador. |
 | `WITHOUT_FAN` | `ConditionerWithoutFan` | Sem ventilador, demais estratégias ativas. |
+
+### Equipamento exigido por zona
+
+Cada módulo controla um conjunto de equipamentos, e o controlador escreve nos
+schedules `JANELA_<zona>`, `VENT_<zona>` e `AC_<zona>` a cada timestep. Se
+nenhum objeto do IDF consome esses schedules, a zona simula decidindo no vazio
+— `validate_idf` barra isso antes do EnergyPlus (`unwired_equipment`).
+
+Na GUI, o clique em simular oferece a correção: `plan_equipment_fixes` copia o
+equipamento de outra zona do próprio IDF (o `HVACTemplate:Zone:*` com o
+thermostat e o DOAS junto, o `ElectricEquipment` do ventilador) e liga a janela
+já modelada no `AirflowNetwork` ao schedule. As vazões copiadas viram
+`autosize`, e `apply_equipment_fixes` grava tudo num `<nome>_equipamentos.idf`
+ao lado do original, que passa a ser o modelo da simulação — o arquivo
+escolhido pelo usuário nunca é reescrito. Quando o IDF tem mais de um sistema
+de ar-condicionado, um seletor pergunta de qual zona copiar antes de montar o
+plano (`plan_equipment_fixes` aceita `template_rooms`), e a confirmação diz o
+que entra; o log lista, por zona, cada objeto criado com o nome — do
+`HVACTemplate:Zone:*` aos schedules e ao DOAS que ele arrasta junto. O que exige decisão de modelagem
+(janela sem abertura no `AirflowNetwork`, ar-condicionado num IDF que não tem
+nenhum para copiar) continua como aviso, e aí resta rodar assim mesmo com
+`ignore_missing_equipment`.
 
 ## 5. O que acontece durante a execução
 

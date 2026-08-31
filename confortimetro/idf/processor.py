@@ -8,6 +8,7 @@ de arquivos IDF necessárias para as simulações.
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timedelta
 from typing import Any, List
 import logging
@@ -48,15 +49,10 @@ def read_zone_names(idf_path: str) -> List[str]:
     return names
 
 
-def _parse_objects(text: str, object_type: str) -> List[tuple]:
-    """Objetos de um tipo como `(campos, primeira_linha, última_linha)`.
-
-    Lê o texto do IDF em vez de usar o eppy: carregar pelo eppy exige o IDD do
-    EnergyPlus e alguns segundos, e a interface só quer alguns campos. Campos
-    vazios são preservados — a posição de cada um é o que dá sentido a eles.
-    """
+def _iter_objects(text: str):
+    """`(tipo, campos, primeira linha, última linha)` de cada objeto do IDF."""
     lines = text.splitlines()
-    objects, index = [], 0
+    index = 0
     while index < len(lines):
         head = lines[index].split("!")[0].strip()
         if not head:
@@ -64,7 +60,7 @@ def _parse_objects(text: str, object_type: str) -> List[tuple]:
             continue
 
         # O tipo é o primeiro token do objeto; o resto segue até o ';'.
-        name = head.split(",")[0].split(";")[0].strip()
+        object_type = head.split(",")[0].split(";")[0].strip()
         start = index
         chunk = ""
         while index < len(lines):
@@ -76,11 +72,20 @@ def _parse_objects(text: str, object_type: str) -> List[tuple]:
         end = index
         index += 1
 
-        if name.lower() != object_type.lower():
-            continue
         fields = [field.strip() for field in chunk.split(";")[0].split(",")]
-        objects.append((fields[1:], start, end))
-    return objects
+        yield object_type, fields[1:], start, end
+
+
+def _parse_objects(text: str, object_type: str) -> List[tuple]:
+    """Objetos de um tipo como `(campos, primeira_linha, última_linha)`.
+
+    Lê o texto do IDF em vez de usar o eppy: carregar pelo eppy exige o IDD do
+    EnergyPlus e alguns segundos, e a interface só quer alguns campos. Campos
+    vazios são preservados — a posição de cada um é o que dá sentido a eles.
+    """
+    return [(fields, start, end)
+            for name, fields, start, end in _iter_objects(text)
+            if name.lower() == object_type.lower()]
 
 
 def _read_text(idf_path: str) -> str:
@@ -90,6 +95,293 @@ def _read_text(idf_path: str) -> str:
             return handle.read()
     except OSError:
         return ""
+
+
+# Equipamento que cada módulo precisa ver ligado no IDF, por zona: o prefixo do
+# schedule de controle e o nome que o usuário reconhece. O controlador escreve
+# nesses schedules a cada timestep; se nenhum objeto do IDF os consome, a
+# simulação roda inteira decidindo no vazio.
+MODULE_REQUIRED_EQUIPMENT = {
+    ModuleType.COMPLETE: (("JANELA", "janela"), ("VENT", "ventilador"),
+                          ("AC", "ar-condicionado")),
+    ModuleType.CLOSED_WINDOW: (("VENT", "ventilador"), ("AC", "ar-condicionado")),
+    ModuleType.WITHOUT_FAN: (("JANELA", "janela"), ("AC", "ar-condicionado")),
+    ModuleType.FIXED_AC_WITHOUT_FAN: (("JANELA", "janela"),
+                                      ("AC", "ar-condicionado")),
+}
+
+
+def _referenced_names(text: str) -> dict:
+    """Quantas vezes cada nome aparece como campo do IDF, em maiúsculas.
+
+    A declaração `Schedule:Constant` conta como uma ocorrência; quem é usado
+    por algum objeto aparece pelo menos duas vezes.
+    """
+    counts = {}
+    for line in text.splitlines():
+        line = line.split("!")[0]
+        for token in line.replace(";", ",").split(","):
+            token = token.strip().upper()
+            if token:
+                counts[token] = counts.get(token, 0) + 1
+    return counts
+
+
+def missing_equipment(idf_path: str, rooms: List[str],
+                      module_type: ModuleType) -> List[tuple]:
+    """`(zona, prefixo, nome do equipamento)` para cada falta do módulo.
+
+    Um schedule de controle só está ligado a algo se algum outro objeto do IDF
+    o referencia — o processamento cria o schedule que faltar, então a
+    existência dele não prova nada.
+    """
+    text = _read_text(idf_path)
+    counts = _referenced_names(text)
+    # A declaração do próprio schedule não é uso: só conta quem o consome.
+    declared = {fields[0].strip().upper()
+                for _, fields, _, _ in _iter_objects(text) if fields}
+
+    def used(name: str) -> bool:
+        return counts.get(name, 0) > (1 if name in declared else 0)
+
+    return [(room, prefix, label)
+            for prefix, label in MODULE_REQUIRED_EQUIPMENT.get(module_type, ())
+            for room in rooms
+            if not used(f"{prefix}_{room.upper()}")]
+
+
+def unwired_equipment(idf_path: str, rooms: List[str],
+                      module_type: ModuleType) -> List[str]:
+    """Mensagens prontas para o usuário sobre o equipamento que falta."""
+    return [f"Zona '{room}' não tem {label}: nenhum objeto do IDF usa o "
+            f"schedule {prefix}_{room.upper()}, exigido pelo módulo "
+            f"{module_type}."
+            for room, prefix, label in
+            missing_equipment(idf_path, rooms, module_type)]
+
+
+# Campos do `AirflowNetwork:MultiZone:Zone` que ligam a janela ao controlador
+# (IDD 9.4): a zona, o modo de ventilação e o schedule de disponibilidade.
+AFN_ZONE, AFN_CONTROL_MODE, AFN_VENTING_SCHEDULE = 0, 1, 8
+
+# Tipos que o clone pode criar por tabela: controle e HVAC. O que ficar de
+# fora (Zone, superfícies, People) tem de existir de verdade no modelo — copiar
+# geometria a partir de outra zona não faria sentido.
+CLONABLE_PREFIXES = ("schedule:", "hvactemplate:", "designspecification:",
+                     "zonehvac:", "zonecontrol:", "thermostatsetpoint:",
+                     "sizing:zone", "fan:", "coil:", "curve:")
+
+# Vazões que não podem ser copiadas de outra zona — o tamanho é outro.
+AUTOSIZE_ON_CLONE = {"hvactemplate:zone:pthp": (2, 3)}
+
+# Objeto criado quando o IDF não tem nenhum ventilador para servir de molde:
+# um equipamento elétrico de 27 W acionado pelo schedule do controlador.
+DEFAULT_FAN_FIELDS = ["VENTILADOR_{room}", "{room}", "VENT_{room}",
+                      "EquipmentLevel", "27", "", "", "", "", "",
+                      "Ventilador"]
+
+
+def _find_named_object(text: str, name: str):
+    """`(tipo, campos)` do objeto cujo primeiro campo é `name`, ou `None`."""
+    key = name.strip().upper()
+    if not key:
+        return None
+    for object_type, fields, _, _ in _iter_objects(text):
+        if fields and fields[0].strip().upper() == key:
+            return object_type, fields
+    return None
+
+
+def _clone_for_room(text: str, object_type: str, fields: List[str],
+                    template_room: str, room: str) -> List[tuple]:
+    """Copia um objeto de uma zona para outra, junto com o que ele referencia.
+
+    Todo campo que cita a zona-molde passa a citar a nova (`AC_RECEPCAO` vira
+    `AC_SALA`, e com ele o thermostat e o DOAS da zona). Quando o nome que sai
+    dessa troca não existe no IDF, o objeto original também é clonado — é o
+    que traz o ar-condicionado inteiro, e não só o template da zona.
+    """
+    template_room, room = template_room.upper(), room.upper()
+    # Fronteira à direita: a zona 'SALA' não pode virar 'ZONA' dentro de
+    # 'SALA_AULA', que é o nome de outra zona.
+    pattern = re.compile(rf"(?<![A-Z0-9]){re.escape(template_room)}"
+                         r"(?![A-Z0-9_])")
+    existing = {fields[0].strip().upper()
+                for _, fields, _, _ in _iter_objects(text) if fields}
+    created, pending = [], [(object_type, fields)]
+    while pending:
+        current_type, current_fields = pending.pop(0)
+        new_fields = [pattern.sub(room, field.upper()) if field else field
+                      for field in current_fields]
+        for position in AUTOSIZE_ON_CLONE.get(current_type.lower(), ()):
+            if position < len(new_fields):
+                new_fields[position] = "autosize"
+        created.append((current_type, new_fields))
+
+        # Referência que a troca acabou de inventar precisa de um objeto.
+        for old_field, new_field in zip(current_fields, new_fields):
+            key = new_field.strip().upper()
+            if old_field == new_field or key in existing:
+                continue
+            existing.add(key)
+            source = _find_named_object(text, old_field)
+            if source and source[0].lower().startswith(CLONABLE_PREFIXES):
+                pending.append(source)
+    return created
+
+
+def _templates_for_prefix(text: str, prefix: str) -> List[tuple]:
+    """Objetos de outras zonas que já usam esse equipamento.
+
+    Cada item é `(tipo, campos, zona)` e serve de molde. Procura quem
+    *referencia* um schedule `PREFIXO_<ZONA>` — a declaração
+    `Schedule:Constant` do próprio schedule não conta.
+    """
+    templates = []
+    for object_type, fields, _, _ in _iter_objects(text):
+        if object_type.lower().startswith("schedule"):
+            continue
+        for position, field in enumerate(fields):
+            value = field.strip().upper()
+            if position and value.startswith(f"{prefix}_"):
+                templates.append((object_type, fields, value[len(prefix) + 1:]))
+                break
+    return templates
+
+
+def _clone_details(objects: List[tuple]) -> List[str]:
+    """`Tipo: NOME` de cada objeto que a correção vai criar."""
+    return [f"{object_type}: {fields[0]}" if fields else object_type
+            for object_type, fields in objects]
+
+
+def _template_choice_note(templates: List[tuple], chosen_room: str,
+                          label: str) -> str:
+    """Aviso quando o IDF tem mais de um sistema para servir de molde."""
+    kinds = {object_type for object_type, _, _ in templates}
+    rooms = [room for _, _, room in templates]
+    if len(templates) < 2:
+        return ""
+    return (f"O IDF tem {len(templates)} {label}(s) ({', '.join(sorted(kinds))}) "
+            f"nas zonas {', '.join(sorted(set(rooms)))}; a cópia usa o da zona "
+            f"'{chosen_room}'.")
+
+
+def plan_equipment_fixes(idf_path: str, rooms: List[str],
+                         module_type: ModuleType, template_rooms: dict = None):
+    """`(correções, pendências)` para o equipamento que falta em cada zona.
+
+    Cada correção é um dicionário com a descrição para o usuário e o que
+    `apply_equipment_fixes` precisa gravar. As pendências são as faltas que
+    dependem de decisão de modelagem — janela sem abertura no
+    `AirflowNetwork`, ar-condicionado num IDF que não tem nenhum para copiar.
+
+    `template_rooms` escolhe de qual zona copiar cada equipamento
+    (`{"AC": "RECEPCAO"}`); sem isso vale o primeiro molde encontrado. Cada
+    correção leva em `templates` os moldes disponíveis — é o que a interface
+    oferece no seletor.
+    """
+    template_rooms = {key.upper(): str(value).upper()
+                      for key, value in (template_rooms or {}).items()}
+    text = _read_text(idf_path)
+    fixes, pending = [], []
+    for room, prefix, label in missing_equipment(idf_path, rooms, module_type):
+        schedule = f"{prefix}_{room.upper()}"
+
+        if prefix == "JANELA":
+            index = next((position for position, (fields, _, _) in enumerate(
+                _parse_objects(text, "AirflowNetwork:MultiZone:Zone"))
+                if fields[AFN_ZONE].strip().upper() == room.upper()), None)
+            if index is None:
+                pending.append(
+                    f"Zona '{room}': sem janela no AirflowNetwork. Abrir uma "
+                    "exige geometria (a abertura e a superfície), então precisa "
+                    "ser feita no modelo.")
+                continue
+            changes = {AFN_VENTING_SCHEDULE: schedule,
+                       AFN_CONTROL_MODE: "Constant"}
+            fixes.append({
+                "room": room, "label": label,
+                "description": (f"Zona '{room}': liga a janela do "
+                                f"AirflowNetwork ao schedule {schedule}."),
+                "details": [f"AirflowNetwork:MultiZone:Zone: {room} "
+                            f"(Venting Availability Schedule = {schedule})"],
+                "note": "", "templates": [], "prefix": prefix,
+                "updates": {("AirflowNetwork:MultiZone:Zone", index): changes},
+                "objects": [],
+            })
+            continue
+
+        templates = _templates_for_prefix(text, prefix)
+        if not templates:
+            if prefix == "VENT":
+                fields = [part.format(room=room.upper())
+                          for part in DEFAULT_FAN_FIELDS]
+                fixes.append({
+                    "room": room, "label": label,
+                    "description": (f"Zona '{room}': cria o ventilador "
+                                    f"VENTILADOR_{room.upper()} (27 W) "
+                                    f"acionado por {schedule}."),
+                    "details": [f"ElectricEquipment: VENTILADOR_{room.upper()}"],
+                    "note": "", "templates": [], "prefix": prefix,
+                    "updates": {},
+                    "objects": [("ElectricEquipment", fields)],
+                })
+                continue
+            pending.append(
+                f"Zona '{room}': o IDF não tem nenhum {label} para servir de "
+                "molde, então ele precisa ser modelado antes.")
+            continue
+
+        wanted = template_rooms.get(prefix)
+        object_type, fields, template_room = next(
+            (candidate for candidate in templates if candidate[2] == wanted),
+            templates[0])
+        objects = _clone_for_room(text, object_type, fields, template_room, room)
+        fixes.append({
+            "room": room, "label": label,
+            "description": (f"Zona '{room}': copia o {label} "
+                            f"{object_type} da zona '{template_room}' "
+                            f"({len(objects)} objeto(s), vazões em autosize)."),
+            # O IDF pode ter mais de um sistema; o usuário precisa ver qual foi
+            # copiado e o que exatamente entra no modelo por causa disso.
+            "details": _clone_details(objects),
+            "note": _template_choice_note(templates, template_room, label),
+            "templates": [(kind, source) for kind, _, source in templates],
+            "prefix": prefix,
+            "updates": {},
+            "objects": objects,
+        })
+    return fixes, pending
+
+
+def apply_equipment_fixes(src_path: str, dst_path: str, fixes: List[dict]) -> None:
+    """Grava um IDF novo com o equipamento das correções escolhidas.
+
+    O arquivo de origem não é tocado: os objetos novos vão para o fim da cópia,
+    marcados com a data, e as ligações que já existiam são reescritas no lugar.
+    """
+    updates = {}
+    for fix in fixes:
+        updates.update(fix["updates"])
+    write_idf_fields(src_path, dst_path, updates)
+
+    lines = []
+    for fix in fixes:
+        for object_type, fields in fix["objects"]:
+            lines.append("")
+            lines.append(f"! {fix['description']}")
+            if fix.get("note"):
+                lines.append(f"! {fix['note']}")
+            lines.extend(_serialize_object(object_type, fields))
+    if not lines:
+        return
+
+    stamp = datetime.now().strftime("%d/%m/%Y %H:%M")
+    with open(dst_path, "a", encoding="latin-1") as handle:
+        handle.write(f"\n! Equipamento adicionado pelo Confortímetro Klimaa em "
+                     f"{stamp}\n")
+        handle.write("\n".join(lines) + "\n")
 
 
 def _idf_objects(idf_path: str, object_type: str) -> List[List[str]]:
@@ -604,6 +896,15 @@ class IDFProcessor:
                 
             except Exception as e:
                 errors.append(f"Failed to parse IDF file: {e}")
+
+            problems = unwired_equipment(self.configs.idf_path,
+                                         self.configs.rooms or [],
+                                         self.configs.module_type)
+            if getattr(self.configs, "ignore_missing_equipment", False):
+                for problem in problems:
+                    self.logger.warning(problem)
+            else:
+                errors.extend(problems)
             
         except Exception as e:
             errors.append(f"Validation error: {e}")
@@ -631,6 +932,29 @@ def _self_check() -> None:
         assert (end.month, end.day) == (3, 18), end  # fim exclusivo
         assert read_people(target)[0]["people"] == "12"
         assert read_zone_names(target) == zones
+
+        # Equipamento exigido pelo módulo: o SALA_PTHP tem AC e ventilador
+        # ligados; um IDF sem eles precisa reclamar antes de simular.
+        assert unwired_equipment(source, zones, ModuleType.CLOSED_WINDOW) == []
+        sem_ac = os.path.join(directory, "sem_ac.idf")
+        texto = _read_text(source)
+        with open(sem_ac, "w", encoding="latin-1") as handle:
+            handle.write(texto.replace(f"AC_{zones[0].upper()}", "ALWAYS ON"))
+        problemas = unwired_equipment(sem_ac, zones, ModuleType.CLOSED_WINDOW)
+        assert len(problemas) == 1 and "ar-condicionado" in problemas[0], problemas
+
+        # Sem molde de ventilador no IDF, a correção cria o equipamento padrão
+        # e o arquivo gravado deixa de acusar a falta.
+        sem_vent = os.path.join(directory, "sem_vent.idf")
+        with open(sem_vent, "w", encoding="latin-1") as handle:
+            handle.write(texto.replace("VENT_SALA,", "OCUPACAO,"))
+        assert unwired_equipment(sem_vent, zones, ModuleType.CLOSED_WINDOW)
+        fixes, _ = plan_equipment_fixes(sem_vent, zones, ModuleType.CLOSED_WINDOW)
+        assert len(fixes) == 1, fixes
+        corrigido = os.path.join(directory, "corrigido.idf")
+        apply_equipment_fixes(sem_vent, corrigido, fixes)
+        assert unwired_equipment(corrigido, zones, ModuleType.CLOSED_WINDOW) == []
+        assert read_zone_names(corrigido) == zones
         # O original continua intacto.
         assert read_timesteps_per_hour(source) == 6
     print("ok")

@@ -234,6 +234,9 @@ class SimulationConfig:
     air_speed_delta: float = 0.15
     pmv_comfort_bound: float = 0.2
     module_type: ModuleType = ModuleType.COMPLETE
+    # Rodar mesmo com zonas sem o equipamento que o módulo exige: o usuário
+    # confirmou o aviso. Fica no configs.json para a execução registrar isso.
+    ignore_missing_equipment: bool = False
 
     def __post_init__(self):
         # Sem saída escolhida, cada execução ganha a sua subpasta na pasta de

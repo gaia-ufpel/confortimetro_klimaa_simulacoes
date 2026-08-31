@@ -354,6 +354,62 @@ def toast(widget, message: str, kind: str = "info", timeout: int = 5000):
     return frame
 
 
+def ask_choices(widget, title: str, message: str, fields: dict,
+                confirm: str = "Confirmar", cancel: str = "Cancelar"):
+    """Diálogo modal com uma escolha por campo; `None` quando o usuário desiste.
+
+    `fields` mapeia o rótulo para as opções (a primeira já vem selecionada) e a
+    resposta devolve o mesmo rótulo com a opção escolhida. É a exceção à regra
+    de não abrir `Toplevel`: como o `messagebox`, isto é um diálogo modal, não
+    uma página do roteador — e o `messagebox` não aceita seletor.
+    """
+    parent = widget.winfo_toplevel()
+    window = tk.Toplevel(parent)
+    window.title(title)
+    window.configure(bg=COLORS["bg"])
+    window.transient(parent)
+    window.resizable(False, False)
+
+    body = ttk.Frame(window, style="TFrame", padding=SPACE[4])
+    body.pack(fill="both", expand=True)
+    ttk.Label(body, text=message, style="Body.TLabel", justify="left",
+              wraplength=520).pack(anchor="w", pady=(0, SPACE[3]))
+
+    variables = {}
+    for label, options in fields.items():
+        ttk.Label(body, text=label, style="Body.TLabel").pack(
+            anchor="w", pady=(SPACE[2], 0))
+        variable = tk.StringVar(value=options[0] if options else "")
+        combo = ttk.Combobox(body, textvariable=variable, values=list(options),
+                             state="readonly", width=52)
+        combo.pack(anchor="w", fill="x")
+        variables[label] = variable
+
+    answer = {}
+
+    def accept():
+        answer.update({label: variable.get()
+                       for label, variable in variables.items()})
+        window.destroy()
+
+    buttons = ttk.Frame(body, style="TFrame")
+    buttons.pack(anchor="e", pady=(SPACE[4], 0))
+    RoundedButton(buttons, cancel, command=window.destroy,
+                  variant="ghost").pack(side="left", padx=(0, SPACE[2]))
+    RoundedButton(buttons, confirm, command=accept).pack(side="left")
+
+    window.bind("<Escape>", lambda _event: window.destroy())
+    window.update_idletasks()
+    # Centralizada na janela principal: aberta no canto da tela, o diálogo
+    # passava despercebido atrás do cursor.
+    x = parent.winfo_rootx() + (parent.winfo_width() - window.winfo_width()) // 2
+    y = parent.winfo_rooty() + (parent.winfo_height() - window.winfo_height()) // 3
+    window.geometry(f"+{max(x, 0)}+{max(y, 0)}")
+    window.grab_set()
+    parent.wait_window(window)
+    return answer or None
+
+
 def _place_toasts(stack):
     offset = SPACE[4]
     for frame in reversed(stack):
@@ -905,6 +961,17 @@ def demo():
     assert list(chips._combo["values"]) == ["B"]   # já escolhida sai da lista
     chips._remove("A")
     assert chips.get_values() == []
+
+    # Diálogo modal: monta, fecha sozinho e devolve None quando o usuário
+    # desiste.
+    def close_dialog():
+        for child in root.winfo_children():
+            if isinstance(child, tk.Toplevel):
+                child.destroy()
+
+    root.after(200, close_dialog)
+    assert ask_choices(root, "Escolha", "De onde copiar?",
+                       {"Ar-condicionado de:": ["SALA (PTHP)", "COPA (PTHP)"]}) is None
 
     # Janela própria: o card acima já ocupa a primeira.
     window = tk.Toplevel(root)

@@ -14,7 +14,9 @@ import copy
 from typing import Optional
 
 from confortimetro.config import SimulationConfig
-from confortimetro.idf import read_zone_names, write_idf_fields
+from confortimetro.idf import (apply_equipment_fixes, plan_equipment_fixes,
+                               read_zone_names, unwired_equipment,
+                               write_idf_fields)
 from confortimetro.paths import new_run_path, runs_root
 from .components import (
     MACHINE_FIELDS,
@@ -35,6 +37,7 @@ from .theme import (
     Card,
     RoundedButton,
     apply_theme,
+    ask_choices,
     toast,
 )
 
@@ -417,6 +420,107 @@ class MainWindow(tk.Tk):
             self.results_panel.append_error(f"Erro ao salvar configuração: {str(e)}")
             toast(self, f"Erro ao salvar configuração: {e}", "error")
     
+    def _resolve_missing_equipment(self) -> list:
+        """Faltas de equipamento que sobram depois de oferecer a correção.
+
+        Quando dá para copiar o equipamento de outra zona do próprio IDF, a
+        interface pergunta e grava um modelo novo ao lado do original — o
+        arquivo escolhido pelo usuário nunca é reescrito.
+        """
+        problems = unwired_equipment(self.configs.idf_path,
+                                     self.configs.rooms or [],
+                                     self.configs.module_type)
+        if not problems:
+            return []
+        for problem in problems:
+            self.results_panel.append_warning(problem)
+
+        rooms = self.configs.rooms or []
+        fixes, _ = plan_equipment_fixes(self.configs.idf_path, rooms,
+                                        self.configs.module_type)
+        if not fixes:
+            return problems
+
+        # Com mais de um sistema para copiar, quem escolhe é o usuário: o
+        # ar-condicionado de cada zona pode ser um equipamento diferente.
+        choices = {}
+        for fix in fixes:
+            if len(fix["templates"]) > 1:
+                choices.setdefault(
+                    fix["prefix"],
+                    (f"Copiar o {fix['label']} de:",
+                     [f"{source} ({kind})"
+                      for kind, source in dict.fromkeys(fix["templates"])]))
+        if choices:
+            answer = ask_choices(
+                self, "Incluir o equipamento que falta?",
+                f"{len(fixes)} zona(s) sem o equipamento que o módulo "
+                f"{self.configs.module_type} controla. O IDF escolhido não é "
+                "alterado: as inclusões vão para um arquivo novo ao lado dele, "
+                "que passa a ser o modelo desta simulação.\n\nDe qual zona "
+                "copiar o equipamento?",
+                {label: options for label, options in choices.values()},
+                confirm="Incluir", cancel="Agora não")
+            if answer is None:
+                return problems
+            template_rooms = {}
+            for prefix, (label, _) in choices.items():
+                template_rooms[prefix] = answer[label].split(" (")[0]
+            fixes, _ = plan_equipment_fixes(self.configs.idf_path, rooms,
+                                            self.configs.module_type,
+                                            template_rooms)
+
+        # O log leva o inventário completo: um IDF costuma ter mais de um
+        # sistema de ar-condicionado, e o usuário precisa ver qual foi copiado
+        # e que objetos entram no modelo por causa disso.
+        for fix in fixes:
+            self.results_panel.append_info(fix["description"])
+            if fix.get("note"):
+                self.results_panel.append_warning(fix["note"])
+            for detail in fix.get("details", ()):
+                self.results_panel.append_info(f"    {detail}")
+
+        detail = "\n".join(f"• {fix['description']}" for fix in fixes[:6])
+        rest = len(fixes) - 6
+        if rest > 0:
+            detail += f"\n• (e mais {rest} no log)"
+
+        notes = list(dict.fromkeys(fix["note"] for fix in fixes if fix.get("note")))
+        if notes:
+            detail += "\n\n" + "\n".join(notes)
+
+        created = {}
+        for fix in fixes:
+            for object_type, _ in fix["objects"]:
+                created[object_type] = created.get(object_type, 0) + 1
+        if created:
+            summary = ", ".join(f"{count}× {object_type}"
+                                for object_type, count in sorted(created.items()))
+            detail += f"\n\nObjetos criados: {summary} (nomes no log)."
+
+        # Confirmação final mesmo depois do seletor: só aqui a lista reflete
+        # o molde escolhido.
+        if not messagebox.askyesno(
+                "Incluir o equipamento que falta?",
+                f"{detail}\n\nO IDF escolhido não é alterado: as inclusões vão "
+                "para um arquivo novo ao lado dele, que passa a ser o modelo "
+                "desta simulação.\n\nIncluir?",
+                icon="question", parent=self):
+            return problems
+
+        target = self._new_idf_name(self.configs.idf_path, "equipamentos")
+        try:
+            apply_equipment_fixes(self.configs.idf_path, target, fixes)
+        except (OSError, IndexError) as error:
+            toast(self, f"Não foi possível gravar o IDF: {error}", "error")
+            return problems
+
+        self.path_panel.set_idf_path(target)
+        self.on_idf_path_changed(target)
+        toast(self, f"Equipamento incluído em {os.path.basename(target)}.", "ok")
+        return unwired_equipment(target, self.configs.rooms or [],
+                                 self.configs.module_type)
+
     def _validate_configuration(self) -> bool:
         """Validate the current configuration."""
         if not self.configs:
@@ -435,7 +539,31 @@ class MainWindow(tk.Tk):
         if not os.path.exists(self.configs.energy_path):
             toast(self, "Pasta do EnergyPlus não existe.", "error")
             return False
-        
+
+        # Zona sem o equipamento do módulo simularia inteira decidindo no vazio;
+        # a simulação também barra isso, mas o aviso aqui chega antes da espera.
+        self.configs.ignore_missing_equipment = False
+        problems = self._resolve_missing_equipment()
+        if problems:
+            head = "\n".join(problems[:3])
+            rest = len(problems) - 3
+            if rest > 0:
+                head += f"\n(e mais {rest} no log)"
+            # Confirmação bloqueante, e não toast: a simulação leva horas e
+            # começaria com zonas decidindo no vazio.
+            if not messagebox.askyesno(
+                    "Equipamento faltando no IDF",
+                    f"{head}\n\nEssas zonas vão simular sem o equipamento que o "
+                    f"módulo {self.configs.module_type} controla.\n\n"
+                    "Rodar mesmo assim?",
+                    icon="warning", default="no", parent=self):
+                toast(self, "Simulação cancelada: equipamento faltando no IDF.",
+                      "error")
+                return False
+            self.configs.ignore_missing_equipment = True
+            self.results_panel.append_warning(
+                "Simulação iniciada ignorando o equipamento faltante.")
+
         return True
     
     def _run_simulation_thread(self, q: Queue):
@@ -538,13 +666,13 @@ class MainWindow(tk.Tk):
         toast(self, f"IDF salvo em {os.path.basename(target)}.", "ok")
 
     @staticmethod
-    def _new_idf_name(source: str) -> str:
-        """`<nome>_editado.idf`, numerado enquanto o nome já existir."""
+    def _new_idf_name(source: str, suffix: str = "editado") -> str:
+        """`<nome>_<sufixo>.idf`, numerado enquanto o nome já existir."""
         base, extension = os.path.splitext(source)
-        candidate = f"{base}_editado{extension}"
+        candidate = f"{base}_{suffix}{extension}"
         counter = 2
         while os.path.exists(candidate):
-            candidate = f"{base}_editado_{counter}{extension}"
+            candidate = f"{base}_{suffix}_{counter}{extension}"
             counter += 1
         return candidate
 
