@@ -14,7 +14,8 @@ import copy
 from typing import Optional
 
 from confortimetro.config import SimulationConfig
-from confortimetro.idf import read_zone_names, write_idf_fields
+from confortimetro.idf import (read_zone_names, unwired_equipment,
+                               write_idf_fields)
 from confortimetro.paths import new_run_path, runs_root
 from .components import (
     MACHINE_FIELDS,
@@ -435,7 +436,35 @@ class MainWindow(tk.Tk):
         if not os.path.exists(self.configs.energy_path):
             toast(self, "Pasta do EnergyPlus não existe.", "error")
             return False
-        
+
+        # Zona sem o equipamento do módulo simularia inteira decidindo no vazio;
+        # a simulação também barra isso, mas o aviso aqui chega antes da espera.
+        problems = unwired_equipment(self.configs.idf_path,
+                                     self.configs.rooms or [],
+                                     self.configs.module_type)
+        self.configs.ignore_missing_equipment = False
+        if problems:
+            for problem in problems:
+                self.results_panel.append_warning(problem)
+            head = "\n".join(problems[:3])
+            rest = len(problems) - 3
+            if rest > 0:
+                head += f"\n(e mais {rest} no log)"
+            # Confirmação bloqueante, e não toast: a simulação leva horas e
+            # começaria com zonas decidindo no vazio.
+            if not messagebox.askyesno(
+                    "Equipamento faltando no IDF",
+                    f"{head}\n\nEssas zonas vão simular sem o equipamento que o "
+                    f"módulo {self.configs.module_type} controla.\n\n"
+                    "Rodar mesmo assim?",
+                    icon="warning", default="no", parent=self):
+                toast(self, "Simulação cancelada: equipamento faltando no IDF.",
+                      "error")
+                return False
+            self.configs.ignore_missing_equipment = True
+            self.results_panel.append_warning(
+                "Simulação iniciada ignorando o equipamento faltante.")
+
         return True
     
     def _run_simulation_thread(self, q: Queue):

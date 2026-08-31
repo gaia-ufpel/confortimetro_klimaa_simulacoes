@@ -111,6 +111,7 @@ Validar sem simular:
 | `co2_limit` | 900.0 | Limite de CO₂ (ppm) que aciona a ventilação/DOAS. |
 | `rooms` | lista | Zonas do IDF processadas e exportadas. |
 | `module_type` | `COMPLETE` | Estratégia de condicionamento (seção 4). |
+| `ignore_missing_equipment` | `false` | Roda mesmo com zonas sem o equipamento exigido pelo módulo (só avisa no log). |
 
 ## 4. Módulos de condicionamento (`module_type`)
 

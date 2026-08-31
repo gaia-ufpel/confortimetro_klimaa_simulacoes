@@ -10,9 +10,10 @@ from confortimetro.idf.processor import (
     read_run_period,
     read_timesteps_per_hour,
     read_zone_names,
+    unwired_equipment,
     write_idf_fields,
 )
 
 __all__ = ['IDFProcessor', 'read_zone_names', 'read_run_period',
            'read_timesteps_per_hour', 'read_people', 'write_idf_fields',
-           'PEOPLE_METHODS', 'PEOPLE_METHOD_FIELD']
+           'PEOPLE_METHODS', 'PEOPLE_METHOD_FIELD', 'unwired_equipment']

@@ -655,9 +655,14 @@ class IDFProcessor:
             except Exception as e:
                 errors.append(f"Failed to parse IDF file: {e}")
 
-            errors.extend(unwired_equipment(self.configs.idf_path,
-                                            self.configs.rooms or [],
-                                            self.configs.module_type))
+            problems = unwired_equipment(self.configs.idf_path,
+                                         self.configs.rooms or [],
+                                         self.configs.module_type)
+            if getattr(self.configs, "ignore_missing_equipment", False):
+                for problem in problems:
+                    self.logger.warning(problem)
+            else:
+                errors.extend(problems)
             
         except Exception as e:
             errors.append(f"Validation error: {e}")
