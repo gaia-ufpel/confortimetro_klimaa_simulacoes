@@ -14,7 +14,8 @@ import copy
 from typing import Optional
 
 from confortimetro.config import SimulationConfig
-from confortimetro.idf import (read_zone_names, unwired_equipment,
+from confortimetro.idf import (apply_equipment_fixes, plan_equipment_fixes,
+                               read_zone_names, unwired_equipment,
                                write_idf_fields)
 from confortimetro.paths import new_run_path, runs_root
 from .components import (
@@ -418,6 +419,54 @@ class MainWindow(tk.Tk):
             self.results_panel.append_error(f"Erro ao salvar configuração: {str(e)}")
             toast(self, f"Erro ao salvar configuração: {e}", "error")
     
+    def _resolve_missing_equipment(self) -> list:
+        """Faltas de equipamento que sobram depois de oferecer a correção.
+
+        Quando dá para copiar o equipamento de outra zona do próprio IDF, a
+        interface pergunta e grava um modelo novo ao lado do original — o
+        arquivo escolhido pelo usuário nunca é reescrito.
+        """
+        problems = unwired_equipment(self.configs.idf_path,
+                                     self.configs.rooms or [],
+                                     self.configs.module_type)
+        if not problems:
+            return []
+        for problem in problems:
+            self.results_panel.append_warning(problem)
+
+        fixes, _ = plan_equipment_fixes(self.configs.idf_path,
+                                        self.configs.rooms or [],
+                                        self.configs.module_type)
+        if not fixes:
+            return problems
+
+        detail = "\n".join(f"• {fix['description']}" for fix in fixes[:6])
+        rest = len(fixes) - 6
+        if rest > 0:
+            detail += f"\n• (e mais {rest} no log)"
+        if not messagebox.askyesno(
+                "Incluir o equipamento que falta?",
+                f"{detail}\n\nO IDF escolhido não é alterado: as inclusões vão "
+                "para um arquivo novo ao lado dele, que passa a ser o modelo "
+                "desta simulação.\n\nIncluir?",
+                icon="question", parent=self):
+            return problems
+
+        target = self._new_idf_name(self.configs.idf_path, "equipamentos")
+        try:
+            apply_equipment_fixes(self.configs.idf_path, target, fixes)
+        except (OSError, IndexError) as error:
+            toast(self, f"Não foi possível gravar o IDF: {error}", "error")
+            return problems
+
+        for fix in fixes:
+            self.results_panel.append_info(fix["description"])
+        self.path_panel.set_idf_path(target)
+        self.on_idf_path_changed(target)
+        toast(self, f"Equipamento incluído em {os.path.basename(target)}.", "ok")
+        return unwired_equipment(target, self.configs.rooms or [],
+                                 self.configs.module_type)
+
     def _validate_configuration(self) -> bool:
         """Validate the current configuration."""
         if not self.configs:
@@ -439,13 +488,9 @@ class MainWindow(tk.Tk):
 
         # Zona sem o equipamento do módulo simularia inteira decidindo no vazio;
         # a simulação também barra isso, mas o aviso aqui chega antes da espera.
-        problems = unwired_equipment(self.configs.idf_path,
-                                     self.configs.rooms or [],
-                                     self.configs.module_type)
         self.configs.ignore_missing_equipment = False
+        problems = self._resolve_missing_equipment()
         if problems:
-            for problem in problems:
-                self.results_panel.append_warning(problem)
             head = "\n".join(problems[:3])
             rest = len(problems) - 3
             if rest > 0:
@@ -567,13 +612,13 @@ class MainWindow(tk.Tk):
         toast(self, f"IDF salvo em {os.path.basename(target)}.", "ok")
 
     @staticmethod
-    def _new_idf_name(source: str) -> str:
-        """`<nome>_editado.idf`, numerado enquanto o nome já existir."""
+    def _new_idf_name(source: str, suffix: str = "editado") -> str:
+        """`<nome>_<sufixo>.idf`, numerado enquanto o nome já existir."""
         base, extension = os.path.splitext(source)
-        candidate = f"{base}_editado{extension}"
+        candidate = f"{base}_{suffix}{extension}"
         counter = 2
         while os.path.exists(candidate):
-            candidate = f"{base}_editado_{counter}{extension}"
+            candidate = f"{base}_{suffix}_{counter}{extension}"
             counter += 1
         return candidate
 
