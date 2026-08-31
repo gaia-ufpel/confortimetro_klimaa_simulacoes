@@ -440,10 +440,34 @@ class MainWindow(tk.Tk):
         if not fixes:
             return problems
 
+        # O log leva o inventário completo: um IDF costuma ter mais de um
+        # sistema de ar-condicionado, e o usuário precisa ver qual foi copiado
+        # e que objetos entram no modelo por causa disso.
+        for fix in fixes:
+            self.results_panel.append_info(fix["description"])
+            if fix.get("note"):
+                self.results_panel.append_warning(fix["note"])
+            for detail in fix.get("details", ()):
+                self.results_panel.append_info(f"    {detail}")
+
         detail = "\n".join(f"• {fix['description']}" for fix in fixes[:6])
         rest = len(fixes) - 6
         if rest > 0:
             detail += f"\n• (e mais {rest} no log)"
+
+        notes = list(dict.fromkeys(fix["note"] for fix in fixes if fix.get("note")))
+        if notes:
+            detail += "\n\n" + "\n".join(notes)
+
+        created = {}
+        for fix in fixes:
+            for object_type, _ in fix["objects"]:
+                created[object_type] = created.get(object_type, 0) + 1
+        if created:
+            summary = ", ".join(f"{count}× {object_type}"
+                                for object_type, count in sorted(created.items()))
+            detail += f"\n\nObjetos criados: {summary} (nomes no log)."
+
         if not messagebox.askyesno(
                 "Incluir o equipamento que falta?",
                 f"{detail}\n\nO IDF escolhido não é alterado: as inclusões vão "
@@ -459,8 +483,6 @@ class MainWindow(tk.Tk):
             toast(self, f"Não foi possível gravar o IDF: {error}", "error")
             return problems
 
-        for fix in fixes:
-            self.results_panel.append_info(fix["description"])
         self.path_panel.set_idf_path(target)
         self.on_idf_path_changed(target)
         toast(self, f"Equipamento incluído em {os.path.basename(target)}.", "ok")

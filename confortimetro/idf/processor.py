@@ -230,20 +230,41 @@ def _clone_for_room(text: str, object_type: str, fields: List[str],
     return created
 
 
-def _template_for_prefix(text: str, prefix: str):
-    """Objeto de outra zona que já usa esse equipamento: `(tipo, campos, zona)`.
+def _templates_for_prefix(text: str, prefix: str) -> List[tuple]:
+    """Objetos de outras zonas que já usam esse equipamento.
 
-    Serve de molde. Procura quem *referencia* um schedule `PREFIXO_<ZONA>` —
-    a declaração `Schedule:Constant` do próprio schedule não conta.
+    Cada item é `(tipo, campos, zona)` e serve de molde. Procura quem
+    *referencia* um schedule `PREFIXO_<ZONA>` — a declaração
+    `Schedule:Constant` do próprio schedule não conta.
     """
+    templates = []
     for object_type, fields, _, _ in _iter_objects(text):
         if object_type.lower().startswith("schedule"):
             continue
         for position, field in enumerate(fields):
             value = field.strip().upper()
             if position and value.startswith(f"{prefix}_"):
-                return object_type, fields, value[len(prefix) + 1:]
-    return None
+                templates.append((object_type, fields, value[len(prefix) + 1:]))
+                break
+    return templates
+
+
+def _clone_details(objects: List[tuple]) -> List[str]:
+    """`Tipo: NOME` de cada objeto que a correção vai criar."""
+    return [f"{object_type}: {fields[0]}" if fields else object_type
+            for object_type, fields in objects]
+
+
+def _template_choice_note(templates: List[tuple], chosen_room: str,
+                          label: str) -> str:
+    """Aviso quando o IDF tem mais de um sistema para servir de molde."""
+    kinds = {object_type for object_type, _, _ in templates}
+    rooms = [room for _, _, room in templates]
+    if len(templates) < 2:
+        return ""
+    return (f"O IDF tem {len(templates)} {label}(s) ({', '.join(sorted(kinds))}) "
+            f"nas zonas {', '.join(sorted(set(rooms)))}; a cópia usa o da zona "
+            f"'{chosen_room}'.")
 
 
 def plan_equipment_fixes(idf_path: str, rooms: List[str],
@@ -276,13 +297,16 @@ def plan_equipment_fixes(idf_path: str, rooms: List[str],
                 "room": room, "label": label,
                 "description": (f"Zona '{room}': liga a janela do "
                                 f"AirflowNetwork ao schedule {schedule}."),
+                "details": [f"AirflowNetwork:MultiZone:Zone: {room} "
+                            f"(Venting Availability Schedule = {schedule})"],
+                "note": "",
                 "updates": {("AirflowNetwork:MultiZone:Zone", index): changes},
                 "objects": [],
             })
             continue
 
-        template = _template_for_prefix(text, prefix)
-        if template is None:
+        templates = _templates_for_prefix(text, prefix)
+        if not templates:
             if prefix == "VENT":
                 fields = [part.format(room=room.upper())
                           for part in DEFAULT_FAN_FIELDS]
@@ -291,6 +315,8 @@ def plan_equipment_fixes(idf_path: str, rooms: List[str],
                     "description": (f"Zona '{room}': cria o ventilador "
                                     f"VENTILADOR_{room.upper()} (27 W) "
                                     f"acionado por {schedule}."),
+                    "details": [f"ElectricEquipment: VENTILADOR_{room.upper()}"],
+                    "note": "",
                     "updates": {},
                     "objects": [("ElectricEquipment", fields)],
                 })
@@ -300,13 +326,17 @@ def plan_equipment_fixes(idf_path: str, rooms: List[str],
                 "molde, então ele precisa ser modelado antes.")
             continue
 
-        object_type, fields, template_room = template
+        object_type, fields, template_room = templates[0]
         objects = _clone_for_room(text, object_type, fields, template_room, room)
         fixes.append({
             "room": room, "label": label,
-            "description": (f"Zona '{room}': copia o {label} da zona "
-                            f"'{template_room}' ({len(objects)} objeto(s), "
-                            "vazões em autosize)."),
+            "description": (f"Zona '{room}': copia o {label} "
+                            f"{object_type} da zona '{template_room}' "
+                            f"({len(objects)} objeto(s), vazões em autosize)."),
+            # O IDF pode ter mais de um sistema; o usuário precisa ver qual foi
+            # copiado e o que exatamente entra no modelo por causa disso.
+            "details": _clone_details(objects),
+            "note": _template_choice_note(templates, template_room, label),
             "updates": {},
             "objects": objects,
         })
@@ -329,6 +359,8 @@ def apply_equipment_fixes(src_path: str, dst_path: str, fixes: List[dict]) -> No
         for object_type, fields in fix["objects"]:
             lines.append("")
             lines.append(f"! {fix['description']}")
+            if fix.get("note"):
+                lines.append(f"! {fix['note']}")
             lines.extend(_serialize_object(object_type, fields))
     if not lines:
         return
