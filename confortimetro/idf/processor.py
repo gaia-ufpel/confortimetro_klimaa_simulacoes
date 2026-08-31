@@ -92,6 +92,56 @@ def _read_text(idf_path: str) -> str:
         return ""
 
 
+# Equipamento que cada módulo precisa ver ligado no IDF, por zona: o prefixo do
+# schedule de controle e o nome que o usuário reconhece. O controlador escreve
+# nesses schedules a cada timestep; se nenhum objeto do IDF os consome, a
+# simulação roda inteira decidindo no vazio.
+MODULE_REQUIRED_EQUIPMENT = {
+    ModuleType.COMPLETE: (("JANELA", "janela"), ("VENT", "ventilador"),
+                          ("AC", "ar-condicionado")),
+    ModuleType.CLOSED_WINDOW: (("VENT", "ventilador"), ("AC", "ar-condicionado")),
+    ModuleType.WITHOUT_FAN: (("JANELA", "janela"), ("AC", "ar-condicionado")),
+    ModuleType.FIXED_AC_WITHOUT_FAN: (("JANELA", "janela"),
+                                      ("AC", "ar-condicionado")),
+}
+
+
+def _referenced_names(text: str) -> dict:
+    """Quantas vezes cada nome aparece como campo do IDF, em maiúsculas.
+
+    A declaração `Schedule:Constant` conta como uma ocorrência; quem é usado
+    por algum objeto aparece pelo menos duas vezes.
+    """
+    counts = {}
+    for line in text.splitlines():
+        line = line.split("!")[0]
+        for token in line.replace(";", ",").split(","):
+            token = token.strip().upper()
+            if token:
+                counts[token] = counts.get(token, 0) + 1
+    return counts
+
+
+def unwired_equipment(idf_path: str, rooms: List[str],
+                      module_type: ModuleType) -> List[str]:
+    """Zonas sem o equipamento que o módulo escolhido exige.
+
+    Devolve mensagens prontas para o usuário. Um schedule de controle só está
+    ligado a algo se algum outro objeto do IDF o referencia — o processamento
+    cria o schedule que faltar, então a existência dele não prova nada.
+    """
+    counts = _referenced_names(_read_text(idf_path))
+    problems = []
+    for prefix, label in MODULE_REQUIRED_EQUIPMENT.get(module_type, ()):
+        for room in rooms:
+            name = f"{prefix}_{room.upper()}"
+            if counts.get(name, 0) < 2:
+                problems.append(
+                    f"Zona '{room}' não tem {label}: nenhum objeto do IDF usa o "
+                    f"schedule {name}, exigido pelo módulo {module_type}.")
+    return problems
+
+
 def _idf_objects(idf_path: str, object_type: str) -> List[List[str]]:
     """Campos de cada objeto de um tipo, lendo o texto do IDF."""
     return [fields for fields, _, _ in
@@ -604,6 +654,10 @@ class IDFProcessor:
                 
             except Exception as e:
                 errors.append(f"Failed to parse IDF file: {e}")
+
+            errors.extend(unwired_equipment(self.configs.idf_path,
+                                            self.configs.rooms or [],
+                                            self.configs.module_type))
             
         except Exception as e:
             errors.append(f"Validation error: {e}")
@@ -631,6 +685,16 @@ def _self_check() -> None:
         assert (end.month, end.day) == (3, 18), end  # fim exclusivo
         assert read_people(target)[0]["people"] == "12"
         assert read_zone_names(target) == zones
+
+        # Equipamento exigido pelo módulo: o SALA_PTHP tem AC e ventilador
+        # ligados; um IDF sem eles precisa reclamar antes de simular.
+        assert unwired_equipment(source, zones, ModuleType.CLOSED_WINDOW) == []
+        sem_ac = os.path.join(directory, "sem_ac.idf")
+        texto = _read_text(source)
+        with open(sem_ac, "w", encoding="latin-1") as handle:
+            handle.write(texto.replace(f"AC_{zones[0].upper()}", "ALWAYS ON"))
+        problemas = unwired_equipment(sem_ac, zones, ModuleType.CLOSED_WINDOW)
+        assert len(problemas) == 1 and "ar-condicionado" in problemas[0], problemas
         # O original continua intacto.
         assert read_timesteps_per_hour(source) == 6
     print("ok")
