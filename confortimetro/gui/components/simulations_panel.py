@@ -293,16 +293,22 @@ class SimulationsPanel(ttk.Frame):
         """Regera ESTATISTICAS.xlsx das execuções selecionadas, em segundo plano."""
         if self._busy:
             return
-        runs = [run for run in self._selected_runs()
-                if run['status'] in ('desatualizada', 'sem estatísticas')]
+        selected = self._selected_runs()
+        if not selected:
+            toast(self, "Escolha uma execução na lista.", "warn")
+            return
+        runs = [run for run in selected
+                if run['status'] in ('desatualizada', 'sem estatísticas', 'sem planilhas')]
         if not runs:
             toast(self, "As execuções escolhidas já têm estatísticas atualizadas.",
-                  "warn")
+                  "info")
             return
 
         self._busy = True
-        self._set_status(f"Regerando estatísticas de {len(runs)} execuções. Isso lê todas "
-                         "as planilhas por zona e leva minutos.")
+        status_msg = (f"Regerando estatísticas de {len(runs)} "
+                      f"{'execução' if len(runs) == 1 else 'execuções'}. "
+                      "Isso lê todas as planilhas por zona e leva minutos.")
+        self._set_status(status_msg)
 
         def work():
             # Cada planilha por zona tem dezenas de milhares de linhas: fora da
@@ -319,7 +325,16 @@ class SimulationsPanel(ttk.Frame):
         if failed:
             detail = "\n".join(f"{os.path.basename(path)}: {error}"
                                for path, error in failed.items())
-            toast(self, f"{len(failed)} execuções falharam ao regerar:\n{detail}",
-                  "error", timeout=10000)
+            if len(failed) == len(errors):
+                toast(self,
+                      f"{len(failed)} {'execução falhou' if len(failed) == 1 else 'execuções falharam'} ao regerar:\n{detail}",
+                      "error", timeout=10000)
+            else:
+                succeeded = len(errors) - len(failed)
+                succ_text = f"{succeeded} {'execução regerada' if succeeded == 1 else 'execuções regeradas'}"
+                fail_text = f"{len(failed)} {'falhou' if len(failed) == 1 else 'falharam'}"
+                toast(self, f"{succ_text}, mas {fail_text}:\n{detail}",
+                      "error", timeout=10000)
         else:
-            toast(self, f"{len(errors)} execuções regeradas.", "ok")
+            count = len(errors)
+            toast(self, f"{count} {'execução regerada' if count == 1 else 'execuções regeradas'}.", "ok")

@@ -4,7 +4,7 @@ import os
 
 import pandas
 
-def get_stats_from_simulation(output_path, rooms):
+def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataFrame] = None):
     """
     Pega as estatísticas de cada informação, necessário executar a summary_results_from_room antes.
     """
@@ -51,13 +51,16 @@ def get_stats_from_simulation(output_path, rooms):
             'Fora da banda adaptativa': []})
 
     for room in rooms:
-        if not os.path.exists(os.path.join(output_path, f"{room}.xlsx")):
-            raise FileNotFoundError(
-                f"{room}.xlsx não encontrado em {output_path}; rode "
-                "summary_rooms_results_from_eso antes das estatísticas"
-            )
-
-        df = pandas.read_excel(os.path.join(output_path, f"{room}.xlsx"))
+        if frames is not None and room in frames:
+            df = frames[room]
+        else:
+            excel_file = os.path.join(output_path, f"{room}.xlsx")
+            if not os.path.exists(excel_file):
+                raise FileNotFoundError(
+                    f"{room}.xlsx não encontrado em {output_path}; rode "
+                    "summary_rooms_results_from_eso antes das estatísticas"
+                )
+            df = pandas.read_excel(excel_file)
 
         # Planilhas antigas (geradas antes da checagem de período em
         # summary_rooms_results_from_eso) trazem o ano inteiro carimbado mesmo

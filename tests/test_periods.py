@@ -1,5 +1,7 @@
 """Recorte sazonal: vale para qualquer zona e segue o ano da planilha."""
 
+import os
+
 import pandas
 
 from confortimetro.results.periods import split_target_period_excel
@@ -43,3 +45,21 @@ def test_ignora_horas_sem_ocupacao(tmp_path):
     destino = split_target_period_excel(str(path), ROOM)
 
     assert all(aba.empty for aba in pandas.read_excel(destino, sheet_name=None).values())
+
+
+def test_split_target_period_com_df(tmp_path):
+    path = tmp_path / f"{ROOM}.xlsx"
+    # Não cria {ROOM}.xlsx em disco para garantir que usa o df em memória
+    # Criamos um df com horas ocupadas em 2019
+    dates = pandas.date_range("2019-01-01 00:00", "2019-12-31 23:00", freq="1h")
+    df = pandas.DataFrame({
+        "Date/Time": dates,
+        f"PEOPLE_{ROOM}:People Occupant Count": [1.0] * len(dates),
+    })
+
+    destino = split_target_period_excel(str(path), ROOM, df=df)
+    assert os.path.exists(destino)
+    abas = pandas.read_excel(destino, sheet_name=None)
+    assert set(abas.keys()) == {"VERAO", "INVERNO", "DIAS_VERAO", "DIAS_INVERNO"}
+    assert not abas["VERAO"].empty
+

@@ -101,3 +101,42 @@ def test_execucao_antiga_com_parameters_txt_aparece(tmp_path):
     runs = list_runs(str(tmp_path))
     assert [run['run'] for run in runs] == ["FAURB_50_1"]
     assert runs[0]['config']['met'] == "1.2"
+
+
+def test_recompute_sem_planilhas_e_sem_eso(tmp_path):
+    run_path = tmp_path / "SEM_NADA"
+    run_path.mkdir()
+    (run_path / 'configs.json').write_text(json.dumps({'rooms': [ROOM]}), encoding='utf-8')
+    assert recompute_run(str(run_path)) == (
+        str(run_path), 'sem planilhas por zona nem arquivo eplusout.eso')
+
+
+def test_recompute_extrai_de_eplusout_eso(tmp_path, monkeypatch):
+    import os
+    run_path = tmp_path / "COM_ESO"
+    run_path.mkdir()
+    idf_path = tmp_path / "modelo.idf"
+    idf_path.write_text("RunPeriod,\n  Anual, 1, 1, 2015, 1, 2, 2015;\nTimestep, 6;\n")
+    (run_path / 'configs.json').write_text(json.dumps({
+        'rooms': [ROOM],
+        '_idf_path': str(idf_path),
+    }), encoding='utf-8')
+    (run_path / 'eplusout.eso').write_text("dummy eso")
+
+    called_with = []
+
+    def mock_extract(output_path, rooms, timesteps_per_hour=6, start_date=None, end_date=None):
+        called_with.append((output_path, rooms, timesteps_per_hour, start_date, end_date))
+        for room in rooms:
+            _room_dataframe().to_excel(os.path.join(output_path, f"{room}.xlsx"), index=False)
+
+    import confortimetro.results.excel
+    monkeypatch.setattr(confortimetro.results.excel, 'summary_rooms_results_from_eso', mock_extract)
+
+    assert recompute_run(str(run_path)) == (str(run_path), None)
+    assert len(called_with) == 1
+    assert called_with[0][0] == str(run_path)
+    assert called_with[0][1] == [ROOM]
+    assert (run_path / f"{ROOM}.xlsx").exists()
+    assert (run_path / 'ESTATISTICAS.xlsx').exists()
+    assert not needs_recompute(str(run_path))

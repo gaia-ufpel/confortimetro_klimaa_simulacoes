@@ -11,7 +11,30 @@ import pandas
 WARMUP_DAYS = 2
 
 
-def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_per_hour:int=6, start_date='2015-01-01', end_date='2016-1-1 T00:00'):
+def _match_room(var, rooms):
+    # Ordenar por tamanho decrescente para que 'SEC_LINSE' case antes de 'LINSE'
+    sorted_rooms = sorted(rooms, key=len, reverse=True)
+    key, name = var[1], var[2]
+    for r in sorted_rooms:
+        if key:
+            if (key == r or 
+                key.startswith(f"{r} ") or 
+                key.endswith(f"_{r}") or 
+                f"_{r}_" in key or 
+                f"_{r} " in key):
+                return r
+        elif name:
+            if (name.endswith(f":{r}") or 
+                name.endswith(f"_{r}") or 
+                name.endswith(f" {r}") or 
+                f":{r}:" in name or 
+                f"_{r}_" in name or 
+                f" {r} " in name):
+                return r
+    return None
+
+
+def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_per_hour:int=6, start_date='2015-01-01', end_date='2016-1-1 T00:00') -> dict[str, pandas.DataFrame]:
     """
     Resumo dos resultados de cada sala em um arquivo .xlsx a partir de um arquivo .eso
 
@@ -26,31 +49,52 @@ def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_p
     eso = esoreader.read_from_path(os.path.join(output_path, "eplusout.eso"))
     variables = eso.find_variable("")
 
+    outdoor_vars = eso.find_variable("Site Outdoor Air Drybulb Temperature")
+    if not outdoor_vars:
+        raise ValueError(
+            "Variável 'Site Outdoor Air Drybulb Temperature' não encontrada no eplusout.eso; "
+            "confira as Output:Variable do IDF"
+        )
+    outdoor_data = eso.data[eso.dd.index[outdoor_vars[0]]][warmup_rows:]
+
+    room_vars = {room: [] for room in rooms}
+    for variable in variables:
+        matched_room = _match_room(variable, rooms)
+        if matched_room:
+            room_vars[matched_room].append(variable)
+
     frames = {}
     for room in rooms:
-        columns = ["Date/Time", "Site Outdoor Air Drybulb Temperature"]
-        df = eso.to_frame("Site Outdoor Air Drybulb Temperature")
-        
-        for variable in variables:
-            if variable[1] is None:
-                if room in variable[2]:
-                    df = pandas.concat([df, eso.to_frame(variable[2])], axis=1)
-                    columns.append(f"{variable[2]}")
-            elif room in variable[1]:
-                df = pandas.concat([df, eso.to_frame(variable[2])[variable[1]]], axis=1)
-                columns.append(f"{variable[1]}:{variable[2]}")
+        room_cols = {
+            "Date/Time": dates,
+            "Site Outdoor Air Drybulb Temperature": outdoor_data,
+        }
+        for variable in room_vars[room]:
+            col_name = f"{variable[1]}:{variable[2]}" if variable[1] else variable[2]
+            room_cols[col_name] = eso.data[eso.dd.index[variable]][warmup_rows:]
 
-        if len(columns) == 2:
+        if len(room_cols) <= 2:
             raise ValueError(
                 f"Nenhuma variável da sala {room} encontrada no eplusout.eso; "
                 "confira o nome da zona em rooms e as Output:Variable do IDF"
             )
 
-        df = df.drop(df.index[:warmup_rows])
-        df.index = range(len(df))
+        if len(outdoor_data) != len(dates):
+            raise ValueError(
+                f"Resultados da sala {room} têm {len(outdoor_data)} linhas, mas o período "
+                f"esperado tem {len(dates)} (timesteps_per_hour={timesteps_per_hour}, "
+                f"{start_date} a {end_date}). Simulação truncada ou IDF com outro "
+                "RunPeriod/timestep."
+            )
 
-        # concat com tamanhos diferentes preenche com NaN em silêncio: uma
-        # simulação truncada sairia com datas erradas sem nenhum erro.
+        df = pandas.DataFrame(room_cols)
+
+        if len(df.columns) <= 2:
+            raise ValueError(
+                f"Nenhuma variável da sala {room} encontrada no eplusout.eso; "
+                "confira o nome da zona em rooms e as Output:Variable do IDF"
+            )
+
         if len(df) != len(dates):
             raise ValueError(
                 f"Resultados da sala {room} têm {len(df)} linhas, mas o período "
@@ -59,8 +103,6 @@ def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_p
                 "RunPeriod/timestep."
             )
 
-        df = pandas.concat([dates, df], axis=1)
-        df.columns = columns
         frames[room] = df
 
     # ThreadPoolExecutor em vez de Thread crua: com Thread, uma exceção no
@@ -73,3 +115,5 @@ def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_p
         ]
     for future in futures:
         future.result()
+
+    return frames

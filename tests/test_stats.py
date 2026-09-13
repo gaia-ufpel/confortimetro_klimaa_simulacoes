@@ -46,3 +46,14 @@ def test_ignora_linhas_fora_do_periodo_e_soma_energia(tmp_path):
     assert stats["Energia total (kWh)"] == pytest.approx(10.0)
     assert stats["PMV fora da faixa"] == 0.0
     assert stats["Fora da banda adaptativa"] == 0.0
+
+
+def test_get_stats_com_frames(tmp_path):
+    df = _room_dataframe()
+    # Não cria o arquivo {ROOM}.xlsx em disco para garantir que usa o frames em memória
+    get_stats_from_simulation(str(tmp_path), [ROOM], frames={ROOM: df})
+    stats = pandas.read_excel(tmp_path / "ESTATISTICAS.xlsx").iloc[0]
+
+    assert stats["Número ocupação"] == 10
+    assert stats["Aquecimento (kWh)"] == pytest.approx(10.0)
+

@@ -38,12 +38,13 @@ def _split_target_period_dataframe(df, room, year):
     return slices
 
 
-def split_target_period_excel(excel_path, room=None):
+def split_target_period_excel(excel_path, room=None, df=None):
     """Grava um `<ZONA>_SPLIT.xlsx` com uma aba por recorte sazonal.
 
     `room` é deduzido do nome do arquivo quando não é passado.
     """
-    df = pandas.read_excel(excel_path)
+    if df is None:
+        df = pandas.read_excel(excel_path)
     room = room or os.path.splitext(os.path.basename(excel_path))[0]
     year = int(pandas.to_datetime(df["Date/Time"]).dt.year.mode().iloc[0])
 

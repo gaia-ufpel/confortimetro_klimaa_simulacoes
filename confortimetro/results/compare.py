@@ -155,19 +155,44 @@ def list_runs(outputs_path='./outputs', patterns=None, known_mtimes=None):
 
 
 def recompute_run(run_path):
-    """Regera ESTATISTICAS.xlsx a partir das planilhas por zona já existentes.
+    """Regera ESTATISTICAS.xlsx a partir das planilhas por zona já existentes ou do eplusout.eso.
 
     Devolve `(run_path, erro)`; o erro vem como texto para que uma execução
     quebrada não derrube o lote inteiro.
     """
-    info = read_run(run_path)
-    if not info['rooms_disponiveis']:
-        return run_path, 'sem planilhas por zona'
     try:
+        info = read_run(run_path)
+        if not info['rooms_disponiveis']:
+            eso_path = os.path.join(run_path, 'eplusout.eso')
+            if os.path.exists(eso_path):
+                config = read_config(run_path)
+                rooms = config.get('rooms') or []
+                if rooms:
+                    idf_path = (config.get('_idf_path')
+                                or config.get('idf_path')
+                                or os.path.join(run_path, 'modelo.idf'))
+                    if not os.path.exists(idf_path) and os.path.exists(os.path.join(run_path, 'modelo.idf')):
+                        idf_path = os.path.join(run_path, 'modelo.idf')
+                    from confortimetro.idf import read_run_period, read_timesteps_per_hour
+                    from confortimetro.results.excel import summary_rooms_results_from_eso
+
+                    start, end = read_run_period(idf_path)
+                    ts = read_timesteps_per_hour(idf_path)
+                    summary_rooms_results_from_eso(
+                        run_path, rooms, timesteps_per_hour=ts,
+                        start_date=start, end_date=end,
+                    )
+                    info = read_run(run_path)
+            else:
+                return run_path, 'sem planilhas por zona nem arquivo eplusout.eso'
+
+        if not info['rooms_disponiveis']:
+            return run_path, 'sem planilhas por zona nem arquivo eplusout.eso'
+
         get_stats_from_simulation(run_path, info['rooms_disponiveis'])
+        return run_path, None
     except Exception as error:
         return run_path, f"{type(error).__name__}: {error}"
-    return run_path, None
 
 
 def recompute_runs(run_paths, workers=None, on_result=None):
