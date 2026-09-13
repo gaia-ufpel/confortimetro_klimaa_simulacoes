@@ -54,6 +54,7 @@ class MainWindow(tk.Tk):
         # A simulação em andamento, para poder pedir o cancelamento a ela.
         self.simulation = None
         self.simulation_queue: Optional[Queue] = None
+        self._simulation_error: Optional[str] = None
         # A listagem só é relida quando alguma execução termina.
         self._runs_dirty = False
         self._detail_run: Optional[dict] = None
@@ -578,6 +579,7 @@ class MainWindow(tk.Tk):
             self.simulation = Simulation(copy.deepcopy(self.configs))
             self.simulation.run(q)
         except Exception as e:
+            self._simulation_error = str(e)
             q.put(f"Erro durante a simulação: {str(e)}\n")
     
     def _handle_simulation_message(self, message: str):
@@ -585,6 +587,12 @@ class MainWindow(tk.Tk):
         message = message.strip()
         if message.startswith("PROGRESS "):
             self.control_panel.set_progress(float(message.split()[1]))
+            return
+        lower = message.lower()
+        if "erro" in lower or "error" in lower or message.startswith("Erro"):
+            self.results_panel.append_error(message)
+            self._simulation_error = message
+            self.control_panel.set_status(message, "error")
             return
         self.results_panel.append_info(message)
         self.control_panel.set_status(message, "running")
@@ -608,17 +616,21 @@ class MainWindow(tk.Tk):
             self.control_panel.set_running_state(False)
             self.control_panel.run_button.configure(state="normal")
             interrupted = bool(self.simulation and self.simulation.stop_requested)
+            has_error = bool(getattr(self, "_simulation_error", None))
             if interrupted:
                 self.results_panel.append_warning("Simulação interrompida.")
+                self.control_panel.set_status("Simulação interrompida", "warning")
+            elif has_error:
+                self.results_panel.append_error(
+                    "Simulação finalizada com erros. Verifique os logs acima.")
+                self.control_panel.set_status("Simulação falhou", "error")
             else:
                 self.results_panel.append_success("Simulação concluída!")
+                self.control_panel.set_status("Simulação concluída", "success")
             self._runs_dirty = True
             if getattr(self, "_running_run_path", None):
                 self.simulations_panel.clear_running(self._running_run_path)
                 self._running_run_path = None
-            self.control_panel.set_status(
-                "Simulação interrompida" if interrupted else "Simulação concluída",
-                "warning" if interrupted else "success")
             self.simulation = None
     
     # Callback implementations for PathConfigPanel
@@ -713,6 +725,8 @@ class MainWindow(tk.Tk):
         if self.control_panel.get_is_running():
             return
         
+        self._simulation_error = None
+
         # Save current configuration
         self._update_config_from_ui()
         

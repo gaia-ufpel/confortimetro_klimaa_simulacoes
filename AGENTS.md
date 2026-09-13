@@ -11,8 +11,12 @@ Sempre a partir da raiz do repositório, com o venv do projeto:
 ```bash
 .venv/bin/python cli.py --set output_path=./outputs/run_001   # headless (CLI)
 .venv/bin/python cli.py --print-config                        # valida sem simular
-python main.py                                                # GUI Tkinter
+python main.py                                                # GUI Tkinter (usuário final)
+xvfb-run -a python main.py                                    # GUI com display virtual (agentes/testes)
 ```
+
+**Display virtual para testes da GUI**: Agentes **nunca** devem abrir janelas ou instanciar `MainWindow` diretamente no display ativo do usuário (`$DISPLAY`). Em qualquer teste manual, verificação de layout ou execução do Tkinter no Linux, utilize sempre um display virtual com `xvfb-run -a` (ex.: `xvfb-run -a python main.py` ou `xvfb-run -a .venv/bin/python -c ...`).
+
 
 No Windows o usuário final usa o instalador
 `ConfortimetroKlimaa-<versão>-setup.exe` (gerado por
@@ -182,7 +186,7 @@ num `tk.Canvas` por `theme.rounded_rect`. O resto continua ttk plano.
   layout, confirme com:
 
 ```bash
-.venv/bin/python -c "
+xvfb-run -a .venv/bin/python -c "
 from confortimetro.gui.main_window import MainWindow
 a = MainWindow(); a.show_page('editor'); a.update()
 print(a.path_panel.winfo_ismapped(), a.simulation_panel.winfo_ismapped())

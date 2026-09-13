@@ -94,3 +94,129 @@ def test_comparar_abre_pagina_propria(window, tmp_path):
     # na própria página, não numa tela em branco.
     assert any("estatísticas" in _toast_text(frame)
                for frame in getattr(window, "_toasts", []))
+
+
+def test_simulation_error_handling(window):
+    from queue import Queue
+    window.simulation_queue = Queue()
+
+    window._handle_simulation_message("Erro no pós-processamento: falha na extração")
+    assert window._simulation_error == "Erro no pós-processamento: falha na extração"
+    assert "falha na extração" in window.results_panel.results_text.get("1.0", "end")
+    assert window.control_panel.status_pill._text == "Erro no pós-processamento: falha na extração"
+    assert window.control_panel.status_pill._state == "error"
+
+    window.simulation_thread = None
+    window._check_simulation_thread()
+    assert window.control_panel.status_pill._text == "Simulação falhou"
+    assert window.control_panel.status_pill._state == "error"
+    assert "Simulação finalizada com erros" in window.results_panel.results_text.get("1.0", "end")
+
+
+def test_simulation_success_handling(window):
+    from queue import Queue
+    window.simulation_queue = Queue()
+    window._simulation_error = None
+
+    window._handle_simulation_message("Executando etapa final")
+    assert window._simulation_error is None
+
+    window.simulation_thread = None
+    window._check_simulation_thread()
+    assert window.control_panel.status_pill._text == "Simulação concluída"
+    assert window.control_panel.status_pill._state == "success"
+    assert "Simulação concluída!" in window.results_panel.results_text.get("1.0", "end")
+
+
+def test_simulation_interrupted_handling(window):
+    from queue import Queue
+    from unittest.mock import MagicMock
+    window.simulation_queue = Queue()
+    window._simulation_error = None
+    window.simulation = MagicMock()
+    window.simulation.stop_requested = True
+
+    window.simulation_thread = None
+    window._check_simulation_thread()
+    assert window.control_panel.status_pill._text == "Simulação interrompida"
+    assert window.control_panel.status_pill._state == "warning"
+    assert "Simulação interrompida." in window.results_panel.results_text.get("1.0", "end")
+
+
+def test_recompute_selected_validacoes_e_mensagens(window, monkeypatch):
+    panel = window.simulations_panel
+
+    # Caso 1: Nenhuma execução selecionada
+    monkeypatch.setattr(panel, "_selected_runs", lambda: [])
+    panel.recompute_selected()
+    toasts = [_toast_text(f) for f in getattr(window, "_toasts", [])]
+    assert any("Escolha uma execução na lista" in t for t in toasts)
+
+    # Limpa toasts
+    for f in list(getattr(window, "_toasts", [])):
+        f.destroy()
+    window._toasts = []
+
+    # Caso 2: Execução pronta
+    monkeypatch.setattr(panel, "_selected_runs", lambda: [{'path': '/dummy', 'status': 'pronta'}])
+    panel.recompute_selected()
+    toasts = [_toast_text(f) for f in getattr(window, "_toasts", [])]
+    assert any("As execuções escolhidas já têm estatísticas atualizadas." in t for t in toasts)
+
+    # Limpa toasts
+    for f in list(getattr(window, "_toasts", [])):
+        f.destroy()
+    window._toasts = []
+
+    # Caso 3: Execução sem planilhas é aceita e dispara recompute_runs
+    disparado = []
+    monkeypatch.setattr("confortimetro.gui.components.simulations_panel.recompute_runs",
+                        lambda paths: disparado.extend(paths) or {paths[0]: None})
+    monkeypatch.setattr(panel, "_selected_runs", lambda: [{'path': '/run/sem_plan', 'status': 'sem planilhas'}])
+
+    class MockThread:
+        def __init__(self, target, daemon=None):
+            self.target = target
+        def start(self):
+            self.target()
+
+    monkeypatch.setattr("threading.Thread", MockThread)
+    panel.recompute_selected()
+    window.update()
+    assert disparado == ['/run/sem_plan']
+
+
+def test_recompute_done_toasts(window):
+    panel = window.simulations_panel
+
+    # 1 sucesso
+    panel._recompute_done({"/p/run1": None})
+    toasts = [_toast_text(f) for f in getattr(window, "_toasts", [])]
+    assert any("1 execução regerada." in t for t in toasts)
+    window._toasts.clear()
+
+    # 2 sucessos
+    panel._recompute_done({"/p/run1": None, "/p/run2": None})
+    toasts = [_toast_text(f) for f in getattr(window, "_toasts", [])]
+    assert any("2 execuções regeradas." in t for t in toasts)
+    window._toasts.clear()
+
+    # 1 falha
+    panel._recompute_done({"/p/run1": "sem planilhas por zona nem arquivo eplusout.eso"})
+    toasts = [_toast_text(f) for f in getattr(window, "_toasts", [])]
+    assert any("1 execução falhou ao regerar" in t for t in toasts)
+    window._toasts.clear()
+
+    # 2 falhas
+    panel._recompute_done({"/p/run1": "erro 1", "/p/run2": "erro 2"})
+    toasts = [_toast_text(f) for f in getattr(window, "_toasts", [])]
+    assert any("2 execuções falharam ao regerar" in t for t in toasts)
+    window._toasts.clear()
+
+    # Misto (1 sucesso, 1 falha)
+    panel._recompute_done({"/p/run1": None, "/p/run2": "erro 2"})
+    toasts = [_toast_text(f) for f in getattr(window, "_toasts", [])]
+    assert any("1 execução regerada, mas 1 falhou" in t for t in toasts)
+    window._toasts.clear()
+
+

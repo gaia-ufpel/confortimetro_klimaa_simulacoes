@@ -292,7 +292,7 @@ class Simulation:
             # O período e o passo vêm do IDF simulado: com valores fixos, um
             # modelo de outro ano ou outro timestep sairia com datas erradas.
             start, end = read_run_period(self.configs.idf_path)
-            summary_rooms_results_from_eso(
+            frames = summary_rooms_results_from_eso(
                 self.configs.output_path, self.configs.rooms,
                 timesteps_per_hour=read_timesteps_per_hour(self.configs.idf_path),
                 start_date=start, end_date=end)
@@ -302,7 +302,7 @@ class Simulation:
                 return
 
             self._say(q, "Extraindo estatísticas...")
-            get_stats_from_simulation(self.configs.output_path, self.configs.rooms)
+            get_stats_from_simulation(self.configs.output_path, self.configs.rooms, frames=frames)
             self._say(q, "Estatísticas extraidas com sucesso!")
             
             if self._stopped(q):
@@ -313,7 +313,10 @@ class Simulation:
                 if self._stopped(q):
                     return
                 split_target_period_excel(
-                    os.path.join(self.configs.output_path, f"{room}.xlsx"), room)
+                    os.path.join(self.configs.output_path, f"{room}.xlsx"),
+                    room,
+                    df=frames.get(room) if frames else None,
+                )
             self._say(q, "Resultados divididos com sucesso!")
             
             q.put("EXIT")
