@@ -140,3 +140,13 @@ def test_recompute_extrai_de_eplusout_eso(tmp_path, monkeypatch):
     assert (run_path / f"{ROOM}.xlsx").exists()
     assert (run_path / 'ESTATISTICAS.xlsx').exists()
     assert not needs_recompute(str(run_path))
+
+
+def test_ignora_arquivo_de_bloqueio_do_excel(tmp_path):
+    """No Windows, uma planilha aberta no Excel deixa um `~$NOME.xlsx` ao lado."""
+    run_path = _make_run(tmp_path, 'COM_JANELA', 'COMPLETE')
+    (run_path / 'configs.json').unlink()
+    (run_path / 'parameters.txt').write_text('module_type=COMPLETE\n', encoding='utf-8')
+    (run_path / f'~${ROOM}.xlsx').write_bytes(b'\x00' * 64)
+
+    assert recompute_run(str(run_path)) == (str(run_path), None)

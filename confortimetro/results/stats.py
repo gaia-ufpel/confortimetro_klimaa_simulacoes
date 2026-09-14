@@ -123,4 +123,12 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
 
         stats_df = pandas.concat([stats_df, pandas.DataFrame(row, index=[len(stats_df)])])
 
-    stats_df.to_excel(os.path.join(output_path, f"ESTATISTICAS.xlsx"), index=False)
+    stats_path = os.path.join(output_path, "ESTATISTICAS.xlsx")
+    try:
+        stats_df.to_excel(stats_path, index=False)
+    except PermissionError as error:
+        # No Windows o Excel bloqueia o arquivo aberto para escrita.
+        raise PermissionError(
+            f"{stats_path} está aberto em outro programa (Excel?); feche-o e "
+            "gere as estatísticas de novo"
+        ) from error

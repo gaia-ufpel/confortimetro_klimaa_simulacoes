@@ -5,6 +5,7 @@ Ponto de entrada principal da aplicação.
 """
 
 import json
+import multiprocessing
 import os
 import sys
 
@@ -54,6 +55,12 @@ def main():
 
     Cria e executa a interface gráfica principal do Confortímetro Klimaa.
     """
+    # No executável do Windows, o ProcessPoolExecutor de recompute_runs relança
+    # este mesmo .exe para cada worker (spawn). Sem freeze_support o filho volta
+    # a abrir a interface em vez de rodar a tarefa — janelas se multiplicando e
+    # nenhuma estatística regerada. Tem que ser a primeira coisa do main().
+    multiprocessing.freeze_support()
+
     try:
         app = MainWindow(config_path=resolve_config_path())
         app.mainloop()

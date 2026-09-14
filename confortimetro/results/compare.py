@@ -46,7 +46,10 @@ def _room_files(run_path, rooms):
     """Zonas com planilha na pasta da execução.
 
     As execuções antigas (`parameters.txt`) não gravam a lista de zonas: nesse
-    caso as próprias planilhas são a lista.
+    caso as próprias planilhas são a lista. Com uma planilha aberta no Excel,
+    o Windows deixa ao lado um `~$NOME.xlsx` de bloqueio, que não é um .xlsx:
+    contá-lo como zona quebrava a regeração com "Excel file format cannot be
+    determined".
     """
     if rooms:
         return [room for room in rooms
@@ -55,6 +58,7 @@ def _room_files(run_path, rooms):
         names = sorted(os.path.splitext(entry.name)[0]
                        for entry in os.scandir(run_path)
                        if entry.is_file() and entry.name.endswith('.xlsx')
+                       and not entry.name.startswith('~$')
                        and entry.name != 'ESTATISTICAS.xlsx')
     except OSError:
         return []
@@ -200,7 +204,10 @@ def recompute_runs(run_paths, workers=None, on_result=None):
     errors = {}
     if not run_paths:
         return errors
-    workers = workers or os.cpu_count()
+    # No executável do Windows cada worker é um processo novo que recarrega o
+    # bundle inteiro (centenas de MB): mais workers que execuções só gasta RAM,
+    # e o pool do Windows não aceita mais de 61 processos.
+    workers = min(workers or os.cpu_count() or 1, len(run_paths), 61)
     with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as pool:
         for run_path, error in pool.map(recompute_run, run_paths):
             errors[run_path] = error
