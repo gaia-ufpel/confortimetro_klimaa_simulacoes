@@ -78,50 +78,50 @@ class ComparisonPanel(ttk.Frame):
     # ------------------------------------------------------------------ UI
 
     def _build_ui(self):
-        actions = Card(self, pad=SPACE[3])
+        actions = Card(self, pad=SPACE[2])
         actions.pack(fill="x")
-        action_row = ttk.Frame(actions.body, style="Surface.TFrame")
-        action_row.pack(fill="x")
+        row = ttk.Frame(actions.body, style="Surface.TFrame")
+        row.pack(fill="x")
 
-        ttk.Label(action_row, text="Zona", style="Label.TLabel").pack(
-            side="left", padx=(0, SPACE[2]))
-        self.room_combo = ttk.Combobox(action_row, textvariable=self.room_var,
+        ttk.Label(row, text="Zona", style="Label.TLabel").pack(
+            side="left", padx=(0, SPACE[1]))
+        self.room_combo = ttk.Combobox(row, textvariable=self.room_var,
                                        style="Field.TCombobox", state="readonly",
-                                       width=18)
-        self.room_combo.pack(side="left")
-        RoundedButton(action_row, text="Comparar", variant="primary", icon="compare",
-                      command=self.compare).pack(side="left", padx=(SPACE[3], 0))
-        RoundedButton(action_row, text="Exportar CSV", variant="ghost", icon="export",
-                      command=self.export_comparison).pack(side="right")
+                                       width=14)
+        self.room_combo.pack(side="left", padx=(0, SPACE[2]))
+        self.room_combo.bind('<<ComboboxSelected>>', lambda _e: self.compare())
+        RoundedButton(row, text="Comparar", variant="ghost", icon="compare",
+                      command=self.compare).pack(side="left", padx=(0, SPACE[3]))
 
-        chart_row = ttk.Frame(actions.body, style="Surface.TFrame")
-        chart_row.pack(fill="x", pady=(SPACE[3], 0))
-        ttk.Label(chart_row, text="Gráfico", style="Label.TLabel").pack(
-            side="left", padx=(0, SPACE[2]))
-        self.chart_combo = ttk.Combobox(chart_row, textvariable=self.chart_var,
+        ttk.Separator(row, orient="vertical").pack(
+            side="left", fill="y", padx=(0, SPACE[3]), pady=SPACE[1])
+
+        ttk.Label(row, text="Gráfico", style="Label.TLabel").pack(
+            side="left", padx=(0, SPACE[1]))
+        self.chart_combo = ttk.Combobox(row, textvariable=self.chart_var,
                                         style="Field.TCombobox", state="readonly",
-                                        values=list(charts.CHARTS), width=30)
-        self.chart_combo.pack(side="left")
+                                        values=list(charts.CHARTS), width=24)
+        self.chart_combo.pack(side="left", padx=(0, SPACE[2]))
         self.chart_combo.bind('<<ComboboxSelected>>', self._on_chart_changed)
-        RoundedButton(chart_row, text="Gerar gráfico", variant="primary", icon="chart",
-                      command=self.plot).pack(side="left", padx=(SPACE[3], 0))
 
         # Cada gráfico mostra só as suas opções; o resto some da barra.
-        self.option_row = ttk.Frame(actions.body, style="Surface.TFrame")
-        self.option_row.pack(fill="x", pady=(SPACE[2], 0))
+        self.option_row = ttk.Frame(row, style="Surface.TFrame")
+        self.option_row.pack(side="left", padx=(0, SPACE[2]))
         self._option_widgets = {}
         self._build_option_fields()
         self._on_chart_changed()
 
-        ttk.Label(actions.body, text="Os gráficos de série leem as planilhas por zona "
-                                     "na primeira vez (minutos) e ficam em cache depois.",
-                  style="Caption.TLabel").pack(anchor="w", pady=(SPACE[1], 0))
-        ttk.Label(actions.body, textvariable=self.status_var,
-                  style="Caption.TLabel").pack(anchor="w", pady=(SPACE[2], 0))
+        RoundedButton(row, text="Gerar gráfico", variant="primary", icon="chart",
+                      command=self.plot).pack(side="left", padx=(0, SPACE[3]))
+
+        RoundedButton(row, text="Exportar CSV", variant="ghost", icon="export",
+                      command=self.export_comparison).pack(side="right")
+        ttk.Label(row, textvariable=self.status_var,
+                  style="Caption.TLabel").pack(side="right", padx=(0, SPACE[3]))
 
         # --- Comparação: números à esquerda, gráfico à direita ---
-        compare_card = Card(self, "Comparação de resultados")
-        compare_card.pack(fill="both", expand=True, pady=(SPACE[4], 0))
+        compare_card = Card(self, pad=SPACE[3])
+        compare_card.pack(fill="both", expand=True, pady=(SPACE[3], 0))
         compare_panes = ttk.PanedWindow(compare_card.body, orient="horizontal")
         compare_panes.pack(fill="both", expand=True)
 
@@ -162,38 +162,38 @@ class ComparisonPanel(ttk.Frame):
         """Um campo por opção declarada no catálogo de gráficos."""
         baseline = ttk.Frame(self.option_row, style="Surface.TFrame")
         ttk.Label(baseline, text="Referência", style="Label.TLabel").pack(
-            side="left", padx=(0, SPACE[2]))
+            side="left", padx=(0, SPACE[1]))
         self.baseline_combo = ttk.Combobox(baseline, textvariable=self.baseline_var,
                                            style="Field.TCombobox", state="readonly",
-                                           width=32)
+                                           width=20)
         self.baseline_combo.pack(side="left")
         self._option_widgets['baseline'] = baseline
 
         variable = ttk.Frame(self.option_row, style="Surface.TFrame")
         ttk.Label(variable, text="Variável", style="Label.TLabel").pack(
-            side="left", padx=(0, SPACE[2]))
+            side="left", padx=(0, SPACE[1]))
         ttk.Combobox(variable, textvariable=self.variable_var, style="Field.TCombobox",
-                     state="readonly", width=22,
+                     state="readonly", width=18,
                      values=list(charts.CARPET_VARIABLES)).pack(side="left")
         self._option_widgets['variable'] = variable
 
         period = ttk.Frame(self.option_row, style="Surface.TFrame")
         ttk.Label(period, text="Início", style="Label.TLabel").pack(
-            side="left", padx=(0, SPACE[2]))
+            side="left", padx=(0, SPACE[1]))
         ttk.Entry(period, textvariable=self.start_var, style="Field.TEntry",
-                  width=12).pack(side="left")
+                  width=11).pack(side="left")
         ttk.Label(period, text="Dias", style="Label.TLabel").pack(
-            side="left", padx=(SPACE[3], SPACE[2]))
+            side="left", padx=(SPACE[2], SPACE[1]))
         ttk.Entry(period, textvariable=self.days_var, style="Field.TEntry",
-                  width=5).pack(side="left")
-        self._option_widgets['start'] = period
-        self._option_widgets['days'] = period
+                  width=4).pack(side="left")
+        self._option_widgets['period'] = period
 
     def _on_chart_changed(self, _event=None):
-        options = charts.CHARTS[self.chart_var.get()][2]
+        options = set(charts.CHARTS[self.chart_var.get()][2])
         for name, widget in self._option_widgets.items():
-            if name in options:
-                widget.pack(side="left", padx=(0, SPACE[4]))
+            active = name in options or (name == 'period' and ('start' in options or 'days' in options))
+            if active:
+                widget.pack(side="left", padx=(0, SPACE[2]))
             else:
                 widget.pack_forget()
 
