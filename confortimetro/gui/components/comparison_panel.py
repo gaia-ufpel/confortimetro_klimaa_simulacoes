@@ -317,6 +317,13 @@ class ComparisonPanel(ttk.Frame):
         self._busy = True
         self._set_status(f"Lendo as séries de {len(runs)} execuções. A primeira leitura "
                          "de cada planilha leva cerca de 20 s.")
+        # O gráfico anterior continuaria na tela durante a leitura, e uma
+        # espera de minutos sem nada mudando parece travamento.
+        self._show_chart_message(
+            f"Lendo as planilhas por zona de {len(runs)} execuções…\n"
+            f"Gráfico: {name} — zona {room}.\n"
+            "A primeira leitura de cada planilha leva cerca de 20 s; "
+            "depois fica em cache.")
         series_runs = [(run['run'], run['path']) for run in runs]
 
         def work():
@@ -345,6 +352,8 @@ class ComparisonPanel(ttk.Frame):
 
     def _plot_failed(self, error):
         self._busy = False
+        self._show_chart_message(f"Falha ao gerar o gráfico:\n{error}")
+        self._set_status(f"Falha ao gerar o gráfico: {error}")
         toast(self, f"Falha ao gerar o gráfico: {error}", "error", timeout=10000)
 
     def _clear_chart(self):
@@ -353,13 +362,19 @@ class ComparisonPanel(ttk.Frame):
             widget.destroy()
         self._chart_widgets = []
 
-    def _show_chart_placeholder(self):
+    def _show_chart_message(self, text: str):
+        """Texto no lugar do gráfico: placeholder inicial, leitura em curso ou falha."""
         self._clear_chart()
-        label = ttk.Label(
-            self.chart_frame, style="Caption.TLabel", justify="center",
-            text="Escolha um gráfico e clique em 'Gerar gráfico'.")
+        label = ttk.Label(self.chart_frame, style="Caption.TLabel",
+                          justify="center", text=text)
         label.pack(expand=True)
         self._chart_widgets.append(label)
+        # A leitura segura a thread da interface logo depois desta chamada; sem
+        # o desenho forçado o rótulo só apareceria quando ela terminasse.
+        self.update_idletasks()
+
+    def _show_chart_placeholder(self):
+        self._show_chart_message("Escolha um gráfico e clique em 'Gerar gráfico'.")
 
     # Acima desta altura a figura não cabe no painel: um gráfico de quatro
     # painéis espremido em 300 px faz o layout do matplotlib colapsar os eixos
