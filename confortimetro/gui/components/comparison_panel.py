@@ -20,7 +20,7 @@ from ..theme import COLORS, SPACE, Card, RoundedButton, scrollable, toast
 
 # Os nomes das colunas de estatística são longos demais para caber no
 # cabeçalho da tabela comparativa.
-_COMPARISON_HEADINGS = {
+COMPARISON_HEADINGS = {
     'Energia total (kWh)': 'Total (kWh)',
     'Aquecimento (kWh)': 'Aquec. (kWh)',
     'Resfriamento (kWh)': 'Resfr. (kWh)',
@@ -64,8 +64,16 @@ class ComparisonPanel(ttk.Frame):
         if rooms and self.room_var.get() not in rooms:
             self.room_var.set("ATELIE1" if "ATELIE1" in rooms else rooms[0])
 
+        self._comparison = None
         self._show_chart_placeholder()
         self.compare()
+
+        # Um gráfico agregado sai na hora: abrir a comparação já com ele
+        # desenhado poupa o clique em "Gerar gráfico". Os de série leem as
+        # planilhas (minutos) e continuam sob demanda.
+        if self._comparison is not None and not self._comparison.empty \
+                and not charts.CHARTS[self.chart_var.get()][1]:
+            self.plot()
 
     # ------------------------------------------------------------------ UI
 
@@ -136,6 +144,19 @@ class ComparisonPanel(ttk.Frame):
         compare_panes.add(self.chart_frame, weight=5)
         self._chart_widgets = []
         self._show_chart_placeholder()
+
+        # A tabela pede a largura da soma das colunas e empurra o gráfico para
+        # fora da janela; os pesos do PanedWindow só valem nos
+        # redimensionamentos seguintes. Fixamos a divisão na primeira medida.
+        self._compare_panes = compare_panes
+        self._sash_placed = False
+        compare_panes.bind("<Configure>", self._place_sash)
+
+    def _place_sash(self, event):
+        if self._sash_placed or event.width < 200:
+            return
+        self._sash_placed = True
+        self._compare_panes.sashpos(0, int(event.width * 0.45))
 
     def _build_option_fields(self):
         """Um campo por opção declarada no catálogo de gráficos."""
@@ -238,7 +259,7 @@ class ComparisonPanel(ttk.Frame):
         self.compare_tree.delete(*self.compare_tree.get_children())
         self.compare_tree["columns"] = columns
         for column in columns:
-            self.compare_tree.heading(column, text=_COMPARISON_HEADINGS.get(column, column))
+            self.compare_tree.heading(column, text=COMPARISON_HEADINGS.get(column, column))
             width = 250 if column == "Execução" else 130
             self.compare_tree.column(column, width=width, minwidth=width,
                                      anchor="w" if column in columns[:3] else "e",

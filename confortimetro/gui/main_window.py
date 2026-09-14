@@ -19,6 +19,7 @@ from confortimetro.idf import (apply_equipment_fixes, plan_equipment_fixes,
                                write_idf_fields)
 from confortimetro.paths import new_run_path, runs_root
 from .components import (
+    COMPARISON_HEADINGS,
     MACHINE_FIELDS,
     SIMULATION_FIELDS,
     PathConfigPanel,
@@ -216,8 +217,18 @@ class MainWindow(tk.Tk):
         page = ttk.Frame(self.page_host, style="Main.TFrame")
         self._page_nav(page, "Detalhes da execução", back_to="runs")
 
+        stats_card = Card(page, "Estatísticas por zona")
+        stats_card.pack(fill="x")
+        self.detail_stats = ttk.Treeview(stats_card.body, style="Modern.Treeview",
+                                         show="headings", height=4)
+        stats_scroll = ttk.Scrollbar(stats_card.body, orient="horizontal",
+                                     command=self.detail_stats.xview)
+        self.detail_stats.configure(xscrollcommand=stats_scroll.set)
+        stats_scroll.pack(side="bottom", fill="x")
+        self.detail_stats.pack(fill="x")
+
         card = Card(page, "Configuração da execução")
-        card.pack(fill="both", expand=True)
+        card.pack(fill="both", expand=True, pady=(SPACE[4], 0))
         self.detail_text = tk.Text(
             card.body, wrap="none", state="disabled", font=FONTS["mono"],
             background=COLORS["surface"], foreground=COLORS["text"],
@@ -254,9 +265,15 @@ class MainWindow(tk.Tk):
         self.control_panel = ControlPanel(topbar.body, callback=self)
         self.control_panel.pack(fill="x")
 
+        # --- Log: painel inferior colapsável (ancorado no rodapé) ---
+        self.log_sheet = BottomSheet(page, "Log de execução")
+        self.log_sheet.pack(side="bottom", fill="x", pady=(SPACE[4], 0))
+        self.results_panel = ResultsPanel(self.log_sheet.body, callback=self)
+        self.results_panel.pack(fill="both", expand=True)
+
         # --- Parâmetros: as abas já são o card, sem moldura em volta ---
         self.simulation_panel = SimulationConfigPanel(page, callback=self)
-        self.simulation_panel.pack(fill="both", expand=True)
+        self.simulation_panel.pack(side="top", fill="both", expand=True)
         # Os caminhos entram como primeira aba: o IDF e o EPW são a entrada da
         # simulação, não mais um bloco solto acima dos parâmetros.
         self.path_panel = PathConfigPanel(self.simulation_panel.notebook,
@@ -264,12 +281,6 @@ class MainWindow(tk.Tk):
                                           fields=SIMULATION_FIELDS,
                                           padding=SPACE[3])
         self.simulation_panel.insert_tab(0, self.path_panel, "Arquivos")
-
-        # --- Log: painel inferior colapsável ---
-        self.log_sheet = BottomSheet(page, "Log de execução")
-        self.log_sheet.pack(fill="x", pady=(SPACE[4], 0))
-        self.results_panel = ResultsPanel(self.log_sheet.body, callback=self)
-        self.results_panel.pack(fill="both", expand=True)
         return page
 
     def _build_idf_page(self):
@@ -799,7 +810,51 @@ class MainWindow(tk.Tk):
         self.detail_text.delete("1.0", "end")
         self.detail_text.insert("1.0", "\n".join(lines))
         self.detail_text.configure(state="disabled")
+        self._render_detail_stats(run)
         self.show_page("detail")
+
+    def _render_detail_stats(self, run: dict):
+        """Uma linha por zona, lida do ESTATISTICAS.xlsx que a execução já gravou."""
+        import pandas
+
+        from confortimetro.results.compare import COMPARISON_COLUMNS
+
+        tree = self.detail_stats
+        tree.delete(*tree.get_children())
+
+        stats_path = os.path.join(run['path'], 'ESTATISTICAS.xlsx')
+        if not os.path.exists(stats_path):
+            tree["columns"] = ("aviso",)
+            tree.heading("aviso", text="Estatísticas")
+            tree.column("aviso", width=600, anchor="w", stretch=True)
+            tree.insert("", "end", values=(
+                "Sem estatísticas: use Regerar estatísticas na listagem.",))
+            return
+
+        try:
+            df = pandas.read_excel(stats_path)
+        except Exception as error:
+            tree["columns"] = ("aviso",)
+            tree.heading("aviso", text="Estatísticas")
+            tree.column("aviso", width=600, anchor="w", stretch=True)
+            tree.insert("", "end", values=(f"Não foi possível ler: {error}",))
+            return
+
+        columns = ["Nome da sala"] + [column for column in COMPARISON_COLUMNS
+                                      if column in df.columns]
+        tree["columns"] = columns
+        for column in columns:
+            tree.heading(column, text=COMPARISON_HEADINGS.get(column, column))
+            width = 160 if column == "Nome da sala" else 130
+            tree.column(column, width=width, minwidth=width,
+                        anchor="w" if column == "Nome da sala" else "e",
+                        stretch=False)
+
+        for _, row in df.iterrows():
+            tree.insert("", "end", values=[
+                f"{row[column]:.3f}".replace(".", ",")
+                if isinstance(row[column], float) else row[column]
+                for column in columns])
 
     def on_duplicate_run(self, run: Optional[dict]):
         """Carrega a configuração da execução na página de execução, com uma

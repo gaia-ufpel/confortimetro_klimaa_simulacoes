@@ -59,7 +59,7 @@ class ResultsPanel(ttk.Frame):
             self,
             state="disabled",
             width=100,
-            height=10,
+            height=8,
             wrap="word",
             font=FONTS["mono"],
             background=COLORS["surface"],

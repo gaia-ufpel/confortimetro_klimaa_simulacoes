@@ -47,6 +47,21 @@ def test_paginas_trocam(window):
     assert not window._pages["runs"].winfo_ismapped()
 
 
+def test_editor_log_sheet_visivel_ao_abrir(window):
+    """Garante que o log de execução não seja colapsado a 1x1 em telas 1366x768."""
+    window.geometry("1366x768")
+    window.show_page("editor")
+    _settle(window)
+    assert window.log_sheet.winfo_ismapped()
+    assert not window.log_sheet._holder.winfo_ismapped()
+
+    window.log_sheet.set_open(True)
+    _settle(window)
+    assert window.log_sheet._holder.winfo_ismapped()
+    assert window.results_panel.winfo_height() >= 100
+    assert window.results_panel.results_text.winfo_height() >= 50
+
+
 def test_duplicar_reaproveita_parametros_com_saida_nova(window, tmp_path):
     idf = tmp_path / "modelo.idf"
     idf.write_text("Zone,\n  SALA1,\n")
