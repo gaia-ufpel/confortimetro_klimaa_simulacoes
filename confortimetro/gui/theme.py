@@ -79,6 +79,9 @@ ICONS = {
     "success": 57894,
     "warning": 57747,
     "error": 57476,
+    "zap": 57780,
+    "flame": 57554,
+    "snowflake": 57701,
 }
 
 _ICON_CACHE: dict = {}

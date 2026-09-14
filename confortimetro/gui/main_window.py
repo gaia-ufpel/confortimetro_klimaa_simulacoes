@@ -39,6 +39,7 @@ from .theme import (
     RoundedButton,
     apply_theme,
     ask_choices,
+    icon,
     toast,
 )
 
@@ -217,8 +218,67 @@ class MainWindow(tk.Tk):
         page = ttk.Frame(self.page_host, style="Main.TFrame")
         self._page_nav(page, "Detalhes da execução", back_to="runs")
 
+        # --- Ações ancoradas no rodapé ---
+        actions = Card(page, pad=SPACE[3])
+        actions.pack(side="bottom", fill="x", pady=(SPACE[3], 0))
+        row = ttk.Frame(actions.body, style="Surface.TFrame")
+        row.pack(fill="x")
+        RoundedButton(row, text="Duplicar para nova execução", variant="primary", icon="duplicate",
+                      command=lambda: self.on_duplicate_run(self._detail_run)).pack(
+                          side="left")
+        RoundedButton(row, text="Abrir pasta", variant="ghost", icon="open",
+                      command=self._open_detail_folder).pack(side="left",
+                                                             padx=(SPACE[2], 0))
+
+        # --- Resumo de consumo (KPI cards) ---
+        kpi_card = Card(page, pad=SPACE[3])
+        kpi_card.pack(fill="x", pady=(0, SPACE[3]))
+        kpi_row = ttk.Frame(kpi_card.body, style="Surface.TFrame")
+        kpi_row.pack(fill="x")
+
+        self.kpi_total_var = tk.StringVar(value="—")
+        self.kpi_aquec_var = tk.StringVar(value="—")
+        self.kpi_resfr_var = tk.StringVar(value="—")
+
+        def _make_kpi(title: str, var: tk.StringVar, color: str, icon_name: str):
+            f = ttk.Frame(kpi_row, style="Surface.TFrame")
+            ic = icon(icon_name, 16, color, master=self)
+            lbl_title = ttk.Label(f, text=" " + title, image=ic, compound="left",
+                                  style="Caption.TLabel")
+            lbl_title.image = ic
+            lbl_title.pack(anchor="w")
+
+            val_f = ttk.Frame(f, style="Surface.TFrame")
+            val_f.pack(anchor="w", pady=(SPACE[1], 0))
+            lbl_val = ttk.Label(val_f, textvariable=var, style="H1.TLabel",
+                                background=COLORS["surface"])
+            lbl_val.configure(foreground=color)
+            lbl_val.pack(side="left")
+
+            lbl_unit = ttk.Label(val_f, text=" kWh", style="Label.TLabel",
+                                 background=COLORS["surface"])
+            lbl_unit.configure(foreground=COLORS["text_mute"])
+            lbl_unit.pack(side="left", anchor="s", pady=(0, 3))
+            return f
+
+        kpi1 = _make_kpi("Consumo Total", self.kpi_total_var, COLORS["primary"], "zap")
+        kpi1.pack(side="left", padx=(SPACE[2], SPACE[5]))
+
+        ttk.Separator(kpi_row, orient="vertical").pack(
+            side="left", fill="y", padx=(0, SPACE[5]))
+
+        kpi2 = _make_kpi("Aquecimento", self.kpi_aquec_var, COLORS["hot"], "flame")
+        kpi2.pack(side="left", padx=(0, SPACE[5]))
+
+        ttk.Separator(kpi_row, orient="vertical").pack(
+            side="left", fill="y", padx=(0, SPACE[5]))
+
+        kpi3 = _make_kpi("Resfriamento", self.kpi_resfr_var, "#2b6cb0", "snowflake")
+        kpi3.pack(side="left", padx=(0, SPACE[5]))
+
+        # --- Estatísticas por zona ---
         stats_card = Card(page, "Estatísticas por zona")
-        stats_card.pack(fill="x")
+        stats_card.pack(fill="x", pady=(0, SPACE[3]))
         self.detail_stats = ttk.Treeview(stats_card.body, style="Modern.Treeview",
                                          show="headings", height=4)
         stats_scroll = ttk.Scrollbar(stats_card.body, orient="horizontal",
@@ -226,9 +286,11 @@ class MainWindow(tk.Tk):
         self.detail_stats.configure(xscrollcommand=stats_scroll.set)
         stats_scroll.pack(side="bottom", fill="x")
         self.detail_stats.pack(fill="x")
+        self.detail_stats.tag_configure("total", font=FONTS["label"])
 
+        # --- Configuração da execução ---
         card = Card(page, "Configuração da execução")
-        card.pack(fill="both", expand=True, pady=(SPACE[4], 0))
+        card.pack(fill="both", expand=True)
         self.detail_text = tk.Text(
             card.body, wrap="none", state="disabled", font=FONTS["mono"],
             background=COLORS["surface"], foreground=COLORS["text"],
@@ -240,16 +302,6 @@ class MainWindow(tk.Tk):
         detail_scroll.pack(side="right", fill="y")
         self.detail_text.pack(side="left", fill="both", expand=True)
 
-        actions = Card(page, pad=SPACE[3])
-        actions.pack(fill="x", pady=(SPACE[4], 0))
-        row = ttk.Frame(actions.body, style="Surface.TFrame")
-        row.pack(fill="x")
-        RoundedButton(row, text="Duplicar para nova execução", variant="primary", icon="duplicate",
-                      command=lambda: self.on_duplicate_run(self._detail_run)).pack(
-                          side="left")
-        RoundedButton(row, text="Abrir pasta", variant="ghost", icon="open",
-                      command=self._open_detail_folder).pack(side="left",
-                                                             padx=(SPACE[2], 0))
         return page
 
     def _build_editor_page(self):
@@ -824,6 +876,9 @@ class MainWindow(tk.Tk):
 
         stats_path = os.path.join(run['path'], 'ESTATISTICAS.xlsx')
         if not os.path.exists(stats_path):
+            self.kpi_total_var.set("—")
+            self.kpi_aquec_var.set("—")
+            self.kpi_resfr_var.set("—")
             tree["columns"] = ("aviso",)
             tree.heading("aviso", text="Estatísticas")
             tree.column("aviso", width=600, anchor="w", stretch=True)
@@ -834,11 +889,27 @@ class MainWindow(tk.Tk):
         try:
             df = pandas.read_excel(stats_path)
         except Exception as error:
+            self.kpi_total_var.set("—")
+            self.kpi_aquec_var.set("—")
+            self.kpi_resfr_var.set("—")
             tree["columns"] = ("aviso",)
             tree.heading("aviso", text="Estatísticas")
             tree.column("aviso", width=600, anchor="w", stretch=True)
             tree.insert("", "end", values=(f"Não foi possível ler: {error}",))
             return
+
+        def _fmt_kwh(val):
+            if val is None or pandas.isna(val):
+                return "—"
+            return f"{float(val):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        total_kwh = df['Energia total (kWh)'].sum() if 'Energia total (kWh)' in df.columns else None
+        aquec_kwh = df['Aquecimento (kWh)'].sum() if 'Aquecimento (kWh)' in df.columns else None
+        resfr_kwh = df['Resfriamento (kWh)'].sum() if 'Resfriamento (kWh)' in df.columns else None
+
+        self.kpi_total_var.set(_fmt_kwh(total_kwh))
+        self.kpi_aquec_var.set(_fmt_kwh(aquec_kwh))
+        self.kpi_resfr_var.set(_fmt_kwh(resfr_kwh))
 
         columns = ["Nome da sala"] + [column for column in COMPARISON_COLUMNS
                                       if column in df.columns]
@@ -855,6 +926,24 @@ class MainWindow(tk.Tk):
                 f"{row[column]:.3f}".replace(".", ",")
                 if isinstance(row[column], float) else row[column]
                 for column in columns])
+
+        # Linha TOTAL no rodapé da tabela
+        if len(df) > 0 and total_kwh is not None:
+            total_row_values = []
+            for col in columns:
+                if col == "Nome da sala":
+                    total_row_values.append("TOTAL")
+                elif col == "Energia total (kWh)":
+                    total_row_values.append(f"{total_kwh:.3f}".replace(".", ","))
+                elif col == "Aquecimento (kWh)" and aquec_kwh is not None:
+                    total_row_values.append(f"{aquec_kwh:.3f}".replace(".", ","))
+                elif col == "Resfriamento (kWh)" and resfr_kwh is not None:
+                    total_row_values.append(f"{resfr_kwh:.3f}".replace(".", ","))
+                else:
+                    total_row_values.append("—")
+            tree.insert("", "end", values=total_row_values, tags=("total",))
+
+        tree.configure(height=max(4, min(len(df) + 1, 8)))
 
     def on_duplicate_run(self, run: Optional[dict]):
         """Carrega a configuração da execução na página de execução, com uma
