@@ -75,9 +75,16 @@ duas páginas; misturar `pack` e `place` no mesmo host empurra a que entra).
   cabeçalho da página.
 - `compare` — `ComparisonPanel` (`components/comparison_panel.py`): zona,
   catálogo de gráficos com as opções de cada um, tabela comparativa,
-  exportação em CSV e a figura ao lado.
-- `detail` — configuração completa da execução escolhida (duplo clique na
-  lista também chega aqui), com **Duplicar** e **Abrir pasta**.
+  exportação em CSV e a figura ao lado. `set_runs` já compara e desenha o
+  gráfico se ele for agregado (os de série leem as planilhas e ficam sob
+  demanda). O sash do `PanedWindow` é fixado em 45 % na primeira
+  `<Configure>` (`_place_sash`): sem isso a tabela pede a largura da soma das
+  colunas e o gráfico nasce fora da janela.
+- `detail` — estatísticas por zona (tabela lida do `ESTATISTICAS.xlsx` da
+  própria execução, colunas de `compare.COMPARISON_COLUMNS`) e configuração
+  completa da execução escolhida (duplo clique na lista também chega aqui),
+  com **Duplicar** e **Abrir pasta**. Sem `ESTATISTICAS.xlsx` a tabela vira
+  um aviso apontando para **Regerar estatísticas**.
 - `editor` — topbar de execução (`ControlPanel`), card rolável com caminhos +
   parâmetros (`PathConfigPanel` e `SimulationConfigPanel`) e um `BottomSheet`
   com o log (`ResultsPanel`), que abre sozinho quando a simulação começa.

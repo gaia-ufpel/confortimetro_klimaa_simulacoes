@@ -12,7 +12,7 @@ from .idf_editor_panel import IDFEditorPanel
 from .results_panel import ResultsPanel
 from .control_panel import ControlPanel
 from .simulations_panel import SimulationsPanel
-from .comparison_panel import ComparisonPanel
+from .comparison_panel import COMPARISON_HEADINGS, ComparisonPanel
 
 __all__ = [
     'MACHINE_FIELDS',
@@ -24,4 +24,5 @@ __all__ = [
     'ControlPanel',
     'SimulationsPanel',
     'ComparisonPanel',
+    'COMPARISON_HEADINGS',
 ]
