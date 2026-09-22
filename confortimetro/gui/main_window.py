@@ -730,10 +730,16 @@ class MainWindow(tk.Tk):
                 self.results_panel.append_success("Simulação concluída!")
                 self.control_panel.set_status("Simulação concluída", "success")
             self._runs_dirty = True
-            if getattr(self, "_running_run_path", None):
-                self.simulations_panel.clear_running(self._running_run_path)
+            finished_path = getattr(self, "_running_run_path", None)
+            if finished_path:
+                self.simulations_panel.clear_running(finished_path)
                 self._running_run_path = None
             self.simulation = None
+            if finished_path and not interrupted and not has_error:
+                run = next((r for r in self.simulations_panel._runs
+                            if r['path'] == finished_path), None)
+                if run is not None:
+                    self.on_open_run_details(run)
     
     # Callback implementations for PathConfigPanel
     def on_idf_path_changed(self, path: str):
