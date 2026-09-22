@@ -81,6 +81,8 @@ class SimulationsPanel(ttk.Frame):
         RoundedButton(row, text="Atualizar", variant="ghost", icon="refresh",
                       command=self.refresh).pack(side="left", padx=(SPACE[2], 0))
         RoundedButton(row, text="Comparar selecionadas", variant="primary", icon="compare", command=self._compare).pack(side="right")
+        RoundedButton(row, text="Perguntar ao assistente", variant="ghost", icon="info",
+                      command=self._ask_assistant).pack(side="right", padx=(0, SPACE[2]))
 
         info_row = ttk.Frame(toolbar.body, style="Surface.TFrame")
         info_row.pack(fill="x", pady=(SPACE[2], 0))
@@ -277,6 +279,11 @@ class SimulationsPanel(ttk.Frame):
             return
         if self.callback:
             self.callback.on_compare_runs(runs, self.outputs_path.get())
+
+    def _ask_assistant(self):
+        """Conversa com as execuções selecionadas; sem seleção, com todas."""
+        if self.callback:
+            self.callback.on_ask_assistant(self._selected_runs(), self.outputs_path.get())
 
     def open_selected_folder(self):
         runs = self._selected_runs()

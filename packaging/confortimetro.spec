@@ -27,7 +27,10 @@ hiddenimports = []
 
 # Pacotes com dados/tabelas próprios que o analisador estático não enxerga.
 # esoreader é um módulo solto (não pacote); o PyInstaller o pega sozinho.
-for pkg in ("pythermalcomfort", "ladybug_comfort", "ladybug", "eppy"):
+# tkinterweb carrega o Tkhtml (binário) do próprio pacote; keyring acha os
+# backends por entry points, que vivem nos metadados.
+for pkg in ("pythermalcomfort", "ladybug_comfort", "ladybug", "eppy",
+            "tkinterweb", "tkinterweb_tkhtml", "keyring"):
     pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
     datas += pkg_datas
     binaries += pkg_binaries

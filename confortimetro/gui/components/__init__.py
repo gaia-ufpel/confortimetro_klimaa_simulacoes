@@ -14,6 +14,7 @@ from .control_panel import ControlPanel
 from .simulations_panel import SimulationsPanel
 from .comparison_panel import COMPARISON_HEADINGS, ComparisonPanel
 from .timeseries_panel import TimeSeriesPanel
+from .assistant_panel import AssistantPanel, AssistantSettings
 
 __all__ = [
     'MACHINE_FIELDS',
@@ -27,4 +28,6 @@ __all__ = [
     'ComparisonPanel',
     'COMPARISON_HEADINGS',
     'TimeSeriesPanel',
+    'AssistantPanel',
+    'AssistantSettings',
 ]
