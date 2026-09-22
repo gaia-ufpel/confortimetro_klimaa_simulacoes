@@ -12,12 +12,10 @@ from tkinter import messagebox, filedialog
 from queue import Queue
 import copy
 from typing import Optional
-from datetime import timedelta
 
 from confortimetro.config import SimulationConfig
 from confortimetro.idf import (apply_equipment_fixes, plan_equipment_fixes,
-                                read_zone_names, read_run_period,
-                                read_timesteps_per_hour, unwired_equipment,
+                                read_zone_names, unwired_equipment,
                                 write_idf_fields)
 from confortimetro.paths import new_run_path, runs_root
 from .components import (
@@ -347,16 +345,6 @@ class MainWindow(tk.Tk):
         self.control_panel = ControlPanel(topbar.body, callback=self)
         self.control_panel.pack(fill="x")
 
-        self.preflight_card = Card(page, "Antes de executar", pad=SPACE[3])
-        self.preflight_card.pack(fill="x", pady=(0, SPACE[3]))
-        self.preflight_var = tk.StringVar()
-        ttk.Label(self.preflight_card.body, textvariable=self.preflight_var,
-                  style="Body.TLabel", justify="left", wraplength=1050).pack(anchor="w")
-        ttk.Label(self.preflight_card.body,
-                  text="A validação confere os arquivos e o equipamento antes de iniciar. Simulações anuais podem levar horas e ocupar mais de 1 GB na pasta de execuções.",
-                  style="Caption.TLabel", justify="left", wraplength=1050).pack(
-                      anchor="w", pady=(SPACE[2], 0))
-
         # --- Log: painel inferior colapsável (ancorado no rodapé) ---
         self.log_sheet = BottomSheet(page, "Log de execução")
         self.log_sheet.pack(side="bottom", fill="x", pady=(SPACE[4], 0))
@@ -373,32 +361,17 @@ class MainWindow(tk.Tk):
                                            fields=SIMULATION_FIELDS,
                                            padding=SPACE[3])
         self.simulation_panel.insert_tab(0, self.path_panel, "Arquivos")
-        self._build_idf_editor_tab()
+        self._build_idf_editor_tabs()
         return page
 
-    def _build_idf_editor_tab(self):
-        """Inclui a edição do modelo na própria tela de configuração.
-
-        O editor continua salvando em uma cópia ao lado do arquivo escolhido;
-        a aba apenas evita tirar a pessoa da tela de execução para editá-lo.
-        """
-        from tkinter import ttk
-
-        self.idf_editor_tab = ttk.Frame(self.simulation_panel.notebook,
-                                        style="Surface.TFrame")
-        self.idf_editor_panel = IDFEditorPanel(self.idf_editor_tab)
-        self.idf_editor_panel.pack(fill="both", expand=True)
-
-        row = ttk.Frame(self.idf_editor_tab, style="Surface.TFrame")
-        row.pack(fill="x", pady=(SPACE[3], 0))
-        RoundedButton(row, text="Salvar como novo IDF", icon="save",
-                       command=self.on_save_idf_copy).pack(side="left")
-        RoundedButton(row, text="Voltar aos arquivos", variant="ghost",
-                       command=lambda: self.simulation_panel.notebook.select(
-                           self.path_panel)).pack(
-                           side="left", padx=(SPACE[2], 0))
-        self.simulation_panel.insert_tab(1, self.idf_editor_tab, "Editar IDF",
-                                         select=False)
+    def _build_idf_editor_tabs(self):
+        """Inclui Período e Ocupação diretamente nas abas da execução."""
+        self.idf_editor_panel = IDFEditorPanel(self.simulation_panel.notebook,
+                                               on_save=self.on_save_idf_copy)
+        self.simulation_panel.insert_tab(1, self.idf_editor_panel.period_tab,
+                                         "Período", select=False)
+        self.simulation_panel.insert_tab(2, self.idf_editor_panel.occupation_tab,
+                                         "Ocupação", select=False)
 
     def _build_settings_page(self):
         """Os caminhos que são da máquina, não da simulação."""
@@ -511,7 +484,6 @@ class MainWindow(tk.Tk):
             'module_type': self.configs.module_type
         }
         self.simulation_panel.set_configuration(config_dict)
-        self._update_preflight_summary()
     
     def _update_config_from_ui(self):
         """Update configuration from UI components."""
@@ -530,28 +502,6 @@ class MainWindow(tk.Tk):
             for key, value in sim_config.items():
                 if hasattr(self.configs, key):
                     setattr(self.configs, key, value)
-        self._update_preflight_summary()
-
-    def _update_preflight_summary(self):
-        """Mostra as entradas efetivas sem abrir o pipeline de simulação."""
-        if not hasattr(self, "preflight_var"):
-            return
-        idf = self.path_panel.get_idf_path().strip() if hasattr(self, "path_panel") else ""
-        epw = self.path_panel.get_epw_path().strip() if hasattr(self, "path_panel") else ""
-        rooms = self.simulation_panel.get_configuration().get("rooms", []) if hasattr(self, "simulation_panel") else []
-        period, timestep = "indisponível", "indisponível"
-        if idf and os.path.isfile(idf):
-            try:
-                start, end = read_run_period(idf)
-                period = f"{start.strftime('%d/%m/%Y')} a {(end - timedelta(days=1)).strftime('%d/%m/%Y')}"
-                timestep = f"{read_timesteps_per_hour(idf)} passo(s)/hora"
-            except (OSError, ValueError, IndexError):
-                period = "não foi possível ler o IDF"
-        self.preflight_var.set(
-            f"IDF: {os.path.basename(idf) or 'não selecionado'}  ·  "
-            f"EPW: {os.path.basename(epw) or 'não selecionado'}\n"
-            f"Zonas: {', '.join(rooms) or 'nenhuma selecionada'}  ·  "
-            f"Período: {period}  ·  Timestep: {timestep}")
     
     def _save_configuration(self):
         """Save current configuration to file."""
@@ -792,18 +742,17 @@ class MainWindow(tk.Tk):
         if self.configs:
             self.configs.idf_path = path
         self._refresh_room_options(path)
-        self._update_preflight_summary()
 
     # ------------------------------------------------------------ editor IDF
 
     def on_edit_idf(self):
-        """Abre a aba de edição com o IDF escolhido na execução."""
+        """Carrega o IDF e abre a aba Período na tela de execução."""
         idf_path = self.path_panel.get_idf_path().strip()
         if not idf_path or not os.path.isfile(idf_path):
             toast(self, "Escolha um arquivo IDF antes de editá-lo.", "warn")
             return
         self.idf_editor_panel.load(idf_path)
-        self.simulation_panel.notebook.select(self.idf_editor_tab)
+        self.simulation_panel.notebook.select(self.idf_editor_panel.period_tab)
 
     def on_save_idf_copy(self):
         """Grava um IDF novo ao lado do original e passa a usá-lo.
@@ -856,7 +805,6 @@ class MainWindow(tk.Tk):
         """Handle EPW path change."""
         if self.configs:
             self.configs.epw_path = path
-        self._update_preflight_summary()
     
     def on_energy_path_changed(self, path: str):
         """Handle energy path change."""
@@ -866,8 +814,6 @@ class MainWindow(tk.Tk):
     # Callback implementations for SimulationConfigPanel
     def on_simulation_config_changed(self):
         """Handle simulation configuration change."""
-        # Auto-save configuration on change (optional)
-        self._update_preflight_summary()
     
     # Callback implementations for ResultsPanel
     def on_results_cleared(self):

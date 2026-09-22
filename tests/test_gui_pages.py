@@ -62,15 +62,15 @@ def test_editor_log_sheet_visivel_ao_abrir(window):
     assert window.results_panel.results_text.winfo_height() >= 50
 
 
-def test_editar_idf_fica_na_tela_de_execucao(window):
-    """O atalho da barra abre a aba do modelo, sem trocar de página."""
+def test_editar_idf_abre_periodo_na_tela_de_execucao(window):
+    """O atalho abre Período, sem aba intermediária nem troca de página."""
     window.show_page("editor")
     window.on_edit_idf()
     _settle(window)
 
     assert window._current_page == "editor"
-    assert window.simulation_panel.notebook.tab("current", "text") == "Editar IDF"
-    assert window.idf_editor_panel.winfo_ismapped()
+    assert window.simulation_panel.notebook.tab("current", "text") == "Período"
+    assert window.idf_editor_panel.period_tab.winfo_ismapped()
 
 
 def test_duplicar_reaproveita_parametros_com_saida_nova(window, tmp_path):

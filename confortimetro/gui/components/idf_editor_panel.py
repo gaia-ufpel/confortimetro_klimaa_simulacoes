@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 from datetime import datetime, timedelta
 
-from ..theme import COLORS, SPACE, icon, scrollable, toast
+from ..theme import COLORS, SPACE, RoundedButton, icon, scrollable, toast
 from confortimetro.idf import (
     PEOPLE_METHODS, PEOPLE_METHOD_FIELD, read_people, read_run_period,
     read_timesteps_per_hour,
@@ -21,8 +21,14 @@ class IDFEditorPanel(ttk.Frame):
     que `write_idf_fields` espera, e quem salva é a `MainWindow`.
     """
 
-    def __init__(self, parent):
-        super().__init__(parent, style="Surface.TFrame")
+    def __init__(self, notebook, on_save=None):
+        """Controla abas inseridas diretamente no notebook principal.
+
+        Período e Ocupação não ficam sob uma aba intermediária "Editar IDF".
+        """
+        super().__init__(notebook, style="Surface.TFrame")
+        self.notebook = notebook
+        self.on_save = on_save
         self.idf_path = ""
         self._people = []
         self._people_widgets = []
@@ -30,34 +36,37 @@ class IDFEditorPanel(ttk.Frame):
         self._build_ui()
 
     def _build_ui(self):
+        self.period_tab = self._tab("Período", "timestep")
         ttk.Label(
-            self,
+            self.period_tab,
             text=("Edite apenas o que deseja mudar. Campos em branco preservam "
                   "os valores atuais do IDF."),
-            style="Caption.TLabel", justify="left").pack(
-                anchor="w", padx=SPACE[3], pady=(SPACE[2], SPACE[1]))
-        self.notebook = ttk.Notebook(self, style="Section.TNotebook")
-        self.notebook.pack(fill="both", expand=True)
-
-        self.period_tab = self._tab("Período", "timestep")
-        self.start_entry = self._field(self.period_tab, 0, 0,
+            style="Caption.TLabel", justify="left").grid(
+                row=0, column=0, columnspan=4, padx=SPACE[1],
+                pady=(0, SPACE[2]), sticky="w")
+        self.start_entry = self._field(self.period_tab, 1, 0,
                                        "Início (dd/mm/aaaa)")
-        self.end_entry = self._field(self.period_tab, 0, 1,
-                                     "Fim (dd/mm/aaaa)")
-        self.timestep_entry = self._field(self.period_tab, 0, 2,
-                                           "Passos por hora")
+        self.end_entry = self._field(self.period_tab, 1, 1,
+                                      "Fim (dd/mm/aaaa)")
+        self.timestep_entry = self._field(self.period_tab, 1, 2,
+                                            "Passos por hora")
         ttk.Label(self.period_tab,
                   text="O período e o timestep serão usados também no pós-processamento.",
                   style="Caption.TLabel").grid(
-                      row=2, column=0, columnspan=4, padx=SPACE[1],
+                      row=3, column=0, columnspan=4, padx=SPACE[1],
                       pady=(SPACE[1], 0), sticky="w")
+        if self.on_save:
+            RoundedButton(self.period_tab, text="Salvar como novo IDF", icon="save",
+                          command=self.on_save).grid(
+                              row=4, column=0, padx=SPACE[1], pady=(SPACE[3], 0),
+                              sticky="w")
 
         # A ocupação tem uma linha por objeto People: o número deles só é
         # conhecido no `load`, então a aba é remontada a cada IDF.
-        holder = ttk.Frame(self.notebook, style="Surface.TFrame",
-                           padding=SPACE[3])
-        self._add_tab(holder, "Ocupação", "details")
-        self.people_tab = scrollable(holder)
+        self.occupation_tab = ttk.Frame(self.notebook, style="Surface.TFrame",
+                                        padding=SPACE[3])
+        self._add_tab(self.occupation_tab, "Ocupação", "details")
+        self.people_tab = scrollable(self.occupation_tab)
         for column in range(4):
             self.people_tab.columnconfigure(column, weight=1, uniform="fields")
 
@@ -123,6 +132,7 @@ class IDFEditorPanel(ttk.Frame):
                       text="Nenhum objeto People no IDF.").grid(
                           row=0, column=0, columnspan=4, padx=SPACE[1],
                           sticky="w")
+            self._add_people_save_button(1)
             return
 
         for position, person in enumerate(self._people):
@@ -154,6 +164,14 @@ class IDFEditorPanel(ttk.Frame):
                 "person": person, "schedule": schedule, "method": method,
                 "value": value,
             })
+        self._add_people_save_button(len(self._people) * 3)
+
+    def _add_people_save_button(self, row: int):
+        if self.on_save:
+            RoundedButton(self.people_tab, text="Salvar como novo IDF", icon="save",
+                          command=self.on_save).grid(
+                              row=row, column=0, padx=SPACE[1], pady=(SPACE[3], SPACE[2]),
+                              sticky="w")
 
     @staticmethod
     def _method_value(person: dict) -> str:
