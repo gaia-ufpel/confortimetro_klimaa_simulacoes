@@ -1,7 +1,7 @@
 """Garante que a rota rápida de PMV dá exatamente o mesmo resultado da original."""
 import random
 
-import pythermalcomfort
+import pythermalcomfort.utilities
 from ladybug_comfort.pmv import predicted_mean_vote
 
 from confortimetro.control.base import _pmv

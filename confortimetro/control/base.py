@@ -3,7 +3,7 @@ import logging
 from ctypes import c_void_p
 from functools import lru_cache
 
-import pythermalcomfort
+import pythermalcomfort.utilities
 from ladybug_comfort.pmv import predicted_mean_vote_no_set
 
 from typing import Optional
