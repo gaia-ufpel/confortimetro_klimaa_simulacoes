@@ -54,10 +54,16 @@ class SimulationConfigPanel(ttk.Frame):
         self._build_equipment_tab()
         self._build_rooms_module_tab()
 
-    def insert_tab(self, index: int, widget, title: str) -> None:
-        """Insert an externally built frame as a tab of this panel."""
+    def insert_tab(self, index: int, widget, title: str,
+                   select: bool = True) -> None:
+        """Insert an externally built frame as a tab of this panel.
+
+        ``select=False`` allows complementary tabs to be mounted without
+        taking focus from the initial configuration tab.
+        """
         self.notebook.insert(index, widget, text=title)
-        self.notebook.select(index)
+        if select:
+            self.notebook.select(index)
 
     def _tab(self, title: str) -> ttk.Frame:
         """Create a notebook tab whose four columns share the width."""
