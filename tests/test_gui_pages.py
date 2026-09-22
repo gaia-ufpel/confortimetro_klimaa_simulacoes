@@ -235,3 +235,27 @@ def test_recompute_done_toasts(window):
     window._toasts.clear()
 
 
+def test_detalhes_abrem_no_resumo_e_serie_so_carrega_na_aba(window, tmp_path, monkeypatch):
+    from confortimetro.gui.components import timeseries_panel
+
+    carregadas = []
+    monkeypatch.setattr(timeseries_panel.TimeSeriesPanel, "load",
+                        lambda self, room: carregadas.append(room))
+    run_path = tmp_path / "run_a"
+    run_path.mkdir()
+    run = {'run': 'run_a', 'path': str(run_path), 'status': 'pronta',
+           'rooms_disponiveis': ['SALA1'], 'config': {},
+           'modificado': datetime.datetime.now()}
+
+    window.on_open_run_details(run)
+    _settle(window)
+
+    # Abrir os detalhes não lê a planilha: o Resumo continua instantâneo.
+    assert window.detail_tabs.index("current") == 0
+    assert carregadas == []
+
+    window.detail_tabs.select(1)
+    _settle(window)
+    assert carregadas == ['SALA1']
+
+

@@ -13,6 +13,7 @@ from .results_panel import ResultsPanel
 from .control_panel import ControlPanel
 from .simulations_panel import SimulationsPanel
 from .comparison_panel import COMPARISON_HEADINGS, ComparisonPanel
+from .timeseries_panel import TimeSeriesPanel
 
 __all__ = [
     'MACHINE_FIELDS',
@@ -25,4 +26,5 @@ __all__ = [
     'SimulationsPanel',
     'ComparisonPanel',
     'COMPARISON_HEADINGS',
+    'TimeSeriesPanel',
 ]
