@@ -20,7 +20,7 @@ class ConditionerComplete(Conditioner):
             temp_cool_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_cool_ac_handler[room])
             temp_heat_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_heat_ac_handler[room])
 
-            clo, comfort_achieved = self.get_best_clo_for_comfort(temp_ar, mrt, vel, hum_rel, clo)
+            clo, comfort_achieved = self.get_best_clo_for_comfort(temp_ar, mrt, 0.0, hum_rel, clo)  # vel=0: só desliga o ventilador se o conforto se mantém sem vento
             if comfort_achieved:
                 vel = 0.0
                 status_ac = 0

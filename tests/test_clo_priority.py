@@ -34,10 +34,9 @@ def test_best_clo_returns_the_nearest_value_when_comfort_is_impossible():
     assert (clo, comfortable) == (0.75, False)
 
 
-def test_comfortable_clo_turns_off_fan_and_ac_but_keeps_doas_control():
+def make_room_conditioner(get_pmv, actuators):
     class Exchange:
         variables = {"people": 1, "adaptive": 24, "air": 25, "mrt": 25, "rh": 50, "co2": 1200}
-        actuators = {"clo": 0.5, "vel": 0.6, "ac": 1, "cool": 20, "heat": 24}
 
         def get_variable_value(self, _state, handler):
             return self.variables[handler]
@@ -49,12 +48,13 @@ def test_comfortable_clo_turns_off_fan_and_ac_but_keeps_doas_control():
             self.actuators[handler] = value
 
     exchange = Exchange()
+    exchange.actuators = actuators
     conditioner = ConditionerClosedWindow.__new__(ConditionerClosedWindow)
     conditioner.ep_api = SimpleNamespace(exchange=exchange)
     conditioner.configs = SimpleNamespace(
         clo_min=0.5, clo_max=1.0, clo_delta=0.25,
         pmv_lowerbound=-0.5, pmv_upperbound=0.5, pmv_comfort_bound=0.2,
-        co2_limit=1000, adaptative_bound=2.5,
+        co2_limit=1000, adaptative_bound=2.5, air_speed_delta=0.1, max_vel=1.2,
     )
     conditioner.ac_on_counter = {"room": 3}
     conditioner.ac_on_max_timesteps = 12
@@ -70,7 +70,15 @@ def test_comfortable_clo_turns_off_fan_and_ac_but_keeps_doas_control():
         "adaptativo_min_handler": "adaptive_min",
     }.items():
         setattr(conditioner, name, {"room": handler})
-    conditioner.get_pmv = lambda *_args: {0.5: 0.3, 0.75: 0.0, 1.0: -0.2}[_args[-1]]
+    conditioner.get_pmv = get_pmv
+    return conditioner, exchange
+
+
+def test_comfortable_clo_turns_off_fan_and_ac_but_keeps_doas_control():
+    conditioner, exchange = make_room_conditioner(
+        lambda *_args: {0.5: 0.3, 0.75: 0.0, 1.0: -0.2}[_args[-1]],
+        {"clo": 0.5, "vel": 0.6, "ac": 1, "cool": 20, "heat": 24},
+    )
 
     conditioner.room_conditioner(None, "room")
 
@@ -86,3 +94,18 @@ def test_clo_priority_disabled_keeps_the_legacy_single_step_adjustment():
     assert conditioner.get_best_clo_for_comfort(25, 25, 0, 50, 1.0) == (1.0, False)
     # Muito quente com clo 1.0: o modo antigo desce um único passo de clo_delta.
     assert conditioner._step_clo(25, 25, 0, 50, 1.0) == 0.75
+
+
+def test_fan_stays_on_when_comfort_depends_on_the_airflow():
+    # Conforto só existe com vento: o CLO sozinho não pode desligar o ventilador,
+    # senão ele liga e desliga a cada timestep.
+    conditioner, exchange = make_room_conditioner(
+        lambda _ta, _tr, vel, _rh, _clo: 0.0 if vel > 0 else 0.9,
+        {"clo": 0.5, "vel": 0.6, "ac": 0, "cool": 20, "heat": 24},
+    )
+
+    conditioner.room_conditioner(None, "room")
+
+    assert exchange.actuators["vel"] == 0.6
+    assert exchange.actuators["vent"] == 1
+    assert exchange.actuators["ac"] == 0
