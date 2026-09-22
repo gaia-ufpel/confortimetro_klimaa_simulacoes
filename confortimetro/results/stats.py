@@ -13,6 +13,13 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
     cooling_column = '{} PTHP:Zone Packaged Terminal Heat Pump Total Cooling Energy'
     heating_column = '{} PTHP:Zone Packaged Terminal Heat Pump Total Heating Energy'
     vent_column = 'VENT_{}:Schedule Value'
+    # Consumo elétrico (nomes da expansão do HVACTemplate:Zone:PTHP). As
+    # colunas térmicas acima só servem para saber se o AC estava ligado.
+    pthp_electric_column = '{} PTHP:Zone Packaged Terminal Heat Pump Electricity Energy'
+    cooling_electric_columns = ['{} PTHP COOLING COIL:Cooling Coil Electricity Energy']
+    heating_electric_columns = ['{} PTHP HEATING COIL:Heating Coil Electricity Energy',
+                                '{} PTHP SUPP HEATING COIL:Heating Coil Electricity Energy']
+    fan_electric_column = 'VENTILADOR_{}:Electric Equipment Electricity Energy'
     janela_column = 'JANELA_{}:Schedule Value'
     doas_column = 'DOAS_STATUS_{}:Schedule Value'
     co2_column = '{}:Zone Air CO2 Concentration'
@@ -45,6 +52,7 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
             'Janela aberta sem pessoas': [],
             'Aquecimento (kWh)': [],
             'Resfriamento (kWh)': [],
+            'Ventilador (kWh)': [],
             'Energia total (kWh)': [],
             'PMV médio': [],
             'PMV fora da faixa': [],
@@ -80,7 +88,7 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
                'Janela fechada, ar desligado e ventilador desligado': None, 'Desconforto': None, 'CO2 máximo': None,
                'Timesteps simulados': None,
                'Janela aberta sem pessoas': None, 'Aquecimento (kWh)': None,
-               'Resfriamento (kWh)': None, 'Energia total (kWh)': None, 'PMV médio': None,
+               'Resfriamento (kWh)': None, 'Ventilador (kWh)': None, 'Energia total (kWh)': None, 'PMV médio': None,
                'PMV fora da faixa': None, 'Fora da banda adaptativa': None}
 
         if row['Número ocupação'] == 0:
@@ -108,9 +116,22 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
         # contagem, um RunPeriod de verão passava por anual na tabela.
         row['Timesteps simulados'] = len(df)
 
-        row['Aquecimento (kWh)'] = df[heating_column.format(room)].sum() / JOULES_PER_KWH
-        row['Resfriamento (kWh)'] = df[cooling_column.format(room)].sum() / JOULES_PER_KWH
-        row['Energia total (kWh)'] = row['Aquecimento (kWh)'] + row['Resfriamento (kWh)']
+        def kwh(*columns):
+            # Planilhas de antes do consumo elétrico não têm as colunas: NaN
+            # aparece como "—" em vez de um número térmico passando por elétrico.
+            names = [name.format(room) for name in columns]
+            if not all(name in df.columns for name in names):
+                return float('nan')
+            return df[names].to_numpy().sum() / JOULES_PER_KWH
+
+        row['Aquecimento (kWh)'] = kwh(*heating_electric_columns)
+        row['Resfriamento (kWh)'] = kwh(*cooling_electric_columns)
+        row['Ventilador (kWh)'] = kwh(fan_electric_column)
+        if (fan_electric_column.format(room) not in df.columns
+                and pthp_electric_column.format(room) in df.columns):
+            row['Ventilador (kWh)'] = 0.0  # sala sem ventilador de teto
+        # PTHP inteira: serpentinas, ventilador interno e aquecedor do cárter.
+        row['Energia total (kWh)'] = kwh(pthp_electric_column) + row['Ventilador (kWh)']
 
         occupied = df[df[people_column.format(room)] != 0]
         pmv = occupied[pmv_column.format(room)]

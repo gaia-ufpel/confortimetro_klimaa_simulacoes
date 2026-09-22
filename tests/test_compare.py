@@ -21,8 +21,10 @@ def _make_run(outputs, name, module_type, heating_kwh=10.0):
         '_idf_path': '/tmp/modelo/FAURB.idf', 'epw_path': '/tmp/clima/Camaqua.epw',
     }), encoding='utf-8')
     df = _room_dataframe()
-    heating = f"{ROOM} PTHP:Zone Packaged Terminal Heat Pump Total Heating Energy"
-    df[heating] = df[heating] * (heating_kwh / 10.0)
+    for heating in (f"{ROOM} PTHP:Zone Packaged Terminal Heat Pump Electricity Energy",
+                    f"{ROOM} PTHP HEATING COIL:Heating Coil Electricity Energy",
+                    f"{ROOM} PTHP SUPP HEATING COIL:Heating Coil Electricity Energy"):
+        df[heating] = df[heating] * (heating_kwh / 10.0)
     df.to_excel(run_path / f"{ROOM}.xlsx", index=False)
     return run_path
 

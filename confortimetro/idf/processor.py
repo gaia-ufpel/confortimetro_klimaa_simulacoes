@@ -820,6 +820,12 @@ class IDFProcessor:
                 "Schedule Value",
                 "Zone Packaged Terminal Heat Pump Total Heating Energy",
                 "Zone Packaged Terminal Heat Pump Total Cooling Energy",
+                # Consumo elétrico: PTHP inteira, serpentinas separadas por
+                # modo e o ventilador de teto (ElectricEquipment VENTILADOR_*).
+                "Zone Packaged Terminal Heat Pump Electricity Energy",
+                "Cooling Coil Electricity Energy",
+                "Heating Coil Electricity Energy",
+                "Electric Equipment Electricity Energy",
                 "Zone Infiltration Air Change Rate"
             ]
             

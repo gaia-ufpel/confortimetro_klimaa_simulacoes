@@ -17,10 +17,11 @@ CONFIG_FIELDS = ['module_type', '_idf_path', 'epw_path', '_met', 'clo_min', 'clo
 
 # Colunas de estatística introduzidas junto com a energia agregada; a ausência
 # delas marca um ESTATISTICAS.xlsx gerado por uma versão anterior.
-REQUIRED_COLUMNS = ['Energia total (kWh)', 'PMV fora da faixa', 'Fora da banda adaptativa']
+REQUIRED_COLUMNS = ['Energia total (kWh)', 'Ventilador (kWh)', 'PMV fora da faixa', 'Fora da banda adaptativa']
 
 # Métricas que interessam ao comparar duas execuções, na ordem de leitura.
 COMPARISON_COLUMNS = ['Energia total (kWh)', 'Aquecimento (kWh)', 'Resfriamento (kWh)',
+                      'Ventilador (kWh)',
                       'Desconforto', 'PMV médio', 'PMV fora da faixa',
                       'Fora da banda adaptativa', 'Janela aberta', 'Ventilador ligado',
                       'DOAS ligado', 'CO2 máximo', 'Timesteps simulados']

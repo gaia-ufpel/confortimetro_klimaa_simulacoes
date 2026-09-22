@@ -19,6 +19,10 @@ def _room_dataframe(rows=10, nan_rows=5):
         f"AC_{ROOM}:Schedule Value": [1.0] * rows,
         f"{ROOM} PTHP:Zone Packaged Terminal Heat Pump Total Heating Energy": [JOULES_PER_KWH] * rows,
         f"{ROOM} PTHP:Zone Packaged Terminal Heat Pump Total Cooling Energy": [0.0] * rows,
+        f"{ROOM} PTHP:Zone Packaged Terminal Heat Pump Electricity Energy": [JOULES_PER_KWH] * rows,
+        f"{ROOM} PTHP HEATING COIL:Heating Coil Electricity Energy": [JOULES_PER_KWH / 2] * rows,
+        f"{ROOM} PTHP SUPP HEATING COIL:Heating Coil Electricity Energy": [JOULES_PER_KWH / 2] * rows,
+        f"{ROOM} PTHP COOLING COIL:Cooling Coil Electricity Energy": [0.0] * rows,
         f"VENT_{ROOM}:Schedule Value": [0.0] * rows,
         f"JANELA_{ROOM}:Schedule Value": [0.0] * rows,
         f"DOAS_STATUS_{ROOM}:Schedule Value": [0.0] * rows,
@@ -57,3 +61,23 @@ def test_get_stats_com_frames(tmp_path):
     assert stats["Número ocupação"] == 10
     assert stats["Aquecimento (kWh)"] == pytest.approx(10.0)
 
+
+
+def test_energia_eletrica_inclui_ventilador_de_teto(tmp_path):
+    df = _room_dataframe()
+    df[f"VENTILADOR_{ROOM}:Electric Equipment Electricity Energy"] = JOULES_PER_KWH / 10
+    get_stats_from_simulation(str(tmp_path), [ROOM], frames={ROOM: df})
+    stats = pandas.read_excel(tmp_path / "ESTATISTICAS.xlsx").iloc[0]
+
+    assert stats["Ventilador (kWh)"] == pytest.approx(1.0)
+    assert stats["Energia total (kWh)"] == pytest.approx(11.0)
+
+
+def test_planilha_sem_consumo_eletrico_fica_sem_kwh(tmp_path):
+    df = _room_dataframe()
+    df = df[[c for c in df.columns if "Electricity" not in c]]
+    get_stats_from_simulation(str(tmp_path), [ROOM], frames={ROOM: df})
+    stats = pandas.read_excel(tmp_path / "ESTATISTICAS.xlsx").iloc[0]
+
+    assert numpy.isnan(stats["Energia total (kWh)"])
+    assert numpy.isnan(stats["Ventilador (kWh)"])

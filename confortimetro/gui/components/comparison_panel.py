@@ -24,6 +24,7 @@ COMPARISON_HEADINGS = {
     'Energia total (kWh)': 'Total (kWh)',
     'Aquecimento (kWh)': 'Aquec. (kWh)',
     'Resfriamento (kWh)': 'Resfr. (kWh)',
+    'Ventilador (kWh)': 'Vent. (kWh)',
     'Fora da banda adaptativa': 'Fora adapt.',
     'PMV fora da faixa': 'PMV fora',
     'Ventilador ligado': 'Ventilador',

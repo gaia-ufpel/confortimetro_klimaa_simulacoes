@@ -99,7 +99,7 @@ def energia_vs_desconforto(df, comfort_metric='Desconforto'):
 
 
 def energia_por_execucao(df):
-    """Barras empilhadas de aquecimento e resfriamento."""
+    """Barras empilhadas de aquecimento, resfriamento e ventilador de teto."""
     figure = _figure('Consumo anual por execução')
     axes = _style(figure.add_subplot(111), '', 'Energia (kWh/ano)')
 
@@ -107,11 +107,15 @@ def energia_por_execucao(df):
     positions = numpy.arange(len(labels))
     heating = df['Aquecimento (kWh)'].to_numpy()
     cooling = df['Resfriamento (kWh)'].to_numpy()
+    fan = (df['Ventilador (kWh)'].fillna(0).to_numpy() if 'Ventilador (kWh)' in df
+           else numpy.zeros(len(df)))
 
     axes.bar(positions, heating, 0.6, label='Aquecimento', color=PALETTE[1])
     axes.bar(positions, cooling, 0.6, bottom=heating, label='Resfriamento',
              color=PALETTE[0])
-    for position, total in zip(positions, heating + cooling):
+    axes.bar(positions, fan, 0.6, bottom=heating + cooling, label='Ventilador',
+             color=PALETTE[2])
+    for position, total in zip(positions, heating + cooling + fan):
         axes.text(position, total, f"{total:,.0f}".replace(',', '.'),
                   ha='center', va='bottom', fontsize=9, color=TEXT_COLOR)
 
