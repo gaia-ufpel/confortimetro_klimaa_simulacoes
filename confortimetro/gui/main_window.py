@@ -134,7 +134,6 @@ class MainWindow(tk.Tk):
             "compare": self._build_compare_page(),
             "detail": self._build_detail_page(),
             "editor": self._build_editor_page(),
-            "idf": self._build_idf_page(),
             "settings": self._build_settings_page(),
             "assistant": self._build_assistant_page(),
         }
@@ -148,7 +147,6 @@ class MainWindow(tk.Tk):
         "compare": "Comparação entre execuções",
         "detail": "Detalhes da execução",
         "editor": "Nova execução com EnergyPlus",
-        "idf": "Campos do modelo usados pela simulação",
         "settings": "Configurações desta máquina",
         "assistant": "Converse sobre os resultados das execuções",
     }
@@ -351,32 +349,36 @@ class MainWindow(tk.Tk):
         # Os caminhos entram como primeira aba: o IDF e o EPW são a entrada da
         # simulação, não mais um bloco solto acima dos parâmetros.
         self.path_panel = PathConfigPanel(self.simulation_panel.notebook,
-                                          callback=self,
-                                          fields=SIMULATION_FIELDS,
-                                          padding=SPACE[3])
+                                           callback=self,
+                                           fields=SIMULATION_FIELDS,
+                                           padding=SPACE[3])
         self.simulation_panel.insert_tab(0, self.path_panel, "Arquivos")
+        self._build_idf_editor_tab()
         return page
 
-    def _build_idf_page(self):
-        """Campos do IDF que a simulação usa, gravados numa cópia nova."""
+    def _build_idf_editor_tab(self):
+        """Inclui a edição do modelo na própria tela de configuração.
+
+        O editor continua salvando em uma cópia ao lado do arquivo escolhido;
+        a aba apenas evita tirar a pessoa da tela de execução para editá-lo.
+        """
         from tkinter import ttk
 
-        page = ttk.Frame(self.page_host, style="Main.TFrame")
-        self._page_nav(page, "Editar IDF", back_to="editor")
-
-        card = Card(page, "Campos do modelo")
-        card.pack(fill="both", expand=True)
-        self.idf_editor_panel = IDFEditorPanel(card.body)
+        self.idf_editor_tab = ttk.Frame(self.simulation_panel.notebook,
+                                        style="Surface.TFrame")
+        self.idf_editor_panel = IDFEditorPanel(self.idf_editor_tab)
         self.idf_editor_panel.pack(fill="both", expand=True)
 
-        row = ttk.Frame(card.body, style="Surface.TFrame")
+        row = ttk.Frame(self.idf_editor_tab, style="Surface.TFrame")
         row.pack(fill="x", pady=(SPACE[3], 0))
         RoundedButton(row, text="Salvar como novo IDF", icon="save",
-                      command=self.on_save_idf_copy).pack(side="left")
-        RoundedButton(row, text="Cancelar", variant="ghost",
-                      command=lambda: self.show_page("editor")).pack(
-                          side="left", padx=(SPACE[2], 0))
-        return page
+                       command=self.on_save_idf_copy).pack(side="left")
+        RoundedButton(row, text="Voltar aos arquivos", variant="ghost",
+                       command=lambda: self.simulation_panel.notebook.select(
+                           self.path_panel)).pack(
+                           side="left", padx=(SPACE[2], 0))
+        self.simulation_panel.insert_tab(1, self.idf_editor_tab, "Editar IDF",
+                                         select=False)
 
     def _build_settings_page(self):
         """Os caminhos que são da máquina, não da simulação."""
@@ -751,13 +753,13 @@ class MainWindow(tk.Tk):
     # ------------------------------------------------------------ editor IDF
 
     def on_edit_idf(self):
-        """Abre a página de edição com o IDF escolhido na execução."""
+        """Abre a aba de edição com o IDF escolhido na execução."""
         idf_path = self.path_panel.get_idf_path().strip()
         if not idf_path or not os.path.isfile(idf_path):
             toast(self, "Escolha um arquivo IDF antes de editá-lo.", "warn")
             return
         self.idf_editor_panel.load(idf_path)
-        self.show_page("idf")
+        self.simulation_panel.notebook.select(self.idf_editor_tab)
 
     def on_save_idf_copy(self):
         """Grava um IDF novo ao lado do original e passa a usá-lo.
@@ -782,7 +784,7 @@ class MainWindow(tk.Tk):
 
         self.path_panel.set_idf_path(target)
         self.on_idf_path_changed(target)
-        self.show_page("editor")
+        self.simulation_panel.notebook.select(self.path_panel)
         toast(self, f"IDF salvo em {os.path.basename(target)}.", "ok")
 
     @staticmethod
