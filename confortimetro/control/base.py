@@ -274,8 +274,11 @@ class Conditioner:
         if not self._clo_priority():
             clo = self._step_clo(temp_ar, mrt, vel, hum_rel, clo)
 
+        # Busca a partir do repouso: fica com a menor velocidade que dá conforto,
+        # em vez de manter uma velocidade alta herdada do timestep anterior.
+        vel = 0.0
         pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
-        
+
         while pmv > self.configs.pmv_upperbound:
             vel = round(vel + self.configs.air_speed_delta, 2)
             if vel > self.configs.max_vel:

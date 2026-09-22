@@ -98,14 +98,15 @@ def test_clo_priority_disabled_keeps_the_legacy_single_step_adjustment():
 
 def test_fan_stays_on_when_comfort_depends_on_the_airflow():
     # Conforto só existe com vento: o CLO sozinho não pode desligar o ventilador,
-    # senão ele liga e desliga a cada timestep.
+    # senão ele liga e desliga a cada timestep. E a velocidade herdada (0.6) deve
+    # cair para a menor que já dá conforto (0.3).
     conditioner, exchange = make_room_conditioner(
-        lambda _ta, _tr, vel, _rh, _clo: 0.0 if vel > 0 else 0.9,
+        lambda _ta, _tr, vel, _rh, _clo: 0.0 if vel >= 0.3 else 0.9,
         {"clo": 0.5, "vel": 0.6, "ac": 0, "cool": 20, "heat": 24},
     )
 
     conditioner.room_conditioner(None, "room")
 
-    assert exchange.actuators["vel"] == 0.6
+    assert exchange.actuators["vel"] == 0.3
     assert exchange.actuators["vent"] == 1
     assert exchange.actuators["ac"] == 0
