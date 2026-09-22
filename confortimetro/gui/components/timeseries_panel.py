@@ -1,9 +1,11 @@
-"""Série temporal de uma execução, timestep a timestep, na página de detalhes.
+"""Série temporal de uma execução, em gráfico ou tabela, na página de detalhes.
 
-Quatro painéis com o tempo compartilhado e uma tabela ao lado com o timestep
-clicado. A resolução acompanha o zoom (`series.window_series`): com poucos
-timesteps na tela cada um aparece; com muitos, cada bloco vira média e faixa
-mínimo–máximo, para um pico ou um acionamento curto não sumir.
+Quatro painéis com o tempo compartilhado e uma tabela lateral com o timestep
+clicado. A visualização tabular pagina os timesteps brutos; assim uma execução
+anual continua responsiva. A resolução do gráfico acompanha o zoom
+(`series.window_series`): com poucos timesteps na tela cada um aparece; com
+muitos, cada bloco vira média e faixa mínimo–máximo, para um pico ou um
+acionamento curto não sumir.
 """
 
 import threading
@@ -32,6 +34,7 @@ STATES = (('janela', 'Janela', '#588157'), ('ventilador', 'Ventilador', '#a06b00
 # Espera após o último zoom/arraste antes de redesenhar: a barra dispara um
 # evento por eixo e vários por segundo durante o arraste.
 REDRAW_DELAY_MS = 150
+TABLE_PAGE_SIZE = 250
 
 
 def _on_off(on, off):
@@ -72,6 +75,8 @@ class TimeSeriesPanel(ttk.Frame):
         self._active = False
         self._token = 0
         self._redraw_job = None
+        self._view = 'chart'
+        self._table_page = 0
         self._build_ui()
 
     # ------------------------------------------------------------------ UI
@@ -88,16 +93,23 @@ class TimeSeriesPanel(ttk.Frame):
         self.room_combo.bind('<<ComboboxSelected>>',
                              lambda _e: self.load(self.room_var.get()))
         RoundedButton(bar, text="Ver tudo", variant="ghost", icon="chart",
-                      command=self.show_all).pack(side="left")
+                       command=self.show_all).pack(side="left")
+        self.chart_view_button = RoundedButton(
+            bar, text="Gráfico", variant="ghost", command=self.show_chart_view)
+        self.chart_view_button.pack(side="left", padx=(SPACE[2], SPACE[1]))
+        self.table_view_button = RoundedButton(
+            bar, text="Tabela", variant="ghost", command=self.show_table_view)
+        self.table_view_button.pack(side="left")
         ttk.Label(bar, textvariable=self.status_var,
-                  style="Caption.TLabel").pack(side="right")
+                   style="Caption.TLabel").pack(side="right")
 
-        body = ttk.Frame(self, style="Surface.TFrame")
-        body.pack(fill="both", expand=True)
+        self.body = ttk.Frame(self, style="Surface.TFrame")
+        self.body.pack(fill="both", expand=True)
 
         # A tabela entra primeiro para garantir a largura dela; o gráfico fica
         # com o resto.
-        side = ttk.Frame(body, style="Surface.TFrame")
+        self.chart_body = ttk.Frame(self.body, style="Surface.TFrame")
+        side = ttk.Frame(self.chart_body, style="Surface.TFrame")
         side.pack(side="right", fill="y", padx=(SPACE[2], 0))
         self.selected_var = tk.StringVar(value="Clique no gráfico para ver um timestep.")
         ttk.Label(side, textvariable=self.selected_var, style="Label.TLabel",
@@ -114,7 +126,7 @@ class TimeSeriesPanel(ttk.Frame):
         table_scroll.pack(side="right", fill="y")
         self.table.pack(fill="y", expand=True)
 
-        self.chart_frame = ttk.Frame(body, style="Surface.TFrame")
+        self.chart_frame = ttk.Frame(self.chart_body, style="Surface.TFrame")
         self.chart_frame.pack(side="left", fill="both", expand=True)
 
         # Margens fixas em vez de `layout='constrained'`: o layout automático
@@ -141,6 +153,42 @@ class TimeSeriesPanel(ttk.Frame):
         widget.bind('<Right>', lambda _e: self._step(1) or "break")
 
         self._show_message("Abra uma execução para ver a série temporal.")
+        self._build_series_table()
+        self.show_chart_view()
+
+    def _build_series_table(self):
+        """Tabela paginada: nunca monta os ~52 mil itens de uma vez no Tk."""
+        self.series_table_body = ttk.Frame(self.body, style="Surface.TFrame")
+        controls = ttk.Frame(self.series_table_body, style="Surface.TFrame")
+        controls.pack(fill="x", pady=(0, SPACE[2]))
+        self.table_previous_button = RoundedButton(
+            controls, text="Anterior", variant="ghost", command=lambda: self._change_table_page(-1))
+        self.table_previous_button.pack(side="left", padx=(0, SPACE[1]))
+        self.table_next_button = RoundedButton(
+            controls, text="Próxima", variant="ghost", command=lambda: self._change_table_page(1))
+        self.table_next_button.pack(side="left")
+        self.table_page_var = tk.StringVar(value="Carregue uma série para ver a tabela.")
+        ttk.Label(controls, textvariable=self.table_page_var,
+                  style="Caption.TLabel").pack(side="right")
+
+        columns = ('data', *(name for name, _label, _fmt in TABLE_ROWS))
+        self.series_table = ttk.Treeview(self.series_table_body, style="Modern.Treeview",
+                                         show="headings", columns=columns)
+        self.series_table.heading('data', text='Data/hora')
+        self.series_table.column('data', width=135, stretch=False)
+        for name, label, _fmt in TABLE_ROWS:
+            self.series_table.heading(name, text=label)
+            self.series_table.column(name, width=120, stretch=False)
+        horizontal = ttk.Scrollbar(self.series_table_body, orient="horizontal",
+                                   command=self.series_table.xview)
+        vertical = ttk.Scrollbar(self.series_table_body, orient="vertical",
+                                 command=self.series_table.yview)
+        self.series_table.configure(xscrollcommand=horizontal.set,
+                                    yscrollcommand=vertical.set)
+        horizontal.pack(side="bottom", fill="x")
+        vertical.pack(side="right", fill="y")
+        self.series_table.pack(fill="both", expand=True)
+        self.series_table.bind('<<TreeviewSelect>>', self._on_table_select)
 
     def _show_message(self, text):
         self.toolbar.pack_forget()
@@ -154,12 +202,26 @@ class TimeSeriesPanel(ttk.Frame):
         self.toolbar.pack(side="bottom", fill="x")
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
 
+    def show_chart_view(self):
+        """Mostra os gráficos e a tabela de valores do timestep selecionado."""
+        self._view = 'chart'
+        self.series_table_body.pack_forget()
+        self.chart_body.pack(fill="both", expand=True)
+
+    def show_table_view(self):
+        """Mostra os timesteps em tabela, na página que contém a seleção atual."""
+        self._view = 'table'
+        self.chart_body.pack_forget()
+        self._show_table_page_for_selection()
+        self.series_table_body.pack(fill="both", expand=True)
+
     # -------------------------------------------------------------- dados
 
     def set_run(self, run):
         """Troca a execução; a série só é lida quando a aba fica visível."""
         self._run = run
         self._series = None
+        self._table_page = 0
         self._token += 1
         self._clear_selection()
         rooms = list(run.get('rooms_disponiveis') or [])
@@ -218,8 +280,12 @@ class TimeSeriesPanel(ttk.Frame):
             self._show_message(f"A planilha da zona {room} não tem timesteps.")
             return
         self._series = series.sort_values('data').reset_index(drop=True)
+        self._table_page = 0
         self.status_var.set(f"{room}: {len(self._series)} timesteps.")
-        self._show_plot()
+        if self._view == 'chart':
+            self._show_plot()
+        else:
+            self._show_table_page_for_selection()
         self.show_all()
 
     def _load_failed(self, token, room, error):
@@ -374,6 +440,52 @@ class TimeSeriesPanel(ttk.Frame):
             self.axes[0].set_xlim(stamp - half, stamp + half)
         self._draw_selection_line()
         self.canvas.draw_idle()
+
+    # -------------------------------------------------------------- tabela
+
+    def _show_table_page_for_selection(self):
+        if self._selected is not None:
+            self._table_page = self._selected // TABLE_PAGE_SIZE
+        self._render_table_page()
+
+    def _change_table_page(self, delta):
+        if self._series is None:
+            return
+        pages = (len(self._series) - 1) // TABLE_PAGE_SIZE + 1
+        self._table_page = max(0, min(self._table_page + delta, pages - 1))
+        self._render_table_page()
+
+    def _render_table_page(self):
+        self.series_table.delete(*self.series_table.get_children())
+        if self._series is None:
+            self.table_page_var.set("Carregue uma série para ver a tabela.")
+            self.table_previous_button.configure(state="disabled")
+            self.table_next_button.configure(state="disabled")
+            return
+
+        pages = (len(self._series) - 1) // TABLE_PAGE_SIZE + 1
+        self._table_page = min(self._table_page, pages - 1)
+        first = self._table_page * TABLE_PAGE_SIZE
+        last = min(first + TABLE_PAGE_SIZE, len(self._series))
+        self.table_page_var.set(f"Timesteps {first + 1:,}–{last:,} de {len(self._series):,} "
+                                f"· página {self._table_page + 1}/{pages}")
+        self.table_previous_button.configure(state="normal" if self._table_page else "disabled")
+        self.table_next_button.configure(state="normal" if self._table_page < pages - 1 else "disabled")
+        for index, row in self._series.iloc[first:last].iterrows():
+            values = [row['data'].strftime('%d/%m/%Y %H:%M')]
+            for name, _label, fmt in TABLE_ROWS:
+                value = row.get(name)
+                values.append('—' if value is None or pandas.isna(value) else fmt(value))
+            self.series_table.insert('', 'end', iid=str(index), values=values)
+        if self._selected is not None and first <= self._selected < last:
+            iid = str(self._selected)
+            self.series_table.selection_set(iid)
+            self.series_table.see(iid)
+
+    def _on_table_select(self, _event):
+        selected = self.series_table.selection()
+        if selected:
+            self._select(int(selected[0]))
 
     def _draw_selection_line(self):
         for line in getattr(self, '_selection_lines', []):

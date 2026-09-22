@@ -16,7 +16,7 @@ def _serie(n=2000, conforto=True):
     df['data'] = pandas.date_range('2015-01-01', periods=n, freq='10min')
     df['temp_operativa'] = numpy.linspace(18, 28, n)
     df['em_conforto'] = 1.0
-    df.loc[1500, 'em_conforto'] = 0.0
+    df.loc[min(1500, n - 1), 'em_conforto'] = 0.0
     return df if conforto else df.drop(columns='em_conforto')
 
 
@@ -125,3 +125,23 @@ def test_com_em_conforto_mostra_os_dois_estados(panel):
 
     textos = [text.get_text() for text in panel.axes[1].get_legend().get_texts()]
     assert {'Em conforto', 'Fora de conforto'} <= set(textos)
+
+
+def test_tabela_temporal_e_paginada_e_seleciona_o_timestep(panel):
+    series = _serie(501)
+    _show(panel, series)
+
+    panel.show_table_view()
+    panel.update()
+
+    assert panel.series_table_body.winfo_ismapped()
+    assert len(panel.series_table.get_children()) == 250
+    assert 'página 1/3' in panel.table_page_var.get()
+
+    panel._change_table_page(1)
+    assert panel.series_table.get_children()[0] == '250'
+    panel.series_table.selection_set('300')
+    panel.update()
+
+    assert panel._selected == 300
+    assert panel.selected_var.get() == series['data'][300].strftime('%d/%m/%Y %H:%M')
