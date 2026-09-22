@@ -2,7 +2,7 @@
 eppy>=0.5.62
 numpy>=1.24
 pandas>=1.5.0
-pythermalcomfort>=2.8.0
+pythermalcomfort>=2.8.0,<3
 ladybug-comfort>=0.18.0
 esoreader>=1.2.3
 sv_ttk>=2.6  # tema Sun Valley para os widgets ttk
