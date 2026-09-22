@@ -194,6 +194,23 @@ class AssistantPanel(ttk.Frame):
         self.view_host.pack(fill="both", expand=True, pady=(SPACE[2], SPACE[2]))
         self.view = self._make_view(self.view_host)
 
+        self.suggestions = ttk.Frame(self, style="Surface.TFrame")
+        ttk.Label(self.suggestions, text="Experimente perguntar:", style="Caption.TLabel").pack(
+            anchor="w")
+        for question in (
+                "Qual execução teve o menor consumo?",
+                "Em qual execução houve mais desconforto?",
+                "Em quais horários o ar-condicionado foi mais usado?"):
+            RoundedButton(self.suggestions, question, variant="ghost",
+                          command=lambda q=question: self._use_suggestion(q)).pack(
+                              anchor="w", pady=(SPACE[1], 0))
+        self.suggestions.pack(fill="x", before=self.view_host, pady=(SPACE[2], 0))
+
+    def _use_suggestion(self, question: str):
+        self.input.delete("1.0", "end")
+        self.input.insert("1.0", question)
+        self.input.focus_set()
+
     def _make_view(self, parent):
         """HtmlFrame do tkinterweb; sem ele (instalação quebrada), um Text simples."""
         try:
@@ -411,6 +428,10 @@ class AssistantPanel(ttk.Frame):
     def _render(self):
         self._render_due = False
         messages = store.visible_messages(self.conversation)
+        if messages or self._pending:
+            self.suggestions.pack_forget()
+        elif not self.suggestions.winfo_ismapped():
+            self.suggestions.pack(fill="x", before=self.view_host, pady=(SPACE[2], 0))
         if hasattr(self.view, "load_html"):
             self.view.load_html(conversation_html(messages, self._pending, self._partial))
             self.view.after_idle(lambda: self.view.yview_moveto(1.0))

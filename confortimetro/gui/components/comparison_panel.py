@@ -53,6 +53,7 @@ class ComparisonPanel(ttk.Frame):
         self.days_var = tk.StringVar(value='7')
 
         self._build_ui()
+        self._set_ready_state()
 
     def set_runs(self, runs, outputs_path: str):
         """Recebe as execuções escolhidas na listagem e já compara."""
@@ -67,7 +68,9 @@ class ComparisonPanel(ttk.Frame):
 
         self._comparison = None
         self._show_chart_placeholder()
-        self.compare()
+        self._set_ready_state()
+        if len(self._runs) >= 2:
+            self.compare()
 
         # Um gráfico agregado sai na hora: abrir a comparação já com ele
         # desenhado poupa o clique em "Gerar gráfico". Os de série leem as
@@ -84,6 +87,10 @@ class ComparisonPanel(ttk.Frame):
         row = ttk.Frame(actions.body, style="Surface.TFrame")
         row.pack(fill="x")
 
+        self.runs_var = tk.StringVar(value="Nenhuma execução selecionada")
+        ttk.Label(actions.body, textvariable=self.runs_var, style="Caption.TLabel",
+                  wraplength=900, justify="left").pack(anchor="w", pady=(SPACE[1], 0))
+
         ttk.Label(row, text="Zona", style="Label.TLabel").pack(
             side="left", padx=(0, SPACE[1]))
         self.room_combo = ttk.Combobox(row, textvariable=self.room_var,
@@ -91,8 +98,9 @@ class ComparisonPanel(ttk.Frame):
                                        width=14)
         self.room_combo.pack(side="left", padx=(0, SPACE[2]))
         self.room_combo.bind('<<ComboboxSelected>>', lambda _e: self.compare())
-        RoundedButton(row, text="Comparar", variant="ghost", icon="compare",
-                      command=self.compare).pack(side="left", padx=(0, SPACE[3]))
+        self.compare_button = RoundedButton(row, text="Comparar", variant="ghost", icon="compare",
+                                            command=self.compare)
+        self.compare_button.pack(side="left", padx=(0, SPACE[3]))
 
         ttk.Separator(row, orient="vertical").pack(
             side="left", fill="y", padx=(0, SPACE[3]), pady=SPACE[1])
@@ -112,11 +120,13 @@ class ComparisonPanel(ttk.Frame):
         self._build_option_fields()
         self._on_chart_changed()
 
-        RoundedButton(row, text="Gerar gráfico", variant="primary", icon="chart",
-                      command=self.plot).pack(side="left", padx=(0, SPACE[3]))
+        self.plot_button = RoundedButton(row, text="Gerar gráfico", variant="primary", icon="chart",
+                                         command=self.plot)
+        self.plot_button.pack(side="left", padx=(0, SPACE[3]))
 
-        RoundedButton(row, text="Exportar CSV", variant="ghost", icon="export",
-                      command=self.export_comparison).pack(side="right")
+        self.export_button = RoundedButton(row, text="Exportar CSV", variant="ghost", icon="export",
+                                           command=self.export_comparison)
+        self.export_button.pack(side="right")
         ttk.Label(row, textvariable=self.status_var,
                   style="Caption.TLabel").pack(side="right", padx=(0, SPACE[3]))
 
@@ -220,6 +230,21 @@ class ComparisonPanel(ttk.Frame):
     def _set_status(self, message: str):
         self.status_var.set(message)
 
+    def _set_ready_state(self):
+        count = len(self._runs)
+        names = ", ".join(run["run"] for run in self._runs)
+        self.runs_var.set(
+            f"{count} execução(ões) selecionada(s): {names or 'nenhuma'}. "
+            "São necessárias ao menos duas execuções com estatísticas completas.")
+        ready = count >= 2
+        for widget in (self.compare_button, self.plot_button):
+            widget.configure(state="normal" if ready else "disabled")
+        self.export_button.configure(state="disabled")
+        self.room_combo.configure(state="readonly" if ready else "disabled")
+        if not ready:
+            self._set_status("Selecione duas ou mais execuções na listagem para comparar.")
+            self._show_chart_message("Selecione ao menos duas execuções com estatísticas completas na listagem para iniciar uma comparação.")
+
     def compare(self):
         runs = self._runs
         if len(runs) < 2:
@@ -235,6 +260,7 @@ class ComparisonPanel(ttk.Frame):
 
         self._comparison = df
         self._render_comparison(df)
+        self.export_button.configure(state="normal")
         self.baseline_combo["values"] = list(df['Execução'])
         if self.baseline_var.get() not in list(df['Execução']):
             self.baseline_var.set(df['Execução'].iloc[0])
@@ -427,4 +453,3 @@ class ComparisonPanel(ttk.Frame):
         if path:
             self._comparison.to_csv(path, index=False)
             self._set_status(f"Comparação exportada para {path}")
-

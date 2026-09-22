@@ -52,6 +52,7 @@ class SimulationsPanel(ttk.Frame):
         self._running: dict[str, dict] = {}
         self._busy = False
         self._sort_state = (None, False)
+        self._summary_cache: dict[str, dict] = {}
 
         self._build_ui()
         self.refresh()
@@ -136,6 +137,7 @@ class SimulationsPanel(ttk.Frame):
             relief="flat", borderwidth=0, highlightthickness=1,
             highlightbackground=COLORS["line"], padx=SPACE[3], pady=SPACE[3])
         self.detail_text.pack(fill="both", expand=True)
+        self._render_detail_empty()
 
     def refresh(self):
         """Sincroniza o banco, relê a pasta de saídas e repovoa a listagem."""
@@ -162,6 +164,7 @@ class SimulationsPanel(ttk.Frame):
         rows += self._runs
 
         self.tree.delete(*self.tree.get_children())
+        self._summary_cache.clear()
         for run in rows:
             running = run['path'] in self._running
             status = 'em simulação' if running else run['status']
@@ -219,9 +222,13 @@ class SimulationsPanel(ttk.Frame):
         lines = []
         if len(runs) == 1:
             run = runs[0]
+            run["summary"] = self._summary_for(run)
             lines.append(f"{run['run']}\n{'-' * len(run['run'])}")
             lines.append(f"status      {run['status']}")
+            lines.append(f"período     {self._period_text(run)}")
             lines.append(f"zonas       {', '.join(run['rooms_disponiveis']) or '—'}")
+            lines.append(f"consumo     {self._metric_text(run, 'Energia total (kWh)', 'kWh')}")
+            lines.append(f"desconforto {self._metric_text(run, 'Desconforto')}")
             lines.append("")
             for key, value in run['config'].items():
                 if key in ('rooms', 'input_path', 'expanded_idf_path', 'idf_filename'):
@@ -232,10 +239,57 @@ class SimulationsPanel(ttk.Frame):
         elif runs:
             lines.append(f"{len(runs)} execuções selecionadas:\n")
             lines.extend(f"· {run['run']} ({run['status']})" for run in runs)
+        else:
+            self._render_detail_empty()
+            return
 
         self.detail_text.configure(state="normal")
         self.detail_text.delete("1.0", "end")
         self.detail_text.insert("1.0", "\n".join(lines))
+        self.detail_text.configure(state="disabled")
+
+    @staticmethod
+    def _period_text(run: dict) -> str:
+        config = run.get("config", {})
+        return (config.get("run_period") or config.get("period")
+                or config.get("start_date") or "consulte o IDF")
+
+    @staticmethod
+    def _metric_text(run: dict, column: str, suffix: str = "") -> str:
+        """Resumo leve: a listagem não abre planilhas grandes só por seleção."""
+        value = run.get("summary", {}).get(column)
+        if value is None:
+            return "disponível nos detalhes" if run.get("status") == "pronta" else "sem estatísticas"
+        return f"{value} {suffix}".strip()
+
+    def _summary_for(self, run: dict) -> dict:
+        """Agregados do Excel sob demanda, só para a execução escolhida."""
+        path = run["path"]
+        if path in self._summary_cache:
+            return self._summary_cache[path]
+        if run.get("status") != "pronta":
+            return {}
+        try:
+            import pandas
+            stats = pandas.read_excel(os.path.join(path, "ESTATISTICAS.xlsx"),
+                                      usecols=lambda col: col in (
+                                          "Energia total (kWh)", "Desconforto"))
+            summary = {}
+            if "Energia total (kWh)" in stats:
+                summary["Energia total (kWh)"] = (
+                    f"{stats['Energia total (kWh)'].sum():.2f}".replace(".", ","))
+            if "Desconforto" in stats:
+                summary["Desconforto"] = (
+                    f"{stats['Desconforto'].mean() * 100:.1f}%".replace(".", ","))
+        except Exception:
+            summary = {}
+        self._summary_cache[path] = summary
+        return summary
+
+    def _render_detail_empty(self):
+        self.detail_text.configure(state="normal")
+        self.detail_text.delete("1.0", "end")
+        self.detail_text.insert("1.0", "Escolha uma execução na lista para ver o status, período, zonas, consumo e desconforto.")
         self.detail_text.configure(state="disabled")
 
     # -------------------------------------------------------------- ações

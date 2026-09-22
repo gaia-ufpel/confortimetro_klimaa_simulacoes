@@ -12,11 +12,13 @@ from tkinter import messagebox, filedialog
 from queue import Queue
 import copy
 from typing import Optional
+from datetime import timedelta
 
 from confortimetro.config import SimulationConfig
 from confortimetro.idf import (apply_equipment_fixes, plan_equipment_fixes,
-                               read_zone_names, unwired_equipment,
-                               write_idf_fields)
+                                read_zone_names, read_run_period,
+                                read_timesteps_per_hour, unwired_equipment,
+                                write_idf_fields)
 from confortimetro.paths import new_run_path, runs_root
 from .components import (
     COMPARISON_HEADINGS,
@@ -230,8 +232,12 @@ class MainWindow(tk.Tk):
                       command=lambda: self.on_duplicate_run(self._detail_run)).pack(
                           side="left")
         RoundedButton(row, text="Abrir pasta", variant="ghost", icon="open",
-                      command=self._open_detail_folder).pack(side="left",
-                                                             padx=(SPACE[2], 0))
+                       command=self._open_detail_folder).pack(side="left",
+                                                              padx=(SPACE[2], 0))
+        self.detail_recompute_button = RoundedButton(
+            row, text="Regerar estatísticas", variant="ghost", icon="recompute",
+            command=self._recompute_detail_stats)
+        self.detail_recompute_button.pack(side="left", padx=(SPACE[2], 0))
 
         # --- Resumo de consumo (KPI cards) ---
         kpi_card = Card(page, pad=SPACE[3])
@@ -307,6 +313,10 @@ class MainWindow(tk.Tk):
         stats_scroll.pack(side="bottom", fill="x")
         self.detail_stats.pack(fill="x")
         self.detail_stats.tag_configure("total", font=FONTS["label"])
+        self.detail_empty_var = tk.StringVar(
+            value="Escolha uma execução na listagem para ver os resultados.")
+        self.detail_empty = ttk.Label(summary, textvariable=self.detail_empty_var,
+                                      style="Caption.TLabel", justify="left")
 
         # --- Configuração da execução ---
         card = Card(summary, "Configuração da execução")
@@ -336,6 +346,16 @@ class MainWindow(tk.Tk):
         topbar.pack(fill="x", pady=(0, SPACE[4]))
         self.control_panel = ControlPanel(topbar.body, callback=self)
         self.control_panel.pack(fill="x")
+
+        self.preflight_card = Card(page, "Antes de executar", pad=SPACE[3])
+        self.preflight_card.pack(fill="x", pady=(0, SPACE[3]))
+        self.preflight_var = tk.StringVar()
+        ttk.Label(self.preflight_card.body, textvariable=self.preflight_var,
+                  style="Body.TLabel", justify="left", wraplength=1050).pack(anchor="w")
+        ttk.Label(self.preflight_card.body,
+                  text="A validação confere os arquivos e o equipamento antes de iniciar. Simulações anuais podem levar horas e ocupar mais de 1 GB na pasta de execuções.",
+                  style="Caption.TLabel", justify="left", wraplength=1050).pack(
+                      anchor="w", pady=(SPACE[2], 0))
 
         # --- Log: painel inferior colapsável (ancorado no rodapé) ---
         self.log_sheet = BottomSheet(page, "Log de execução")
@@ -491,6 +511,7 @@ class MainWindow(tk.Tk):
             'module_type': self.configs.module_type
         }
         self.simulation_panel.set_configuration(config_dict)
+        self._update_preflight_summary()
     
     def _update_config_from_ui(self):
         """Update configuration from UI components."""
@@ -509,6 +530,28 @@ class MainWindow(tk.Tk):
             for key, value in sim_config.items():
                 if hasattr(self.configs, key):
                     setattr(self.configs, key, value)
+        self._update_preflight_summary()
+
+    def _update_preflight_summary(self):
+        """Mostra as entradas efetivas sem abrir o pipeline de simulação."""
+        if not hasattr(self, "preflight_var"):
+            return
+        idf = self.path_panel.get_idf_path().strip() if hasattr(self, "path_panel") else ""
+        epw = self.path_panel.get_epw_path().strip() if hasattr(self, "path_panel") else ""
+        rooms = self.simulation_panel.get_configuration().get("rooms", []) if hasattr(self, "simulation_panel") else []
+        period, timestep = "indisponível", "indisponível"
+        if idf and os.path.isfile(idf):
+            try:
+                start, end = read_run_period(idf)
+                period = f"{start.strftime('%d/%m/%Y')} a {(end - timedelta(days=1)).strftime('%d/%m/%Y')}"
+                timestep = f"{read_timesteps_per_hour(idf)} passo(s)/hora"
+            except (OSError, ValueError, IndexError):
+                period = "não foi possível ler o IDF"
+        self.preflight_var.set(
+            f"IDF: {os.path.basename(idf) or 'não selecionado'}  ·  "
+            f"EPW: {os.path.basename(epw) or 'não selecionado'}\n"
+            f"Zonas: {', '.join(rooms) or 'nenhuma selecionada'}  ·  "
+            f"Período: {period}  ·  Timestep: {timestep}")
     
     def _save_configuration(self):
         """Save current configuration to file."""
@@ -749,6 +792,7 @@ class MainWindow(tk.Tk):
         if self.configs:
             self.configs.idf_path = path
         self._refresh_room_options(path)
+        self._update_preflight_summary()
 
     # ------------------------------------------------------------ editor IDF
 
@@ -812,6 +856,7 @@ class MainWindow(tk.Tk):
         """Handle EPW path change."""
         if self.configs:
             self.configs.epw_path = path
+        self._update_preflight_summary()
     
     def on_energy_path_changed(self, path: str):
         """Handle energy path change."""
@@ -822,7 +867,7 @@ class MainWindow(tk.Tk):
     def on_simulation_config_changed(self):
         """Handle simulation configuration change."""
         # Auto-save configuration on change (optional)
-        pass
+        self._update_preflight_summary()
     
     # Callback implementations for ResultsPanel
     def on_results_cleared(self):
@@ -945,6 +990,9 @@ class MainWindow(tk.Tk):
             tree.column("aviso", width=600, anchor="w", stretch=True)
             tree.insert("", "end", values=(
                 "Sem estatísticas: use Regerar estatísticas na listagem.",))
+            self.detail_empty_var.set(
+                "Esta execução ainda não tem ESTATISTICAS.xlsx. Use Regerar estatísticas para calcular os indicadores a partir das planilhas existentes.")
+            self.detail_empty.pack(anchor="w", pady=(SPACE[2], 0))
             return
 
         try:
@@ -957,7 +1005,11 @@ class MainWindow(tk.Tk):
             tree.heading("aviso", text="Estatísticas")
             tree.column("aviso", width=600, anchor="w", stretch=True)
             tree.insert("", "end", values=(f"Não foi possível ler: {error}",))
+            self.detail_empty_var.set("Não foi possível abrir as estatísticas. Tente regerá-las a partir das planilhas da execução.")
+            self.detail_empty.pack(anchor="w", pady=(SPACE[2], 0))
             return
+
+        self.detail_empty.pack_forget()
 
         def _fmt_kwh(val):
             if val is None or pandas.isna(val):
@@ -1031,6 +1083,13 @@ class MainWindow(tk.Tk):
         self._update_ui_from_config()
         self.results_panel.append_info(f"Configuração duplicada de {run['run']}.")
         self.show_page("editor")
+
+    def _recompute_detail_stats(self):
+        if not self._detail_run:
+            toast(self, "Abra uma execução antes de regerar as estatísticas.", "warn")
+            return
+        self.simulations_panel.tree.selection_set(self._detail_run["path"])
+        self.simulations_panel.recompute_selected()
 
     def _open_detail_folder(self):
         if not self._detail_run:

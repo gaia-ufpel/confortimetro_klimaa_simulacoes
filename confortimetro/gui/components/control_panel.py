@@ -47,7 +47,7 @@ class ControlPanel(ttk.Frame):
         row.pack(fill="x")
 
         self.run_button = RoundedButton(
-            row, text="Executar simulação", variant="primary", icon="play",
+            row, text="Validar e executar", variant="primary", icon="play",
             command=self._on_run_clicked)
         self.run_button.pack(side="left")
 
@@ -120,7 +120,7 @@ class ControlPanel(ttk.Frame):
             self.progress_bar.start(10)
             self.set_status("Executando simulação...", "running")
         else:
-            self.run_button.configure(text="Executar simulação",
+            self.run_button.configure(text="Validar e executar",
                                       variant="primary", icon="play")
             self.save_button.configure(state="normal")
             self.load_button.configure(state="normal")

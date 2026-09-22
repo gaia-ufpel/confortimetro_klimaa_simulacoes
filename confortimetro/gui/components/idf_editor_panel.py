@@ -30,6 +30,12 @@ class IDFEditorPanel(ttk.Frame):
         self._build_ui()
 
     def _build_ui(self):
+        ttk.Label(
+            self,
+            text=("Edite apenas o que deseja mudar. Campos em branco preservam "
+                  "os valores atuais do IDF."),
+            style="Caption.TLabel", justify="left").pack(
+                anchor="w", padx=SPACE[3], pady=(SPACE[2], SPACE[1]))
         self.notebook = ttk.Notebook(self, style="Section.TNotebook")
         self.notebook.pack(fill="both", expand=True)
 
@@ -39,7 +45,12 @@ class IDFEditorPanel(ttk.Frame):
         self.end_entry = self._field(self.period_tab, 0, 1,
                                      "Fim (dd/mm/aaaa)")
         self.timestep_entry = self._field(self.period_tab, 0, 2,
-                                          "Passos por hora")
+                                           "Passos por hora")
+        ttk.Label(self.period_tab,
+                  text="O período e o timestep serão usados também no pós-processamento.",
+                  style="Caption.TLabel").grid(
+                      row=2, column=0, columnspan=4, padx=SPACE[1],
+                      pady=(SPACE[1], 0), sticky="w")
 
         # A ocupação tem uma linha por objeto People: o número deles só é
         # conhecido no `load`, então a aba é remontada a cada IDF.
@@ -200,9 +211,12 @@ class IDFEditorPanel(ttk.Frame):
             return None
         if start is None and end is None:
             return {}
-        if start is None or end is None:
-            toast(self, "Preencha as duas datas do período.", "error")
-            return None
+        # Campo vazio significa "não alterar", como nos demais campos do
+        # editor. Assim é possível ajustar só uma ponta do período.
+        if start is None:
+            start = datetime.strptime(self._loaded["start"], "%d/%m/%Y")
+        if end is None:
+            end = datetime.strptime(self._loaded["end"], "%d/%m/%Y")
         if end < start:
             toast(self, "O fim do período vem antes do início.", "error")
             return None
