@@ -259,3 +259,61 @@ def test_detalhes_abrem_no_resumo_e_serie_so_carrega_na_aba(window, tmp_path, mo
     assert carregadas == ['SALA1']
 
 
+
+
+def _wait_answer(panel, window):
+    import time
+    deadline = time.time() + 10
+    while panel._busy() or panel._pending:
+        window.update()
+        assert time.time() < deadline, "o assistente não terminou"
+        time.sleep(0.02)
+
+
+def test_assistente_nos_detalhes_e_na_pagina_geral(window, tmp_path, monkeypatch):
+    from confortimetro.assistant import store
+
+    monkeypatch.setattr(store, "_keyring", lambda: None)
+    store.set_api_key("chave-de-teste")
+
+    class FakeAssistant:
+        def __init__(self, conversation, root, *args, **kwargs):
+            self.conversation = conversation
+
+        def ask(self, question, on_event=None, cancel=None):
+            on_event("status", "Consultando indicadores…")
+            on_event("text", "| a | b |\n|---|---|\n| 1 | 2 |")
+            self.conversation["contents"] += [
+                {"role": "user", "parts": [{"text": question}]},
+                {"role": "model", "parts": [{"text": "resposta"}]}]
+            self.conversation["title"] = question
+            store.save_conversation(self.conversation)
+            return "resposta"
+
+    monkeypatch.setattr("confortimetro.assistant.client.Assistant", FakeAssistant)
+
+    run_path = tmp_path / "saidas" / "run_a"
+    run_path.mkdir(parents=True)
+    (run_path / "configs.json").write_text("{}")
+    run = {'run': 'run_a', 'path': str(run_path), 'status': 'sem estatísticas',
+           'rooms_disponiveis': [], 'config': {}, 'modificado': datetime.datetime.now()}
+
+    window.on_open_run_details(run)
+    _settle(window)
+    panel = window.detail_assistant
+    window.detail_tabs.select(2)
+    panel.input.insert("1.0", "Quanto consumiu?")
+    panel.send()
+    _wait_answer(panel, window)
+    assert [c["title"] for c in store.list_conversations("run_a")] == ["Quanto consumiu?"]
+
+    # Voltar aos detalhes reabre a conversa da execução.
+    window.on_open_run_details(run)
+    assert panel.conversation["title"] == "Quanto consumiu?"
+
+    # Página geral: conversa nova com as execuções escolhidas.
+    window.on_ask_assistant([run], str(tmp_path / "saidas"))
+    _settle(window)
+    assert window._current_page == "assistant"
+    assert window.assistant_panel.conversation["runs"] == ["run_a"]
+    assert window.assistant_panel.conversation["contents"] == []

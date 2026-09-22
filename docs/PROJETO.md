@@ -60,6 +60,7 @@ Fluxograma do condicionador:
 | `confortimetro/config.py` | Dataclass de configuração e (de)serialização JSON. |
 | `confortimetro/results/` | Pós-processamento: `excel.py` (ESO → planilha), `stats.py`, `periods.py` (recortes sazonais), `plots.py`. |
 | `confortimetro/module_type.py` | Enum `ModuleType`. |
+| `confortimetro/assistant/` | Assistente de análise (PRD 003): `tools.py` (ferramentas só de leitura sobre `results/`), `client.py` (laço de function calling com o Gemini), `store.py` (configurações, chave no keyring e conversas em `app_data_path()/assistente/`). |
 | `confortimetro/gui/` | Janela e painéis Tkinter (caminhos, parâmetros, controles, resultados). |
 | `examples/` | `config.json`, IDFs (`idf/`) e EPWs (`epw/`) de referência. |
 | `bin/` | `install.sh`/`install.bat`, `executar.bat`. |
@@ -265,6 +266,7 @@ não é imediato.
 | `tests/test_clo_priority.py` | Escolha do clo com PMV mais próximo de zero e validação de `clo_delta`/`clo_min`. |
 | `tests/test_pmv_fast.py` | Equivalência e cache do PMV rápido. |
 | `tests/test_error_reporting.py` | Erros que devem abortar (handlers faltando, exceção no callback, ESO truncado). |
+| `tests/test_assistant.py` | Ferramentas do assistente, laço de function calling com Gemini falso, resumo do histórico e chave/conversas em disco. |
 
 ## 10. Armadilhas conhecidas
 

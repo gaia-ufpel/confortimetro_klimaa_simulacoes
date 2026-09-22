@@ -30,6 +30,8 @@ from .components import (
     SimulationsPanel,
     ComparisonPanel,
     TimeSeriesPanel,
+    AssistantPanel,
+    AssistantSettings,
 )
 from .theme import (
     COLORS,
@@ -134,6 +136,7 @@ class MainWindow(tk.Tk):
             "editor": self._build_editor_page(),
             "idf": self._build_idf_page(),
             "settings": self._build_settings_page(),
+            "assistant": self._build_assistant_page(),
         }
         self._current_page = None
         self.show_page("runs")
@@ -147,6 +150,7 @@ class MainWindow(tk.Tk):
         "editor": "Nova execução com EnergyPlus",
         "idf": "Campos do modelo usados pela simulação",
         "settings": "Configurações desta máquina",
+        "assistant": "Converse sobre os resultados das execuções",
     }
 
     def show_page(self, name: str):
@@ -286,6 +290,10 @@ class MainWindow(tk.Tk):
         self.detail_tabs.add(series_tab, text="Série temporal")
         self.timeseries_panel = TimeSeriesPanel(series_tab.body)
         self.timeseries_panel.pack(fill="both", expand=True)
+        assistant_tab = Card(self.detail_tabs, pad=SPACE[3])
+        self.detail_tabs.add(assistant_tab, text="Assistente")
+        self.detail_assistant = AssistantPanel(assistant_tab.body, self._outputs_root)
+        self.detail_assistant.pack(fill="both", expand=True)
         # A série só é lida com a aba visível: abrir os detalhes continua
         # tão rápido quanto antes.
         self.detail_tabs.bind("<<NotebookTabChanged>>", self._on_detail_tab_changed)
@@ -385,6 +393,23 @@ class MainWindow(tk.Tk):
         ttk.Label(card.body, text="Valem para todas as simulações desta "
                                   "máquina e são salvos junto da configuração.",
                   style="Caption.TLabel").pack(anchor="w", pady=(SPACE[3], 0))
+
+        assistant_card = Card(page, "Assistente de análise")
+        assistant_card.pack(fill="x", pady=(SPACE[3], 0))
+        self.assistant_settings = AssistantSettings(assistant_card.body)
+        self.assistant_settings.pack(fill="x")
+        return page
+
+    def _build_assistant_page(self):
+        """Chat sobre as execuções escolhidas na listagem."""
+        from tkinter import ttk
+
+        page = ttk.Frame(self.page_host, style="Main.TFrame")
+        self._page_nav(page, "Assistente de análise", back_to="runs")
+        card = Card(page, pad=SPACE[3])
+        card.pack(fill="both", expand=True)
+        self.assistant_panel = AssistantPanel(card.body, self._outputs_root)
+        self.assistant_panel.pack(fill="both", expand=True)
         return page
 
     def _outputs_root(self) -> str:
@@ -861,6 +886,11 @@ class MainWindow(tk.Tk):
         self.comparison_panel.set_runs(runs, outputs_path)
         self.show_page("compare")
 
+    def on_ask_assistant(self, runs: list, outputs_path: str):
+        """Página do assistente com as execuções escolhidas como contexto."""
+        self.assistant_panel.set_context([run['run'] for run in runs])
+        self.show_page("assistant")
+
     def on_open_run_details(self, run: dict):
         """Página com a configuração completa da execução escolhida."""
         self._detail_run = run
@@ -879,6 +909,7 @@ class MainWindow(tk.Tk):
         self._render_detail_stats(run)
         self.detail_tabs.select(0)
         self.timeseries_panel.set_run(run)
+        self.detail_assistant.set_context([run['run']], run_filter=run['run'])
         self.show_page("detail")
 
     def _on_detail_tab_changed(self, _event=None):
