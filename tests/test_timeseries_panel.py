@@ -138,6 +138,11 @@ def test_tabela_temporal_e_paginada_e_seleciona_o_timestep(panel):
     assert len(panel.series_table.get_children()) == 250
     assert 'página 1/3' in panel.table_page_var.get()
 
+    panel._on_table_scroll('0.0', '0.91')
+    panel.update()
+    assert len(panel.series_table.get_children()) == 500
+    assert 'páginas 1–2/3' in panel.table_page_var.get()
+
     panel._change_table_page(1)
     assert panel.series_table.get_children()[0] == '250'
     panel.series_table.selection_set('300')

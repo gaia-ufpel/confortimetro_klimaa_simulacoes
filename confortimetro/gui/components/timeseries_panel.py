@@ -77,6 +77,9 @@ class TimeSeriesPanel(ttk.Frame):
         self._redraw_job = None
         self._view = 'chart'
         self._table_page = 0
+        self._table_last_page = -1
+        self._table_load_job = None
+        self._rendering_table = False
         self._build_ui()
 
     # ------------------------------------------------------------------ UI
@@ -183,8 +186,9 @@ class TimeSeriesPanel(ttk.Frame):
                                    command=self.series_table.xview)
         vertical = ttk.Scrollbar(self.series_table_body, orient="vertical",
                                  command=self.series_table.yview)
+        self.series_table_scroll = vertical
         self.series_table.configure(xscrollcommand=horizontal.set,
-                                    yscrollcommand=vertical.set)
+                                    yscrollcommand=self._on_table_scroll)
         horizontal.pack(side="bottom", fill="x")
         vertical.pack(side="right", fill="y")
         self.series_table.pack(fill="both", expand=True)
@@ -222,6 +226,10 @@ class TimeSeriesPanel(ttk.Frame):
         self._run = run
         self._series = None
         self._table_page = 0
+        self._table_last_page = -1
+        if self._table_load_job is not None:
+            self.after_cancel(self._table_load_job)
+            self._table_load_job = None
         self._token += 1
         self._clear_selection()
         rooms = list(run.get('rooms_disponiveis') or [])
@@ -255,6 +263,8 @@ class TimeSeriesPanel(ttk.Frame):
         self._token += 1
         token = self._token
         self._series = None
+        self._table_page = 0
+        self._table_last_page = -1
         self._clear_selection()
         self.status_var.set(f"Lendo {room}…")
         self._show_message(f"Lendo a série da zona {room}…\n"
@@ -456,31 +466,74 @@ class TimeSeriesPanel(ttk.Frame):
         self._render_table_page()
 
     def _render_table_page(self):
-        self.series_table.delete(*self.series_table.get_children())
-        if self._series is None:
-            self.table_page_var.set("Carregue uma série para ver a tabela.")
-            self.table_previous_button.configure(state="disabled")
-            self.table_next_button.configure(state="disabled")
-            return
+        self._rendering_table = True
+        try:
+            self.series_table.delete(*self.series_table.get_children())
+            if self._series is None:
+                self.table_page_var.set("Carregue uma série para ver a tabela.")
+                self.table_previous_button.configure(state="disabled")
+                self.table_next_button.configure(state="disabled")
+                return
 
-        pages = (len(self._series) - 1) // TABLE_PAGE_SIZE + 1
-        self._table_page = min(self._table_page, pages - 1)
-        first = self._table_page * TABLE_PAGE_SIZE
-        last = min(first + TABLE_PAGE_SIZE, len(self._series))
-        self.table_page_var.set(f"Timesteps {first + 1:,}–{last:,} de {len(self._series):,} "
-                                f"· página {self._table_page + 1}/{pages}")
-        self.table_previous_button.configure(state="normal" if self._table_page else "disabled")
-        self.table_next_button.configure(state="normal" if self._table_page < pages - 1 else "disabled")
+            pages = (len(self._series) - 1) // TABLE_PAGE_SIZE + 1
+            self._table_page = min(self._table_page, pages - 1)
+            first = self._table_page * TABLE_PAGE_SIZE
+            last = min(first + TABLE_PAGE_SIZE, len(self._series))
+            self._table_last_page = self._table_page
+            self._update_table_page_label()
+            self.table_previous_button.configure(state="normal" if self._table_page else "disabled")
+            self.table_next_button.configure(state="normal" if self._table_page < pages - 1 else "disabled")
+            self._insert_table_rows(first, last)
+            if self._selected is not None and first <= self._selected < last:
+                iid = str(self._selected)
+                self.series_table.selection_set(iid)
+                self.series_table.see(iid)
+        finally:
+            self._rendering_table = False
+
+    def _insert_table_rows(self, first, last):
+        """Acrescenta os timesteps de uma página já escolhida."""
         for index, row in self._series.iloc[first:last].iterrows():
             values = [row['data'].strftime('%d/%m/%Y %H:%M')]
             for name, _label, fmt in TABLE_ROWS:
                 value = row.get(name)
                 values.append('—' if value is None or pandas.isna(value) else fmt(value))
             self.series_table.insert('', 'end', iid=str(index), values=values)
-        if self._selected is not None and first <= self._selected < last:
-            iid = str(self._selected)
-            self.series_table.selection_set(iid)
-            self.series_table.see(iid)
+
+    def _update_table_page_label(self):
+        pages = (len(self._series) - 1) // TABLE_PAGE_SIZE + 1
+        first = self._table_page * TABLE_PAGE_SIZE
+        last = min((self._table_last_page + 1) * TABLE_PAGE_SIZE, len(self._series))
+        page_text = (f"página {self._table_page + 1}/{pages}"
+                     if self._table_last_page == self._table_page
+                     else f"páginas {self._table_page + 1}–{self._table_last_page + 1}/{pages}")
+        self.table_page_var.set(
+            f"Timesteps {first + 1:,}–{last:,} de {len(self._series):,} · {page_text}")
+
+    def _on_table_scroll(self, first, last):
+        """Anexa a próxima página pouco antes do fim da lista visível."""
+        self.series_table_scroll.set(first, last)
+        # O valor vem como string do Tk. Agendar evita alterar a Treeview no
+        # meio do seu próprio cálculo de rolagem.
+        if self._rendering_table or self._series is None or float(last) < 0.9 \
+                or self._table_load_job is not None:
+            return
+        pages = (len(self._series) - 1) // TABLE_PAGE_SIZE + 1
+        if self._table_last_page >= pages - 1:
+            return
+        self._table_load_job = self.after_idle(self._append_next_table_page)
+
+    def _append_next_table_page(self):
+        self._table_load_job = None
+        if self._series is None:
+            return
+        pages = (len(self._series) - 1) // TABLE_PAGE_SIZE + 1
+        if self._table_last_page >= pages - 1:
+            return
+        self._table_last_page += 1
+        first = self._table_last_page * TABLE_PAGE_SIZE
+        self._insert_table_rows(first, min(first + TABLE_PAGE_SIZE, len(self._series)))
+        self._update_table_page_label()
 
     def _on_table_select(self, _event):
         selected = self.series_table.selection()
