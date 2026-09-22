@@ -23,7 +23,7 @@ if not exist ".venv\Scripts\python.exe" (
 
 echo [INFO] Instalando dependencias ...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip
-".venv\Scripts\python.exe" -m pip install -r requirements.txt
+".venv\Scripts\python.exe" -m pip install -r requirements.txt -c constraints.txt
 if errorlevel 1 (
     echo [ERRO] Falha ao instalar as dependencias.
     pause
