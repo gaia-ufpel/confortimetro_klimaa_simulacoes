@@ -29,6 +29,7 @@ from .components import (
     ControlPanel,
     SimulationsPanel,
     ComparisonPanel,
+    TimeSeriesPanel,
 )
 from .theme import (
     COLORS,
@@ -276,8 +277,21 @@ class MainWindow(tk.Tk):
         kpi3 = _make_kpi("Resfriamento", self.kpi_resfr_var, "#2b6cb0", "snowflake")
         kpi3.pack(side="left", padx=(0, SPACE[5]))
 
+        # --- Abas: o resumo de sempre e a série temporal timestep a timestep ---
+        self.detail_tabs = ttk.Notebook(page, style="Section.TNotebook")
+        self.detail_tabs.pack(fill="both", expand=True)
+        summary = ttk.Frame(self.detail_tabs, style="Main.TFrame")
+        series_tab = Card(self.detail_tabs, pad=SPACE[3])
+        self.detail_tabs.add(summary, text="Resumo")
+        self.detail_tabs.add(series_tab, text="Série temporal")
+        self.timeseries_panel = TimeSeriesPanel(series_tab.body)
+        self.timeseries_panel.pack(fill="both", expand=True)
+        # A série só é lida com a aba visível: abrir os detalhes continua
+        # tão rápido quanto antes.
+        self.detail_tabs.bind("<<NotebookTabChanged>>", self._on_detail_tab_changed)
+
         # --- Estatísticas por zona ---
-        stats_card = Card(page, "Estatísticas por zona")
+        stats_card = Card(summary, "Estatísticas por zona")
         stats_card.pack(fill="x", pady=(0, SPACE[3]))
         self.detail_stats = ttk.Treeview(stats_card.body, style="Modern.Treeview",
                                          show="headings", height=4)
@@ -289,7 +303,7 @@ class MainWindow(tk.Tk):
         self.detail_stats.tag_configure("total", font=FONTS["label"])
 
         # --- Configuração da execução ---
-        card = Card(page, "Configuração da execução")
+        card = Card(summary, "Configuração da execução")
         card.pack(fill="both", expand=True)
         self.detail_text = tk.Text(
             card.body, wrap="none", state="disabled", font=FONTS["mono"],
@@ -863,7 +877,15 @@ class MainWindow(tk.Tk):
         self.detail_text.insert("1.0", "\n".join(lines))
         self.detail_text.configure(state="disabled")
         self._render_detail_stats(run)
+        self.detail_tabs.select(0)
+        self.timeseries_panel.set_run(run)
         self.show_page("detail")
+
+    def _on_detail_tab_changed(self, _event=None):
+        if self.detail_tabs.index("current") == 1:
+            self.timeseries_panel.activate()
+        else:
+            self.timeseries_panel.deactivate()
 
     def _render_detail_stats(self, run: dict):
         """Uma linha por zona, lida do ESTATISTICAS.xlsx que a execução já gravou."""

@@ -6,8 +6,10 @@ leitura grava um pickle ao lado da planilha e as seguintes saem dele
 (milissegundos), invalidado pelo `mtime` da planilha original.
 """
 
+import math
 import os
 
+import numpy
 import pandas
 
 CACHE_DIRECTORY = '.series_cache'
@@ -26,6 +28,7 @@ COLUMNS = {
     'ventilador': 'VENT_{room}:Schedule Value',
     'ac': 'AC_{room}:Schedule Value',
     'doas': 'DOAS_STATUS_{room}:Schedule Value',
+    'em_conforto': 'EM_CONFORTO_{room}:Schedule Value',
     'co2': '{room}:Zone Air CO2 Concentration',
     'aquecimento': '{room} PTHP:Zone Packaged Terminal Heat Pump Total Heating Energy',
     'resfriamento': '{room} PTHP:Zone Packaged Terminal Heat Pump Total Cooling Energy',
@@ -88,3 +91,54 @@ def clear_cache(run_path):
         removed += 1
     os.rmdir(directory)
     return removed
+
+
+# Estados liga/desliga: num bloco agregado vale o máximo — um acionamento curto
+# não pode sumir ao afastar o zoom. `em_conforto` é o inverso: basta um timestep
+# fora de conforto para o bloco inteiro contar como fora.
+STATE_COLUMNS = ('janela', 'ventilador', 'ac', 'doas')
+MIN_STATE_COLUMNS = ('em_conforto',)
+
+
+def window_series(df, start, end, max_points):
+    """Recorte da série para desenhar a janela [start, end] em `max_points` pontos.
+
+    Devolve `(frame, aggregated)`. Com até `max_points` timesteps na janela, o
+    frame traz os valores brutos. Acima disso, cada bloco de timesteps vira uma
+    linha com `<var>_mean`, `<var>_min` e `<var>_max` para as variáveis
+    contínuas e um único valor para os estados. O bloco é contado em timesteps,
+    não em tempo, para descer até 1 ao aproximar, e alinhado ao início da série
+    para não tremer ao arrastar. Um bloco de folga de cada lado evita que a
+    linha termine antes da borda do gráfico.
+    """
+    stamps = df['data'].to_numpy()
+    first = int(stamps.searchsorted(pandas.Timestamp(start).to_datetime64(), 'left'))
+    last = int(stamps.searchsorted(pandas.Timestamp(end).to_datetime64(), 'right'))
+    count = last - first
+
+    if count == 0:
+        return df.iloc[0:0], False
+    if count <= max_points:
+        window = df.iloc[max(first - 1, 0):last + 1]
+        return window.reset_index(drop=True), False
+
+    block = math.ceil(count / max_points)
+    begin = max((first // block - 1) * block, 0)
+    finish = min((math.ceil(last / block) + 1) * block, len(df))
+    window = df.iloc[begin:finish]
+    groups = window.groupby(numpy.arange(begin, finish) // block, sort=True)
+
+    columns = {'data': groups['data'].first()}
+    for name in window.columns:
+        if name == 'data':
+            continue
+        if name in STATE_COLUMNS:
+            columns[name] = groups[name].max()
+        elif name in MIN_STATE_COLUMNS:
+            columns[name] = groups[name].min()
+        else:
+            columns[f'{name}_mean'] = groups[name].mean()
+            columns[f'{name}_min'] = groups[name].min()
+            columns[f'{name}_max'] = groups[name].max()
+    return pandas.DataFrame(columns).reset_index(drop=True), True
+

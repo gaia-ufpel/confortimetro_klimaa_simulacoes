@@ -232,6 +232,18 @@ então a primeira leitura grava um pickle em `<execução>/.series_cache/` e as
 seguintes saem dele em milissegundos, invalidado pelo `mtime` da planilha. O
 cache pesa ~12 MB por zona; `clear_cache(run_path)` apaga o de uma execução.
 
+A coluna `em_conforto` (`EM_CONFORTO_<zona>`) entrou depois: um cache gravado
+antes dela fica sem a coluna até a planilha mudar ou o cache ser apagado.
+
+Na GUI, **Detalhes da execução → Série temporal** mostra a série de uma zona
+timestep a timestep (temperaturas e banda adaptativa, PMV com a faixa de conforto,
+estados do controle, CO₂ e energia). `window_series` recorta a janela visível: até
+~1 ponto por pixel aparecem os timesteps brutos; acima disso, média e faixa
+mín.–máx. por bloco, com estados pelo máximo e `em_conforto` pelo mínimo, para um
+acionamento ou um desconforto de um timestep não sumir. Clicar seleciona o timestep
+real mais próximo; ← e → andam um timestep. Desenho em
+[`docs/tdd/001-serie-temporal-nos-detalhes.md`](tdd/001-serie-temporal-nos-detalhes.md).
+
 ## 8. Armadilhas ao automatizar
 
 - **Execuções paralelas não colidem mais.** `modelo.idf`, `in.idf` e
