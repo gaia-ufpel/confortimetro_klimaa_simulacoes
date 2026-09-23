@@ -89,3 +89,18 @@ scripts/                    utilitários de desenvolvimento
 No Linux, a suíte inicia automaticamente um display virtual com Xvfb: os
 testes da interface não abrem janelas no display do usuário. Os comandos
 verificam a sintaxe e a lógica de conforto (clo, PMV, relato de erros).
+
+## Desenvolvimento
+
+Instale as ferramentas de verificação e o hook uma vez por clone:
+
+```bash
+.venv/bin/pip install -r requirements-dev.txt -c constraints.txt
+npm install
+```
+
+No Windows, use `.venv\Scripts\python -m pip install -r requirements-dev.txt -c constraints.txt`.
+
+O Husky executa `npm run check` antes de cada `git push`: lint (`ruff`),
+typecheck dos pontos de entrada (`mypy`) e a suíte `pytest`. Para executar
+individualmente: `npm run lint`, `npm run typecheck` ou `npm test`.

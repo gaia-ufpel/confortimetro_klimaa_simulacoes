@@ -29,13 +29,14 @@ def resolve_config_path() -> str:
     user_config = os.path.join(app_data_path(), "config.json")
     if not os.path.exists(user_config):
         os.makedirs(os.path.dirname(user_config), exist_ok=True)
-        with open(os.path.join(sys._MEIPASS, "examples", "config.json")) as reader:
+        bundle_path = getattr(sys, "_MEIPASS")
+        with open(os.path.join(bundle_path, "examples", "config.json")) as reader:
             data = json.load(reader)
 
         # Os caminhos do config versionado são relativos ao repositório e de
         # Linux; no executável apontam para os exemplos embutidos.
-        data["_idf_path"] = os.path.join(sys._MEIPASS, *data["_idf_path"].split("/")[1:])
-        data["epw_path"] = os.path.join(sys._MEIPASS, *data["epw_path"].split("/")[1:])
+        data["_idf_path"] = os.path.join(bundle_path, *data["_idf_path"].split("/")[1:])
+        data["epw_path"] = os.path.join(bundle_path, *data["epw_path"].split("/")[1:])
         data["input_path"] = os.path.dirname(data["_idf_path"])
         # Saída e EnergyPlus vazios: caem nos padrões da plataforma
         # (paths.new_run_path e find_energy_path) ao carregar a configuração.

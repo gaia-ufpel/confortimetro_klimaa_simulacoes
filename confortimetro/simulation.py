@@ -6,7 +6,6 @@ from queue import Queue
 from importlib import import_module
 import shutil
 import logging
-from typing import Optional
 
 from confortimetro.control import MODULES_MAPPER
 from confortimetro.control.base import request_stop
@@ -29,12 +28,12 @@ class Simulation:
     """Classe principal para execução de simulações EnergyPlus."""
     
     def __init__(self, configs: SimulationConfig):
-        self.conditioner = None  # type: Optional[object]
+        self.conditioner: object | None = None
         self.stop_requested = False
         # Só vale pedir o stop à API enquanto o EnergyPlus está rodando.
         self._ep_running = False
         # Fila da GUI, para o callback de progresso do EnergyPlus.
-        self._queue = None  # type: Optional[Queue]
+        self._queue: Queue | None = None
         self.configs = configs
         self.logger = logging.getLogger("simulation")
 

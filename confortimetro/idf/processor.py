@@ -10,11 +10,14 @@ from __future__ import annotations
 import os
 import re
 from datetime import datetime, timedelta
-from typing import Any, List
+from typing import TYPE_CHECKING, List
 import logging
 
 from confortimetro.config import SimulationConfig
 from confortimetro.module_type import ModuleType
+
+if TYPE_CHECKING:
+    from eppy.modeleditor import IDF
 
 
 def read_zone_names(idf_path: str) -> List[str]:

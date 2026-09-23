@@ -359,7 +359,7 @@ class ComparisonPanel(ttk.Frame):
             try:
                 figure = function(series_runs, room, **options)
             except Exception as error:
-                self.after(0, lambda: self._plot_failed(error))
+                self.after(0, lambda error=error: self._plot_failed(error))
                 return
             self.after(0, lambda: self._plot_done(figure, f"{name} — {room}"))
 

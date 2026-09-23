@@ -98,8 +98,11 @@ class PathConfigPanel(ttk.Frame):
         """Create a path field: label above, entry + actions, status below."""
         spec = FIELDS[key]
         label, entry_var_name, tooltip = spec["label"], spec["entry"], spec["tooltip"]
-        change_callback = lambda event=None, k=key: self._notify(k)
-        browse_command = lambda k=key: self._browse(k)
+        def change_callback(event=None, k=key):
+            self._notify(k)
+
+        def browse_command(k=key):
+            self._browse(k)
         field = ttk.Frame(self, style="Surface.TFrame")
         field.grid(row=index, column=0, sticky="ew", pady=(0, SPACE[4]))
         field.grid_columnconfigure(0, weight=1)

@@ -225,7 +225,7 @@ class SimulationConfigPanel(ttk.Frame):
                 'rooms': self.rooms_select.get_values(),
                 'module_type': LABEL2MODULE.get(self.selected_module.get())
             }
-        except (ValueError, KeyError) as e:
+        except (ValueError, KeyError):
             # Return default values on error
             return {}
     

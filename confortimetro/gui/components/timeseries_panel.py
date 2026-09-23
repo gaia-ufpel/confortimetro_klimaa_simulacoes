@@ -281,7 +281,7 @@ class TimeSeriesPanel(ttk.Frame):
             try:
                 series = load_zone_series(run_path, room)
             except Exception as error:  # noqa: BLE001 — vira mensagem na tela
-                self.after(0, lambda: self._load_failed(token, room, error))
+                self.after(0, lambda error=error: self._load_failed(token, room, error))
                 return
             self.after(0, lambda: self._load_done(token, room, series))
 

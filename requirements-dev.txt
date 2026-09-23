@@ -1,0 +1,5 @@
+# Ferramentas de verificação usadas localmente e pelo hook de pre-push.
+-r requirements.txt
+pytest==9.1.1
+ruff==0.14.13
+mypy==1.19.1

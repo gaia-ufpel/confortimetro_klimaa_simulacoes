@@ -1,7 +1,6 @@
 """Testes para extração de resultados de arquivos .eso e _match_room."""
 
 import pandas
-import pytest
 from confortimetro.results.excel import (
     ELECTRICITY_AC,
     ELECTRICITY_FAN,

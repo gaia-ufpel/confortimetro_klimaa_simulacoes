@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "lint": "node scripts/quality.mjs lint",
+    "typecheck": "node scripts/quality.mjs typecheck",
+    "test": "node scripts/quality.mjs test",
+    "check": "node scripts/quality.mjs"
+  },
+  "devDependencies": {
+    "husky": "9.1.7"
+  }
+}

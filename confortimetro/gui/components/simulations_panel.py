@@ -34,10 +34,6 @@ _STATUS_TEXT = {
 
 
 class SimulationsPanel(ttk.Frame):
-    """Tabela de execuções à esquerda, detalhes à direita, comparador embaixo."""
-
-
-class SimulationsPanel(ttk.Frame):
     """Tabela de execuções à esquerda, detalhes da selecionada à direita."""
 
     def __init__(self, parent, outputs_path: str = "./outputs", callback=None):

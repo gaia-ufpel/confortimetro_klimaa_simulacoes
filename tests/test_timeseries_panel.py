@@ -8,7 +8,7 @@ from matplotlib.backend_bases import MouseEvent
 
 tk = pytest.importorskip("tkinter")
 
-from confortimetro.results.series import COLUMNS
+from confortimetro.results.series import COLUMNS  # noqa: E402
 
 
 def _serie(n=2000, conforto=True):

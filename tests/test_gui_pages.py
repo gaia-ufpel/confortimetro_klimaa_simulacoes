@@ -1,13 +1,12 @@
 """Navegação por páginas da janela principal e duplicação de execução."""
 
 import datetime
-import os
 
 import pytest
 
 tk = pytest.importorskip("tkinter")
 
-from confortimetro.config import SimulationConfig
+from confortimetro.config import SimulationConfig  # noqa: E402
 
 
 @pytest.fixture
