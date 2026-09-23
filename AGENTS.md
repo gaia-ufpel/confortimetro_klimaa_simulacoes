@@ -233,7 +233,7 @@ a.destroy()"
 
 ```bash
 .venv/bin/python -m compileall -q main.py cli.py confortimetro tests
-.venv/bin/python -m pytest tests -q
+.venv/bin/python -m pytest tests -q  # inicia Xvfb automaticamente no Linux
 ```
 
 ## Git

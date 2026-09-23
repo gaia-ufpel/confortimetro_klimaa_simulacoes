@@ -73,6 +73,40 @@ def test_editar_idf_abre_periodo_na_tela_de_execucao(window):
     assert window.idf_editor_panel.period_tab.winfo_ismapped()
 
 
+def test_ocupacao_carrega_idf_ao_abrir_aba(window, tmp_path):
+    """A aba pode ser aberta diretamente, sem passar pelo atalho Editar IDF."""
+    idf = tmp_path / "ocupacao.idf"
+    idf.write_text("""People,
+  PESSOAS_SALA1,
+  SALA1,
+  HORARIO_SALA1,
+  People,
+  12;
+""")
+    window.show_page("editor")
+    window.path_panel.set_idf_path(str(idf))
+    window.simulation_panel.notebook.select(window.idf_editor_panel.occupation_tab)
+    _settle(window)
+
+    assert window.idf_editor_panel._people[0]["name"] == "PESSOAS_SALA1"
+    assert window.idf_editor_panel._people_widgets
+
+
+def test_idf_configurado_preenche_periodo_ao_abrir_editor(window, tmp_path):
+    idf = tmp_path / "verao.idf"
+    idf.write_text(
+        "Timestep,\n    4;\n\n"
+        "RunPeriod,\n    Verão,\n    12,\n    1,\n    2019,\n"
+        "    2,\n    28,\n    2020;\n",
+        encoding="latin-1")
+
+    window.on_idf_path_changed(str(idf))
+
+    assert window.idf_editor_panel.start_entry.get() == "01/12/2019"
+    assert window.idf_editor_panel.end_entry.get() == "28/02/2020"
+    assert window.idf_editor_panel.timestep_entry.get() == "4"
+
+
 def test_duplicar_reaproveita_parametros_com_saida_nova(window, tmp_path):
     idf = tmp_path / "modelo.idf"
     idf.write_text("Zone,\n  SALA1,\n")

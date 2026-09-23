@@ -4,6 +4,8 @@ import os
 
 import pandas
 
+ELECTRICITY_TOTAL = 'Energia elétrica total'
+
 def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataFrame] = None):
     """
     Pega as estatísticas de cada informação, necessário executar a summary_results_from_room antes.
@@ -130,8 +132,13 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
         if (fan_electric_column.format(room) not in df.columns
                 and pthp_electric_column.format(room) in df.columns):
             row['Ventilador (kWh)'] = 0.0  # sala sem ventilador de teto
-        # PTHP inteira: serpentinas, ventilador interno e aquecedor do cárter.
-        row['Energia total (kWh)'] = kwh(pthp_electric_column) + row['Ventilador (kWh)']
+        # A planilha nova traz o total por zona: PTHP, ventilador, demais
+        # equipamentos elétricos e iluminação. Planilhas antigas mantêm a
+        # regra anterior para continuarem comparáveis consigo mesmas.
+        if ELECTRICITY_TOTAL in df.columns:
+            row['Energia total (kWh)'] = df[ELECTRICITY_TOTAL].sum() / JOULES_PER_KWH
+        else:
+            row['Energia total (kWh)'] = kwh(pthp_electric_column) + row['Ventilador (kWh)']
 
         occupied = df[df[people_column.format(room)] != 0]
         pmv = occupied[pmv_column.format(room)]

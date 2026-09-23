@@ -73,6 +73,15 @@ def test_energia_eletrica_inclui_ventilador_de_teto(tmp_path):
     assert stats["Energia total (kWh)"] == pytest.approx(11.0)
 
 
+def test_energia_total_prefere_total_temporal_com_iluminacao_e_equipamentos(tmp_path):
+    df = _room_dataframe(rows=10, nan_rows=0)
+    df['Energia elétrica total'] = JOULES_PER_KWH * 2
+    get_stats_from_simulation(str(tmp_path), [ROOM], frames={ROOM: df})
+    stats = pandas.read_excel(tmp_path / "ESTATISTICAS.xlsx").iloc[0]
+
+    assert stats["Energia total (kWh)"] == pytest.approx(20.0)
+
+
 def test_planilha_sem_consumo_eletrico_fica_sem_kwh(tmp_path):
     df = _room_dataframe()
     df = df[[c for c in df.columns if "Electricity" not in c]]

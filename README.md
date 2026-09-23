@@ -86,5 +86,6 @@ scripts/                    utilitários de desenvolvimento
 .venv/bin/python -m pytest tests -q
 ```
 
-Os comandos verificam a sintaxe e a lógica de conforto (clo, PMV, relato de
-erros).
+No Linux, a suíte inicia automaticamente um display virtual com Xvfb: os
+testes da interface não abrem janelas no display do usuário. Os comandos
+verificam a sintaxe e a lógica de conforto (clo, PMV, relato de erros).

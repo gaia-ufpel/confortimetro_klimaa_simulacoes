@@ -58,6 +58,11 @@ TABLE_ROWS = (
     ('co2', 'CO₂', lambda v: f"{v:.0f} ppm"),
     ('aquecimento', 'Aquecimento', lambda v: f"{v / JOULES_PER_KWH * 1000:.1f} Wh"),
     ('resfriamento', 'Resfriamento', lambda v: f"{v / JOULES_PER_KWH * 1000:.1f} Wh"),
+    ('energia_ac', 'Eletricidade AC', lambda v: f"{v / JOULES_PER_KWH * 1000:.1f} Wh"),
+    ('energia_ventilador', 'Eletricidade ventilador', lambda v: f"{v / JOULES_PER_KWH * 1000:.1f} Wh"),
+    ('energia_outros', 'Eletricidade equipamentos', lambda v: f"{v / JOULES_PER_KWH * 1000:.1f} Wh"),
+    ('energia_iluminacao', 'Eletricidade iluminação', lambda v: f"{v / JOULES_PER_KWH * 1000:.1f} Wh"),
+    ('energia_total', 'Eletricidade total', lambda v: f"{v / JOULES_PER_KWH * 1000:.1f} Wh"),
 )
 
 

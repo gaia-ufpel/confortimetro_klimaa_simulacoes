@@ -189,8 +189,8 @@ descarte inicial é de dois dias de aquecimento, proporcional ao timestep.
 |---|---|
 | `configs.json` | Configuração efetiva daquela execução. |
 | `eplusout.eso` / `.csv` / `.err` / `.eio` / `.rdd` | Saídas brutas do EnergyPlus. Comece o diagnóstico por `eplusout.err`. |
-| `<ZONA>.xlsx` | Série temporal por zona: temperatura externa, ocupação, PMV, temperatura operativa, CO₂, estados de janela/ventilador/AC/DOAS. |
-| `ESTATISTICAS.xlsx` | Uma linha por zona com frações do tempo ocupado (aquecimento, resfriamento, ventilador ligado, janela aberta, DOAS, desconforto, CO₂ máximo), o consumo anual (`Aquecimento (kWh)`, `Resfriamento (kWh)`, `Energia total (kWh)`), o conforto agregado (`PMV médio`, `PMV fora da faixa`, `Fora da banda adaptativa`) e `Timesteps simulados` — é ele que denuncia execuções de períodos diferentes, que não podem ser comparadas pelos totais. |
+| `<ZONA>.xlsx` | Série temporal por zona: temperatura externa, ocupação, PMV, temperatura operativa, CO₂, estados de janela/ventilador/AC/DOAS e energia elétrica por timestep (AC, ventilador, demais equipamentos, iluminação e total). |
+| `ESTATISTICAS.xlsx` | Uma linha por zona com frações do tempo ocupado (aquecimento, resfriamento, ventilador ligado, janela aberta, DOAS, desconforto, CO₂ máximo), o consumo anual (`Aquecimento (kWh)`, `Resfriamento (kWh)`, `Energia total (kWh)`, incluindo equipamentos e iluminação), o conforto agregado (`PMV médio`, `PMV fora da faixa`, `Fora da banda adaptativa`) e `Timesteps simulados` — é ele que denuncia execuções de períodos diferentes, que não podem ser comparadas pelos totais. |
 | `<ZONA>_SPLIT.xlsx` | Recorte por período de cada zona (`VERAO`, `INVERNO`, `DIAS_VERAO`, `DIAS_INVERNO`), só com as horas ocupadas. O ano dos recortes vem da própria planilha. |
 
 ## 7.1 Comparar várias execuções

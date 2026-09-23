@@ -826,6 +826,10 @@ class IDFProcessor:
                 "Cooling Coil Electricity Energy",
                 "Heating Coil Electricity Energy",
                 "Electric Equipment Electricity Energy",
+                # Totais por zona: incluem objetos aplicados por ZoneList e
+                # permitem atribuir iluminação e cargas de tomada à sala certa.
+                "Zone Electric Equipment Electricity Energy",
+                "Zone Lights Electricity Energy",
                 "Zone Infiltration Air Change Rate"
             ]
             

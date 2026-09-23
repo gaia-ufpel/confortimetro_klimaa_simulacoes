@@ -367,11 +367,32 @@ class MainWindow(tk.Tk):
     def _build_idf_editor_tabs(self):
         """Inclui Período e Ocupação diretamente nas abas da execução."""
         self.idf_editor_panel = IDFEditorPanel(self.simulation_panel.notebook,
-                                               on_save=self.on_save_idf_copy)
+                                                on_save=self.on_save_idf_copy)
         self.simulation_panel.insert_tab(1, self.idf_editor_panel.period_tab,
-                                         "Período", select=False)
+                                          "Período", select=False)
         self.simulation_panel.insert_tab(2, self.idf_editor_panel.occupation_tab,
-                                         "Ocupação", select=False)
+                                          "Ocupação", select=False)
+        self.simulation_panel.notebook.bind(
+            "<<NotebookTabChanged>>", self._load_idf_editor_for_selected_tab,
+            add="+")
+
+    def _load_idf_editor_for_selected_tab(self, _event=None):
+        """Carrega o IDF ao abrir Período ou Ocupação diretamente.
+
+        As duas abas ficam sempre disponíveis na execução. Sem esse
+        carregamento sob demanda, elas só recebiam conteúdo ao usar o atalho
+        ``Editar IDF`` do painel Arquivos.
+        """
+        selected = self.simulation_panel.notebook.select()
+        editor_tabs = (str(self.idf_editor_panel.period_tab),
+                       str(self.idf_editor_panel.occupation_tab))
+        if selected not in editor_tabs:
+            return
+
+        idf_path = self.path_panel.get_idf_path().strip()
+        if (idf_path and os.path.isfile(idf_path)
+                and idf_path != self.idf_editor_panel.idf_path):
+            self.idf_editor_panel.load(idf_path)
 
     def _build_settings_page(self):
         """Os caminhos que são da máquina, não da simulação."""
@@ -461,6 +482,8 @@ class MainWindow(tk.Tk):
         self.settings_panel.set_energy_path(self.configs.energy_path)
         
         self._refresh_room_options(self.configs.idf_path)
+        if os.path.isfile(self.configs.idf_path):
+            self.idf_editor_panel.load(self.configs.idf_path)
 
         # Update simulation panel
         config_dict = {
@@ -742,6 +765,8 @@ class MainWindow(tk.Tk):
         if self.configs:
             self.configs.idf_path = path
         self._refresh_room_options(path)
+        if os.path.isfile(path):
+            self.idf_editor_panel.load(path)
 
     # ------------------------------------------------------------ editor IDF
 

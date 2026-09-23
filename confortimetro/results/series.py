@@ -32,6 +32,11 @@ COLUMNS = {
     'co2': '{room}:Zone Air CO2 Concentration',
     'aquecimento': '{room} PTHP:Zone Packaged Terminal Heat Pump Total Heating Energy',
     'resfriamento': '{room} PTHP:Zone Packaged Terminal Heat Pump Total Cooling Energy',
+    'energia_ac': 'Energia elétrica AC',
+    'energia_ventilador': 'Energia elétrica ventilador',
+    'energia_outros': 'Energia elétrica outros equipamentos',
+    'energia_iluminacao': 'Energia elétrica iluminação',
+    'energia_total': 'Energia elétrica total',
 }
 
 
@@ -141,4 +146,3 @@ def window_series(df, start, end, max_points):
             columns[f'{name}_min'] = groups[name].min()
             columns[f'{name}_max'] = groups[name].max()
     return pandas.DataFrame(columns).reset_index(drop=True), True
-
