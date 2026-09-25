@@ -237,8 +237,25 @@ class MainWindow(tk.Tk):
             command=self._recompute_detail_stats)
         self.detail_recompute_button.pack(side="left", padx=(SPACE[2], 0))
 
+        # --- Abas: o resumo de sempre e a série temporal timestep a timestep ---
+        self.detail_tabs = ttk.Notebook(page, style="Section.TNotebook")
+        self.detail_tabs.pack(fill="both", expand=True)
+        summary = ttk.Frame(self.detail_tabs, style="Main.TFrame")
+        series_tab = Card(self.detail_tabs, pad=SPACE[3])
+        self.detail_tabs.add(summary, text="Resumo")
+        self.detail_tabs.add(series_tab, text="Série temporal")
+        self.timeseries_panel = TimeSeriesPanel(series_tab.body)
+        self.timeseries_panel.pack(fill="both", expand=True)
+        assistant_tab = Card(self.detail_tabs, pad=SPACE[3])
+        self.detail_tabs.add(assistant_tab, text="Assistente")
+        self.detail_assistant = AssistantPanel(assistant_tab.body, self._outputs_root)
+        self.detail_assistant.pack(fill="both", expand=True)
+        # A série só é lida com a aba visível: abrir os detalhes continua
+        # tão rápido quanto antes.
+        self.detail_tabs.bind("<<NotebookTabChanged>>", self._on_detail_tab_changed)
+
         # --- Resumo de consumo (KPI cards) ---
-        kpi_card = Card(page, pad=SPACE[3])
+        kpi_card = Card(summary, pad=SPACE[3])
         kpi_card.pack(fill="x", pady=(0, SPACE[3]))
         kpi_row = ttk.Frame(kpi_card.body, style="Surface.TFrame")
         kpi_row.pack(fill="x")
@@ -282,23 +299,6 @@ class MainWindow(tk.Tk):
 
         kpi3 = _make_kpi("Resfriamento", self.kpi_resfr_var, "#2b6cb0", "snowflake")
         kpi3.pack(side="left", padx=(0, SPACE[5]))
-
-        # --- Abas: o resumo de sempre e a série temporal timestep a timestep ---
-        self.detail_tabs = ttk.Notebook(page, style="Section.TNotebook")
-        self.detail_tabs.pack(fill="both", expand=True)
-        summary = ttk.Frame(self.detail_tabs, style="Main.TFrame")
-        series_tab = Card(self.detail_tabs, pad=SPACE[3])
-        self.detail_tabs.add(summary, text="Resumo")
-        self.detail_tabs.add(series_tab, text="Série temporal")
-        self.timeseries_panel = TimeSeriesPanel(series_tab.body)
-        self.timeseries_panel.pack(fill="both", expand=True)
-        assistant_tab = Card(self.detail_tabs, pad=SPACE[3])
-        self.detail_tabs.add(assistant_tab, text="Assistente")
-        self.detail_assistant = AssistantPanel(assistant_tab.body, self._outputs_root)
-        self.detail_assistant.pack(fill="both", expand=True)
-        # A série só é lida com a aba visível: abrir os detalhes continua
-        # tão rápido quanto antes.
-        self.detail_tabs.bind("<<NotebookTabChanged>>", self._on_detail_tab_changed)
 
         # --- Estatísticas por zona ---
         stats_card = Card(summary, "Estatísticas por zona")
