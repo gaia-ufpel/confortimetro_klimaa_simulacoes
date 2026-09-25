@@ -56,61 +56,36 @@ class SimulationsPanel(ttk.Frame):
     # ------------------------------------------------------------------ UI
 
     def _build_ui(self):
-        # Topbar: todas as ações da página, na ordem em que se usa uma
-        # execução — criar, ver, repetir, corrigir, abrir, comparar.
-        toolbar = Card(self, pad=SPACE[3])
-        toolbar.pack(fill="x", pady=(0, SPACE[4]))
-        row = ttk.Frame(toolbar.body, style="Surface.TFrame")
-        row.pack(fill="x")
-
-        RoundedButton(row, text="Nova execução", variant="primary", icon="new",
-                      command=self._new_run).pack(side="left")
-        RoundedButton(row, text="Ver detalhes", variant="ghost", icon="details",
-                      command=self._open_details).pack(side="left", padx=(SPACE[3], 0))
-        RoundedButton(row, text="Duplicar", variant="ghost", icon="duplicate",
-                      command=self._duplicate).pack(side="left", padx=(SPACE[2], 0))
-        RoundedButton(row, text="Regerar estatísticas", variant="ghost", icon="recompute",
-                      command=self.recompute_selected).pack(side="left",
-                                                            padx=(SPACE[2], 0))
-        RoundedButton(row, text="Abrir pasta", variant="ghost", icon="open",
-                      command=self.open_selected_folder).pack(side="left",
-                                                              padx=(SPACE[2], 0))
-        RoundedButton(row, text="Atualizar", variant="ghost", icon="refresh",
-                      command=self.refresh).pack(side="left", padx=(SPACE[2], 0))
-        RoundedButton(row, text="Comparar selecionadas", variant="primary", icon="compare", command=self._compare).pack(side="right")
-        RoundedButton(row, text="Perguntar ao assistente", variant="ghost", icon="info",
-                      command=self._ask_assistant).pack(side="right", padx=(0, SPACE[2]))
-
-        info_row = ttk.Frame(toolbar.body, style="Surface.TFrame")
-        info_row.pack(fill="x", pady=(SPACE[2], 0))
-        # A pasta de saídas é ajuste de máquina: mora nas configurações e não
-        # ocupa espaço aqui.
-        ttk.Label(info_row, textvariable=self.status_var,
-                  style="Caption.TLabel").pack(side="right")
-
-        # A listagem fica com a altura das suas 12 linhas e a comparação recebe
-        # todo o espaço restante: é ela que cresce quando a janela cresce.
+        # A listagem fica com peso 3 e os detalhes com peso 2 no PanedWindow.
         panes = ttk.PanedWindow(self, orient="horizontal")
         panes.pack(fill="both", expand=True)
 
-        # --- Listagem ---
+        # --- Listagem (Esquerda) ---
         list_card = Card(panes, "Simulações executadas")
         panes.add(list_card, weight=3)
 
+        # Barra de status sutil no topo da tabela
+        top_info = ttk.Frame(list_card.body, style="Surface.TFrame")
+        top_info.pack(fill="x", pady=(0, SPACE[2]))
+        ttk.Label(top_info, textvariable=self.status_var,
+                  style="Caption.TLabel").pack(side="left")
+
+        # Container da Treeview com barras de rolagem
+        tree_container = ttk.Frame(list_card.body, style="Surface.TFrame")
+        tree_container.pack(fill="both", expand=True)
+
         self.tree = ttk.Treeview(
-            list_card.body, style="Modern.Treeview", selectmode="extended",
+            tree_container, style="Modern.Treeview", selectmode="extended",
             columns=[column for column, _, _ in _LIST_COLUMNS], show="headings",
-            height=8)
+            height=10)
         for column, title, width in _LIST_COLUMNS:
             self.tree.heading(column, text=title,
                               command=lambda c=column: self._sort_by(c))
             self.tree.column(column, width=width, minwidth=width, anchor="w",
                              stretch=(column == "run"))
-        scroll = ttk.Scrollbar(list_card.body, orient="vertical",
+        scroll = ttk.Scrollbar(tree_container, orient="vertical",
                                command=self.tree.yview)
-        # A tabela é mais larga que o painel: sem a barra horizontal a coluna
-        # de data fica escondida.
-        scroll_x = ttk.Scrollbar(list_card.body, orient="horizontal",
+        scroll_x = ttk.Scrollbar(tree_container, orient="horizontal",
                                  command=self.tree.xview)
         self.tree.configure(yscrollcommand=scroll.set, xscrollcommand=scroll_x.set)
         scroll_x.pack(side="bottom", fill="x")
@@ -119,20 +94,93 @@ class SimulationsPanel(ttk.Frame):
         self.tree.bind("<<TreeviewSelect>>", self._on_select)
         self.tree.bind("<Double-1>", lambda _event: self._open_details())
 
-        # Execuções sem estatísticas não entram na comparação: marcá-las
-        # evita que o usuário selecione e receba uma tabela vazia sem motivo.
         self.tree.tag_configure("incompleta", foreground=COLORS["text_mute"])
         self.tree.tag_configure("executando", foreground=COLORS["primary"])
 
-        # --- Detalhes ---
+        # Barra inferior contextual de Comparação
+        self.compare_bar = ttk.Frame(list_card.body, style="Surface.TFrame")
+        self.compare_bar.pack(fill="x", pady=(SPACE[3], 0))
+        self.compare_info_var = tk.StringVar(
+            value="Selecione 2 ou mais execuções para comparar")
+        ttk.Label(self.compare_bar, textvariable=self.compare_info_var,
+                  style="Caption.TLabel").pack(side="left", padx=(SPACE[1], 0))
+
+        self.compare_btn = RoundedButton(
+            self.compare_bar, text="Comparar selecionadas", variant="primary",
+            icon="compare", command=self._compare)
+        self.compare_btn.pack(side="right")
+        self.compare_btn.configure(state="disabled")
+
+        # --- Detalhes (Direita) ---
         detail_card = Card(panes, "Detalhes")
         panes.add(detail_card, weight=2)
+
+        # Mini-toolbar contextual de ações da simulação
+        self.actions_bar = ttk.Frame(detail_card.body, style="Surface.TFrame")
+        self.actions_bar.pack(fill="x", pady=(0, SPACE[3]))
+
+        self.btn_details = RoundedButton(
+            self.actions_bar, text="Ver detalhes", variant="primary", icon="details",
+            command=self._open_details)
+        self.btn_details.pack(side="left")
+
+        self.btn_duplicate = RoundedButton(
+            self.actions_bar, text="Duplicar", variant="ghost", icon="duplicate",
+            command=self._duplicate)
+        self.btn_duplicate.pack(side="left", padx=(SPACE[2], 0))
+
+        self.btn_open = RoundedButton(
+            self.actions_bar, text="Abrir pasta", variant="ghost", icon="open",
+            command=self.open_selected_folder)
+        self.btn_open.pack(side="left", padx=(SPACE[2], 0))
+
+        self.btn_assistant = RoundedButton(
+            self.actions_bar, text="Assistente", variant="ghost", icon="info",
+            command=self._ask_assistant)
+        self.btn_assistant.pack(side="left", padx=(SPACE[2], 0))
+
+        # Indicadores Chave de Desempenho (KPI Cards)
+        self.kpi_frame = ttk.Frame(detail_card.body, style="Surface.TFrame")
+        self.kpi_frame.pack(fill="x", pady=(0, SPACE[3]))
+
+        self.kpi_energy_card = tk.Frame(self.kpi_frame, bg=COLORS["surface_2"],
+                                        highlightthickness=1,
+                                        highlightbackground=COLORS["line"])
+        self.kpi_energy_card.pack(side="left", fill="both", expand=True, padx=(0, SPACE[2]))
+        tk.Label(self.kpi_energy_card, text="CONSUMO TOTAL", bg=COLORS["surface_2"],
+                 fg=COLORS["text_mute"], font=FONTS["caption"]).pack(anchor="w", padx=SPACE[3], pady=(SPACE[2], 0))
+        self.kpi_energy_val = tk.Label(
+            self.kpi_energy_card, text="—", bg=COLORS["surface_2"],
+            fg=COLORS["text"], font=FONTS["h2"])
+        self.kpi_energy_val.pack(anchor="w", padx=SPACE[3], pady=(0, SPACE[2]))
+
+        self.kpi_discomfort_card = tk.Frame(self.kpi_frame, bg=COLORS["surface_2"],
+                                            highlightthickness=1,
+                                            highlightbackground=COLORS["line"])
+        self.kpi_discomfort_card.pack(side="left", fill="both", expand=True)
+        tk.Label(self.kpi_discomfort_card, text="DESCONFORTO TÉRMICO", bg=COLORS["surface_2"],
+                 fg=COLORS["text_mute"], font=FONTS["caption"]).pack(anchor="w", padx=SPACE[3], pady=(SPACE[2], 0))
+        self.kpi_discomfort_val = tk.Label(
+            self.kpi_discomfort_card, text="—", bg=COLORS["surface_2"],
+            fg=COLORS["text"], font=FONTS["h2"])
+        self.kpi_discomfort_val.pack(anchor="w", padx=SPACE[3], pady=(0, SPACE[2]))
+
+        # Texto detalhado com parâmetros e configurações
         self.detail_text = tk.Text(
             detail_card.body, height=12, width=42, wrap="none", state="disabled",
             font=FONTS["mono"], background=COLORS["surface"], foreground=COLORS["text"],
             relief="flat", borderwidth=0, highlightthickness=1,
             highlightbackground=COLORS["line"], padx=SPACE[3], pady=SPACE[3])
         self.detail_text.pack(fill="both", expand=True)
+
+        # Rodapé do painel de detalhes: Ação secundária para regerar estatísticas
+        self.detail_footer = ttk.Frame(detail_card.body, style="Surface.TFrame")
+        self.detail_footer.pack(fill="x", pady=(SPACE[2], 0))
+        self.btn_recompute = RoundedButton(
+            self.detail_footer, text="Regerar estatísticas", variant="ghost", icon="recompute",
+            command=self.recompute_selected)
+        self.btn_recompute.pack(side="right")
+
         self._render_detail_empty()
 
     def refresh(self):
@@ -213,36 +261,71 @@ class SimulationsPanel(ttk.Frame):
         selected = set(self.tree.selection())
         return [run for run in self._runs if run['path'] in selected]
 
+    def _update_button_states(self, selected_count: int):
+        """Habilita ou desabilita as ações contextuais conforme a seleção."""
+        item_state = "normal" if selected_count >= 1 else "disabled"
+        for btn in (self.btn_details, self.btn_duplicate, self.btn_open,
+                    self.btn_assistant, self.btn_recompute):
+            btn.configure(state=item_state)
+
+        if selected_count >= 2:
+            self.compare_btn.configure(state="normal")
+            self.compare_info_var.set(f"{selected_count} execuções selecionadas para comparação")
+        elif selected_count == 1:
+            self.compare_btn.configure(state="disabled")
+            self.compare_info_var.set("Selecione mais uma execução (Ctrl+Clique) para comparar")
+        else:
+            self.compare_btn.configure(state="disabled")
+            self.compare_info_var.set("Selecione 2 ou mais execuções para comparar")
+
     def _on_select(self, _event=None):
         runs = self._selected_runs()
-        lines = []
+        self._update_button_states(len(runs))
+
         if len(runs) == 1:
             run = runs[0]
             run["summary"] = self._summary_for(run)
-            lines.append(f"{run['run']}\n{'-' * len(run['run'])}")
-            lines.append(f"status      {run['status']}")
-            lines.append(f"período     {self._period_text(run)}")
-            lines.append(f"zonas       {', '.join(run['rooms_disponiveis']) or '—'}")
-            lines.append(f"consumo     {self._metric_text(run, 'Energia total (kWh)', 'kWh')}")
-            lines.append(f"desconforto {self._metric_text(run, 'Desconforto')}")
+
+            # Atualizar os cards de KPI
+            consumo_val = self._metric_text(run, 'Energia total (kWh)', 'kWh')
+            desconf_val = self._metric_text(run, 'Desconforto')
+            self.kpi_energy_val.configure(text=consumo_val)
+            self.kpi_discomfort_val.configure(text=desconf_val)
+
+            # Conteúdo dos parâmetros
+            lines = []
+            lines.append(f"EXECUÇÃO: {run['run']}")
+            lines.append("=" * 40)
+            lines.append(f"status:       {run['status']}")
+            lines.append(f"período:      {self._period_text(run)}")
+            lines.append(f"zonas ({len(run['rooms_disponiveis'])}):  {', '.join(run['rooms_disponiveis']) or '—'}")
             lines.append("")
+            lines.append("CONFIGURAÇÕES DO MODELO:")
+            lines.append("-" * 40)
             for key, value in run['config'].items():
                 if key in ('rooms', 'input_path', 'expanded_idf_path', 'idf_filename'):
                     continue
                 if isinstance(value, str) and os.sep in value:
                     value = os.path.basename(value)
-                lines.append(f"{key.lstrip('_'):24s} {value}")
+                lines.append(f"{key.lstrip('_'):22s} {value}")
+
+            self.detail_text.configure(state="normal")
+            self.detail_text.delete("1.0", "end")
+            self.detail_text.insert("1.0", "\n".join(lines))
+            self.detail_text.configure(state="disabled")
+
         elif runs:
-            lines.append(f"{len(runs)} execuções selecionadas:\n")
+            self.kpi_energy_val.configure(text="—")
+            self.kpi_discomfort_val.configure(text="—")
+            lines = [f"{len(runs)} execuções selecionadas para comparação:\n"]
             lines.extend(f"· {run['run']} ({run['status']})" for run in runs)
+            lines.append("\nClique em 'Comparar selecionadas' abaixo para abrir a análise comparativa completa.")
+            self.detail_text.configure(state="normal")
+            self.detail_text.delete("1.0", "end")
+            self.detail_text.insert("1.0", "\n".join(lines))
+            self.detail_text.configure(state="disabled")
         else:
             self._render_detail_empty()
-            return
-
-        self.detail_text.configure(state="normal")
-        self.detail_text.delete("1.0", "end")
-        self.detail_text.insert("1.0", "\n".join(lines))
-        self.detail_text.configure(state="disabled")
 
     @staticmethod
     def _period_text(run: dict) -> str:
@@ -283,9 +366,14 @@ class SimulationsPanel(ttk.Frame):
         return summary
 
     def _render_detail_empty(self):
+        self._update_button_states(0)
+        if hasattr(self, "kpi_energy_val"):
+            self.kpi_energy_val.configure(text="—")
+        if hasattr(self, "kpi_discomfort_val"):
+            self.kpi_discomfort_val.configure(text="—")
         self.detail_text.configure(state="normal")
         self.detail_text.delete("1.0", "end")
-        self.detail_text.insert("1.0", "Escolha uma execução na lista para ver o status, período, zonas, consumo e desconforto.")
+        self.detail_text.insert("1.0", "Selecione uma execução na lista para visualizar seus indicadores, parâmetros e ações.")
         self.detail_text.configure(state="disabled")
 
     # -------------------------------------------------------------- ações

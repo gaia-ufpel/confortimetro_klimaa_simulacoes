@@ -12,6 +12,7 @@ from matplotlib.backends.backend_tkagg import (
 from confortimetro.results import charts, database
 from confortimetro.results.compare import (
     COMPARISON_COLUMNS,
+    PERCENTAGE_COLUMNS,
     compare_runs,
     mismatched_periods,
 )
@@ -292,12 +293,17 @@ class ComparisonPanel(ttk.Frame):
                                      anchor="w" if column in columns[:3] else "e",
                                      stretch=False)
 
+        def _fmt_cell(col, val):
+            if pandas.isna(val):
+                return "—"
+            if isinstance(val, (int, float)):
+                if col in PERCENTAGE_COLUMNS:
+                    return f"{val * 100:.1f}%".replace(".", ",")
+                return f"{val:.3f}".replace(".", ",")
+            return val
+
         for _, row in df.iterrows():
-            values = []
-            for column in columns:
-                value = row[column]
-                values.append(f"{value:.3f}".replace(".", ",")
-                              if isinstance(value, float) else value)
+            values = [_fmt_cell(column, row[column]) for column in columns]
             self.compare_tree.insert("", "end", values=values)
 
     def plot(self):

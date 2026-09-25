@@ -303,6 +303,50 @@ def test_detalhes_abrem_no_resumo_e_serie_so_carrega_na_aba(window, tmp_path, mo
     assert carregadas == ['SALA1']
 
 
+def test_detalhes_tabela_formata_porcentagens(window, tmp_path):
+    import pandas
+
+    run_path = tmp_path / "run_pct"
+    run_path.mkdir()
+    df = pandas.DataFrame({
+        'Nome da sala': ['SALA1'],
+        'Energia total (kWh)': [123.456],
+        'Desconforto': [0.152],
+        'PMV médio': [-0.25],
+        'PMV fora da faixa': [0.084],
+        'Fora da banda adaptativa': [0.12],
+        'Janela aberta': [0.35],
+        'Ventilador ligado': [0.20],
+        'DOAS ligado': [0.0],
+        'CO2 máximo': [800.0],
+        'Timesteps simulados': [8760],
+    })
+    df.to_excel(run_path / "ESTATISTICAS.xlsx", index=False)
+    run = {'run': 'run_pct', 'path': str(run_path), 'status': 'pronta',
+           'rooms_disponiveis': ['SALA1'], 'config': {},
+           'modificado': datetime.datetime.now()}
+
+    window.on_open_run_details(run)
+    _settle(window)
+
+    items = window.detail_stats.get_children()
+    assert len(items) >= 1
+    # Primeira linha são os dados da sala
+    values = window.detail_stats.item(items[0])['values']
+    cols = window.detail_stats['columns']
+    row_dict = dict(zip(cols, values))
+
+    assert row_dict['Desconforto'] == '15,2%'
+    assert row_dict['PMV fora da faixa'] == '8,4%'
+    assert row_dict['Fora da banda adaptativa'] == '12,0%'
+    assert row_dict['Janela aberta'] == '35,0%'
+    assert row_dict['Ventilador ligado'] == '20,0%'
+    assert row_dict['DOAS ligado'] == '0,0%'
+    assert row_dict['PMV médio'] == '-0,250'
+    assert row_dict['Energia total (kWh)'] == '123,456'
+
+
+
 
 
 def _wait_answer(panel, window):

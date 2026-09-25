@@ -946,7 +946,7 @@ class MainWindow(tk.Tk):
         """Uma linha por zona, lida do ESTATISTICAS.xlsx que a execução já gravou."""
         import pandas
 
-        from confortimetro.results.compare import COMPARISON_COLUMNS
+        from confortimetro.results.compare import COMPARISON_COLUMNS, PERCENTAGE_COLUMNS
 
         tree = self.detail_stats
         tree.delete(*tree.get_children())
@@ -1005,11 +1005,17 @@ class MainWindow(tk.Tk):
                         anchor="w" if column == "Nome da sala" else "e",
                         stretch=False)
 
+        def _fmt_cell(col, val):
+            if pandas.isna(val):
+                return "—"
+            if isinstance(val, (int, float)):
+                if col in PERCENTAGE_COLUMNS:
+                    return f"{val * 100:.1f}%".replace(".", ",")
+                return f"{val:.3f}".replace(".", ",")
+            return val
+
         for _, row in df.iterrows():
-            tree.insert("", "end", values=[
-                f"{row[column]:.3f}".replace(".", ",")
-                if isinstance(row[column], float) else row[column]
-                for column in columns])
+            tree.insert("", "end", values=[_fmt_cell(col, row[col]) for col in columns])
 
         # Linha TOTAL no rodapé da tabela
         if len(df) > 0 and total_kwh is not None:

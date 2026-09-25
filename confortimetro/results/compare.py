@@ -26,6 +26,25 @@ COMPARISON_COLUMNS = ['Energia total (kWh)', 'Aquecimento (kWh)', 'Resfriamento 
                       'Fora da banda adaptativa', 'Janela aberta', 'Ventilador ligado',
                       'DOAS ligado', 'CO2 máximo', 'Timesteps simulados']
 
+# Colunas cujos valores representam frações de tempo ocupado (0.0 a 1.0)
+# e devem ser exibidas como porcentagem na interface.
+PERCENTAGE_COLUMNS = {
+    'Desconforto',
+    'PMV fora da faixa',
+    'Fora da banda adaptativa',
+    'Janela aberta',
+    'Ventilador ligado',
+    'DOAS ligado',
+    'Ar condicionado ligado',
+    'Aquecimento',
+    'Resfriamento',
+    'Ventilador ligado e ar ligado',
+    'Ventilador ligado, ar desligado e janela fechada',
+    'Janela aberta e ventilador ligado',
+    'Janela fechada, ar desligado e ventilador desligado',
+    'Janela aberta sem pessoas',
+}
+
 
 def needs_recompute(run_path, known_mtimes=None):
     """A execução tem planilhas por zona mas estatísticas ausentes ou desatualizadas?
