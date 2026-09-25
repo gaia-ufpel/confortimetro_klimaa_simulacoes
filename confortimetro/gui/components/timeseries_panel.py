@@ -36,6 +36,16 @@ STATES = (('janela', 'Janela', '#588157'), ('ventilador', 'Ventilador', '#a06b00
 REDRAW_DELAY_MS = 150
 TABLE_PAGE_SIZE = 250
 
+# Linha de totais da tabela, como a "linha de totais" do Excel: rótulo do
+# seletor -> agregação do pandas (None esconde a linha).
+TOTAL_AGGREGATIONS = (
+    ('Oculto', None),
+    ('Soma', 'sum'),
+    ('Média', 'mean'),
+    ('Mínimo', 'min'),
+    ('Máximo', 'max'),
+)
+
 
 def _on_off(on, off):
     return lambda value: on if value else off
@@ -179,6 +189,17 @@ class TimeSeriesPanel(ttk.Frame):
         ttk.Label(controls, textvariable=self.table_page_var,
                   style="Caption.TLabel").pack(side="right")
 
+        ttk.Label(controls, text="Totais", style="Label.TLabel").pack(
+            side="left", padx=(SPACE[3], SPACE[1]))
+        self.total_agg_var = tk.StringVar(value="Soma")
+        total_agg_combo = ttk.Combobox(
+            controls, textvariable=self.total_agg_var, state="readonly", width=7,
+            style="Field.TCombobox",
+            values=[label for label, _agg in TOTAL_AGGREGATIONS])
+        total_agg_combo.pack(side="left")
+        total_agg_combo.bind('<<ComboboxSelected>>',
+                             lambda _e: self._render_totals())
+
         columns = ('data', *(name for name, _label, _fmt in TABLE_ROWS))
         self.series_table = ttk.Treeview(self.series_table_body, style="Modern.Treeview",
                                          show="headings", columns=columns)
@@ -188,16 +209,64 @@ class TimeSeriesPanel(ttk.Frame):
             self.series_table.heading(name, text=label)
             self.series_table.column(name, width=120, stretch=False)
         horizontal = ttk.Scrollbar(self.series_table_body, orient="horizontal",
-                                   command=self.series_table.xview)
+                                   command=self._xview_tables)
         vertical = ttk.Scrollbar(self.series_table_body, orient="vertical",
                                  command=self.series_table.yview)
+        self.series_table_hscroll = horizontal
         self.series_table_scroll = vertical
-        self.series_table.configure(xscrollcommand=horizontal.set,
+        self.series_table.configure(xscrollcommand=self._on_table_xscroll,
                                     yscrollcommand=self._on_table_scroll)
         horizontal.pack(side="bottom", fill="x")
+
+        # Linha de totais fixa no rodapé, logo acima da barra horizontal:
+        # Treeview própria sem cabeçalho, com as mesmas colunas e larguras.
+        self.series_totals = ttk.Treeview(self.series_table_body, style="Modern.Treeview",
+                                          show="", columns=columns, height=1)
+        self.series_totals.column('data', width=135, stretch=False)
+        for name, _label, _fmt in TABLE_ROWS:
+            self.series_totals.column(name, width=120, stretch=False)
+        self.series_totals.pack(side="bottom", fill="x")
+
         vertical.pack(side="right", fill="y")
         self.series_table.pack(fill="both", expand=True)
         self.series_table.bind('<<TreeviewSelect>>', self._on_table_select)
+
+    def _xview_tables(self, *args):
+        """A barra horizontal rola a tabela e a linha de totais juntas."""
+        self.series_table.xview(*args)
+        self.series_totals.xview(*args)
+
+    def _on_table_xscroll(self, first, last):
+        self.series_table_hscroll.set(first, last)
+        self.series_totals.xview_moveto(first)
+
+    def _render_totals(self):
+        """Recalcula a linha de totais sobre a série inteira (não a página)."""
+        self.series_totals.delete(*self.series_totals.get_children())
+        if self._series is None:
+            return
+        aggregations = dict(TOTAL_AGGREGATIONS)
+        agg = aggregations.get(self.total_agg_var.get())
+        if agg is None:
+            self.series_totals.pack_forget()
+            return
+        self.series_totals.pack(side="bottom", fill="x",
+                                after=self.series_table_hscroll)
+        values = [self.total_agg_var.get()]
+        for name, _label, fmt in TABLE_ROWS:
+            column = self._series.get(name)
+            if column is None or not pandas.api.types.is_numeric_dtype(column):
+                values.append('—')
+                continue
+            result = getattr(column, agg)()
+            if pandas.isna(result):
+                values.append('—')
+            elif name in ('em_conforto', 'janela', 'ventilador', 'ac', 'doas'):
+                values.append(f"{result:,.0f} timestep(s)" if agg == 'sum'
+                              else f"{result:.1%}" if agg == 'mean' else fmt(result))
+            else:
+                values.append(fmt(result))
+        self.series_totals.insert('', 'end', values=values)
 
     def _show_message(self, text):
         self.toolbar.pack_forget()
@@ -237,6 +306,7 @@ class TimeSeriesPanel(ttk.Frame):
             self._table_load_job = None
         self._token += 1
         self._clear_selection()
+        self._render_totals()
         rooms = list(run.get('rooms_disponiveis') or [])
         self.room_combo["values"] = rooms
         self.room_var.set(rooms[0] if rooms else "")
@@ -271,6 +341,7 @@ class TimeSeriesPanel(ttk.Frame):
         self._table_page = 0
         self._table_last_page = -1
         self._clear_selection()
+        self._render_totals()
         self.status_var.set(f"Lendo {room}…")
         self._show_message(f"Lendo a série da zona {room}…\n"
                            "A primeira leitura da planilha leva cerca de 20 s; "
@@ -292,11 +363,13 @@ class TimeSeriesPanel(ttk.Frame):
         if token != self._token:
             return
         if series.empty:
+            self._render_totals()
             self._show_message(f"A planilha da zona {room} não tem timesteps.")
             return
         self._series = series.sort_values('data').reset_index(drop=True)
         self._table_page = 0
         self.status_var.set(f"{room}: {len(self._series)} timesteps.")
+        self._render_totals()
         if self._view == 'chart':
             self._show_plot()
         else:
