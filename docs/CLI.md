@@ -35,6 +35,23 @@ ls /usr/local/EnergyPlus-9-4-0/Energy+.idd /usr/local/EnergyPlus-9-4-0/ExpandObj
 .venv/bin/python cli.py [--config CAMINHO] [--set CHAVE=VALOR ...] [--print-config] [--quiet]
 ```
 
+### Smoke test real, com período curto
+
+Para verificar o pipeline inteiro sem executar o ano completo:
+
+```bash
+.venv/bin/python scripts/smoke_energyplus.py
+```
+
+O script copia o IDF de exemplo para um diretório temporário próprio, reduz o
+`RunPeriod` a 5–11 de janeiro de 2015 (incluindo dias úteis após os dois dias
+descartados no pós-processamento), seleciona só `ATELIE1`, valida a configuração
+e roda o CLI. Ao terminar, confere `eplusout.end`, ausência de erros fatais no
+`eplusout.err`, as planilhas e a configuração salva. O caminho da execução é
+impresso na saída; cada chamada usa uma pasta nova. Para conferir apenas a
+preparação, sem simular, use `--prepare-only`. O teste curto verifica integração,
+não substitui uma rodada anual para comparar resultados agregados.
+
 Executar sempre a partir da raiz do repositório (os imports são `src.*` e os
 caminhos padrão da configuração são relativos).
 
