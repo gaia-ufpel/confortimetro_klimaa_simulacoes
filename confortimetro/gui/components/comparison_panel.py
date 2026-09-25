@@ -4,6 +4,8 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, ttk
 
+import pandas
+
 from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg,
     NavigationToolbar2Tk,
