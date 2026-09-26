@@ -4,7 +4,7 @@ import os
 
 import pandas
 
-from confortimetro.results.series import CACHE_DIRECTORY, clear_cache, load_zone_series
+from confortimetro.results.series import CACHE_DIRECTORY, _cache_path, clear_cache, load_zone_series
 from tests.test_compare import _make_run
 from tests.test_stats import ROOM
 
@@ -23,7 +23,7 @@ def test_segunda_leitura_vem_do_cache(tmp_path):
     run_path = _make_run(tmp_path, 'RUN', 'COMPLETE')
     load_zone_series(str(run_path), ROOM)
 
-    cache = run_path / CACHE_DIRECTORY / f"{ROOM}.pkl"
+    cache = run_path / CACHE_DIRECTORY / os.path.basename(_cache_path(str(run_path), ROOM))
     assert cache.exists()
 
     # Com a planilha apagada, só o cache pode responder.

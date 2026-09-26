@@ -142,6 +142,9 @@ para mudar métricas, colunas ou gráficos.
   apagar o arquivo não perde nada, um `sync` reconstrói.
 - `results/series.py` — séries por zona com cache em `.series_cache/`; sem ele
   cada gráfico esperaria ~22 s por planilha.
+- `results/tabular.py` — lê o `eplustbl.csv` (relatórios tabulares do
+  EnergyPlus: envelope, capacidades do HVAC, balanço de calor sensível) que o
+  assistente consulta.
 - `results/charts.py` — as figuras. Devolvem `Figure` e **não** usam `pyplot`:
   o estado global dele briga com o laço de eventos do Tk.
 

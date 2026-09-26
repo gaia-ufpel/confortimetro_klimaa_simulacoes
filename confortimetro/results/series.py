@@ -13,6 +13,8 @@ import numpy
 import pandas
 
 CACHE_DIRECTORY = '.series_cache'
+# Sobe quando `COLUMNS` ganha apelidos: o pickle antigo não os tem.
+CACHE_VERSION = 3
 
 # Nomes das colunas do <ZONA>.xlsx, com a zona interpolada.
 COLUMNS = {
@@ -37,6 +39,38 @@ COLUMNS = {
     'energia_outros': 'Energia elétrica outros equipamentos',
     'energia_iluminacao': 'Energia elétrica iluminação',
     'energia_total': 'Energia elétrica total',
+    # Sinais do controlador e do ambiente, para ler a decisão timestep a timestep.
+    'temp_ar': '{room}:Zone Air Temperature',
+    'temp_radiante': '{room}:Zone Mean Radiant Temperature',
+    'umidade': '{room}:Zone Air Relative Humidity',
+    'temp_neutra': 'PEOPLE_{room}:Zone Thermal Comfort ASHRAE 55 Adaptive Model Temperature',
+    'pmv_controle': 'PMV_{room}:Schedule Value',
+    'clo_controle': 'CLO_{room}:Schedule Value',
+    'velocidade_ar': 'VEL_{room}:Schedule Value',
+    'setpoint_aquecimento': 'TEMP_HEAT_AC_{room}:Schedule Value',
+    'setpoint_resfriamento': 'TEMP_COOL_AC_{room}:Schedule Value',
+    'temp_op_max_adap': 'TEMP_OP_MAX_ADAP_{room}:Schedule Value',
+    'vazao_doas': 'DOAS_{room} OUTDOOR AIR INLET:System Node Mass Flow Rate',
+    # Bits de `control.motivos.Motivo` somados; decodifique com `motivos.decode`.
+    'motivo': 'MOTIVO_{room}:Schedule Value',
+    # Demanda × entrega do PTHP (W) e setpoint efetivo do termostato.
+    'demanda_aquecimento_w': '{room}:Zone Predicted Sensible Load to Heating Setpoint Heat Transfer Rate',
+    'demanda_resfriamento_w': '{room}:Zone Predicted Sensible Load to Cooling Setpoint Heat Transfer Rate',
+    'serpentina_aquecimento_w': '{room} PTHP HEATING COIL:Heating Coil Heating Rate',
+    'serpentina_apoio_w': '{room} PTHP SUPP HEATING COIL:Heating Coil Heating Rate',
+    'serpentina_resfriamento_w': '{room} PTHP COOLING COIL:Cooling Coil Total Cooling Rate',
+    'termostato_aquecimento': '{room}:Zone Thermostat Heating Setpoint Temperature',
+    'termostato_resfriamento': '{room}:Zone Thermostat Cooling Setpoint Temperature',
+    # Balanço de calor do ar da zona (W; positivo = entra calor no ar).
+    'balanco_ganhos_internos_w': '{room}:Zone Air Heat Balance Internal Convective Heat Gain Rate',
+    'balanco_superficies_w': '{room}:Zone Air Heat Balance Surface Convection Rate',
+    'balanco_entre_zonas_w': '{room}:Zone Air Heat Balance Interzone Air Transfer Rate',
+    'balanco_ar_externo_w': '{room}:Zone Air Heat Balance Outdoor Air Transfer Rate',
+    'balanco_sistema_ar_w': '{room}:Zone Air Heat Balance System Air Transfer Rate',
+    'balanco_sistema_conv_w': '{room}:Zone Air Heat Balance System Convective Heat Gain Rate',
+    'balanco_armazenamento_w': '{room}:Zone Air Heat Balance Air Energy Storage Rate',
+    'janelas_ganho': '{room}:Zone Windows Total Heat Gain Energy',
+    'janelas_perda': '{room}:Zone Windows Total Heat Loss Energy',
 }
 
 
@@ -46,7 +80,7 @@ def column(name, room):
 
 
 def _cache_path(run_path, room):
-    return os.path.join(run_path, CACHE_DIRECTORY, f"{room}.pkl")
+    return os.path.join(run_path, CACHE_DIRECTORY, f"{room}.v{CACHE_VERSION}.pkl")
 
 
 def load_zone_series(run_path, room, refresh=False):

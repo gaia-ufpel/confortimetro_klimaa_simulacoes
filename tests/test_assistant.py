@@ -97,6 +97,186 @@ def test_periodo_mm_dd_usa_o_ano_da_serie(root):
     assert "erro" in result  # a série só tem 01/01
 
 
+def test_serie_timestep_e_sinais_de_controle(root):
+    tools = Toolbox(root)
+    result = tools.call("serie_timestep", {
+        "execucao": "COM_JANELA", "zona": ROOM, "inicio": "01-01",
+        "variaveis": ["ocupacao", "aquecimento"]})
+    assert len(result["linhas"]) == 10  # um valor por timestep, sem agregar
+    assert result["linhas"][0]["aquecimento_w"] == pytest.approx(6000)  # 1 kWh em 10 min
+
+    result = tools.call("sinais_controle", {"execucao": "COM_JANELA", "zona": ROOM,
+                                            "inicio": "01-01"})
+    assert result["resumo"]["horas_ac_ligado"] == pytest.approx(10 / 6, abs=0.01)
+    assert "janela" in result["linhas"][0]
+
+
+EPLUSTBL = f"""REPORT:,Input Verification and Results Summary
+FOR:,Entire Facility
+Zone Summary
+
+,,Area [m2],Volume [m3],People [m2 per person]
+,{ROOM},10.00,30.00,5.00
+
+REPORT:,Envelope Summary
+FOR:,Entire Facility
+Opaque Exterior
+
+,,Gross Area [m2],Tilt [deg],Cardinal Direction
+,PAREDE_S,10.00,90.00,S
+,OUTRA,99.00,90.00,N
+
+Exterior Fenestration
+
+,,Glass Area [m2],Parent Surface,Cardinal Direction
+,JANELA_S,2.50,PAREDE_S,S
+
+REPORT:,Equipment Summary
+FOR:,Entire Facility
+Heating Coils
+
+,,Type,Nominal Total Capacity [W]
+,{ROOM} PTHP HEATING COIL,Coil:Heating:DX:SingleSpeed,5000.00
+,{ROOM} PTHP SUPP HEATING COIL,Coil:Heating:Electric,1000.00
+,LINSE PTHP HEATING COIL,Coil:Heating:DX:SingleSpeed,9999.00
+
+REPORT:,Sensible Heat Gain Summary
+FOR:,Entire Facility
+Annual Building Sensible Heat Gain Components
+
+,,People Sensible Heat Addition [kWh],Window Heat Removal [kWh]
+,{ROOM},12.5,-3.0
+"""
+
+EPLUS_IDF = f"""
+BuildingSurface:Detailed, parede_s, Wall, EXTERIOR WALL, {ROOM}, Outdoors;
+BuildingSurface:Detailed, outra, Wall, EXTERIOR WALL, OUTRA_ZONA, Outdoors;
+FenestrationSurface:Detailed, janela_s, Window, EXTERIOR WINDOW, parede_s;
+AirflowNetwork:MultiZone:Surface, janela_s, infiltracao, , 1;
+"""
+
+
+def test_relatorios_do_energyplus(root):
+    run = os.path.join(root, "COM_JANELA")
+    with open(os.path.join(run, "eplustbl.csv"), "w", encoding="latin-1") as handle:
+        handle.write(EPLUSTBL)
+    with open(os.path.join(run, "modelo.idf"), "w", encoding="latin-1") as handle:
+        handle.write(EPLUS_IDF)
+    tools = Toolbox(root)
+
+    zone = tools.call("inspecionar_zona", {"execucao": "COM_JANELA", "zona": ROOM})
+    assert zone["zona_resumo"]["pe_direito_m"] == pytest.approx(3.0)
+    assert [row["nome"] for row in zone["superficies_externas"]] == ["PAREDE_S"]
+    assert zone["wwr_por_direcao"] == [{"direcao": "S", "parede_bruta_m2": 10.0,
+                                        "vidro_m2": 2.5, "wwr": 0.25}]
+    assert zone["airflownetwork_superficies"][0]["componente"] == "INFILTRACAO"
+
+    balance = tools.call("balanco_termico", {"execucao": "COM_JANELA", "zona": ROOM,
+                                             "inicio": "01-01"})
+    assert balance["relatorio_anual"]["total_kwh"]["Window Heat Removal [kWh]"] == -3.0
+    assert "serie" not in balance and "anterior" in balance["avisos"][0]
+
+    hvac = tools.call("inspecionar_hvac", {"execucao": "COM_JANELA", "zona": ROOM})
+    heating = hvac["desempenho"]["aquecimento"]
+    assert heating["capacidade_nominal_w"] == 6000  # DX + resistência, sem a do LINSE
+    assert heating["horas_acima_90pct_capacidade"] == pytest.approx(10 / 6, abs=0.01)
+    assert "anterior" in hvac["demanda_x_entrega"]  # planilha sem as colunas novas
+
+    assert "erro" in tools.call("balanco_termico", {"execucao": "FECHADA", "zona": ROOM})
+
+
+def _add_new_columns(root):
+    """Planilha de COM_JANELA com as colunas de motivo, demanda e balanço."""
+    from confortimetro.control.motivos import Motivo
+    from confortimetro.results import series
+    from tests.test_stats import _room_dataframe
+
+    df = _room_dataframe(rows=10, nan_rows=0)
+    col = lambda alias: series.column(alias, ROOM)
+    three = int(Motivo.OCUPADA | Motivo.JANELA_BLOQUEADA_EXTERNA_FRIA | Motivo.AC_MANTIDO)
+    df[col("janela")] = [0, 0, 1, 1, 1, 0, 0, 0, 0, 0]
+    df[col("motivo")] = [three] * 5 + [int(Motivo.OCUPADA)] * 5
+    df[col("setpoint_aquecimento")] = 22.0
+    df[col("demanda_aquecimento_w")] = [8000.0] * 3 + [3000.0] * 7
+    df[col("demanda_resfriamento_w")] = -100.0
+    df[col("serpentina_aquecimento_w")] = [5000.0] * 3 + [2000.0] * 7
+    df[col("serpentina_apoio_w")] = [1000.0] * 3 + [0.0] * 7
+    df[col("serpentina_resfriamento_w")] = 100.0
+    df[col("balanco_superficies_w")] = [-600.0] * 5 + [600.0] * 5
+    df[col("balanco_ganhos_internos_w")] = 300.0
+    df[col("janelas_perda")] = 3.6e6 / 10
+    run = os.path.join(root, "COM_JANELA")
+    df.to_excel(os.path.join(run, f"{ROOM}.xlsx"), index=False)
+    with open(os.path.join(run, "eplustbl.csv"), "w", encoding="latin-1") as handle:
+        handle.write(EPLUSTBL)
+
+
+def test_balanco_e_hvac_com_colunas_novas(root):
+    _add_new_columns(root)
+    tools = Toolbox(root)
+
+    balance = tools.call("balanco_termico", {"execucao": "COM_JANELA", "zona": ROOM,
+                                             "inicio": "01-01", "somente_ocupado": True})
+    air = balance["serie"]["ar_da_zona_kwh"]
+    # 5 timesteps de 10 min a -600 W e 5 a +600 W: 0,5 kWh de cada lado.
+    assert air["superficies"] == {"ganho": 0.5, "perda": -0.5, "liquido": 0.0}
+    assert air["ganhos_internos"]["ganho"] == pytest.approx(0.5)
+    assert balance["serie"]["janelas_kwh"] == {"perda": pytest.approx(1.0)}
+    assert balance["relatorio_anual"]["total_kwh"]["Window Heat Removal [kWh]"] == -3.0
+
+    hvac = tools.call("inspecionar_hvac", {"execucao": "COM_JANELA", "zona": ROOM})
+    heating = hvac["demanda_x_entrega"]["aquecimento"]
+    assert heating["pico_demanda_w"] == 8000
+    assert heating["horas_demanda_acima_capacidade"] == pytest.approx(0.5)  # 3 × 10 min
+    assert heating["horas_entrega_abaixo_90pct_demanda"] == pytest.approx(10 / 6, abs=0.01)
+    assert heating["horas_resistencia_apoio"] == pytest.approx(0.5)
+    assert hvac["demanda_x_entrega"]["resfriamento"]["horas_entrega_abaixo_90pct_demanda"] == 0
+
+    # Energia das janelas em W no timestep, como aquecimento.
+    rows = tools.call("serie_timestep", {"execucao": "COM_JANELA", "zona": ROOM,
+                                         "inicio": "01-01",
+                                         "variaveis": ["janelas_perda", "motivo"]})["linhas"]
+    assert rows[0]["janelas_perda_w"] == pytest.approx(600)
+    assert rows[0]["motivos"] == ["OCUPADA", "JANELA_BLOQUEADA_EXTERNA_FRIA", "AC_MANTIDO"]
+
+
+def test_sinais_controle_apenas_mudancas(root):
+    _add_new_columns(root)
+    result = Toolbox(root).call("sinais_controle", {
+        "execucao": "COM_JANELA", "zona": ROOM, "inicio": "01-01",
+        "apenas_mudancas": True, "colunas": ["janela", "motivo"]})
+    rows = result["linhas"]
+    # Janela abre no 3º, motivo muda no 6º: trechos de 2, 3 e 5 timesteps.
+    assert [row["data"][-5:] for row in rows] == ["00:10", "00:30", "01:00"]
+    assert [row["duracao_h"] for row in rows] == pytest.approx([2 / 6, 0.5, 5 / 6], abs=0.01)
+    assert set(rows[0]) == {"data", "janela", "motivo", "motivos", "duracao_h"}
+    assert rows[0]["motivos"] == ["OCUPADA", "JANELA_BLOQUEADA_EXTERNA_FRIA", "AC_MANTIDO"]
+    by_motive = result["resumo"]["horas_por_motivo"]
+    assert by_motive["OCUPADA"] == pytest.approx(10 / 6, abs=0.01)
+    assert by_motive["AC_MANTIDO"] == pytest.approx(5 / 6, abs=0.01)
+    assert "AC_LIGADO_POR_PMV" not in by_motive
+
+    # Só a janela pedida: fecha e reabre contam, o motivo não.
+    rows = Toolbox(root).call("sinais_controle", {
+        "execucao": "COM_JANELA", "zona": ROOM, "inicio": "01-01",
+        "apenas_mudancas": True, "colunas": ["janela"]})["linhas"]
+    assert [row["janela"] for row in rows] == [0, 1, 0]
+
+
+def test_sinais_controle_execucao_antiga(root):
+    tools = Toolbox(root)
+    result = tools.call("sinais_controle", {"execucao": "FECHADA", "zona": ROOM,
+                                            "inicio": "01-01", "apenas_mudancas": True,
+                                            "colunas": ["ac", "motivo"]})
+    assert "erro" not in result
+    (row,) = result["linhas"]  # nada muda no período: um trecho só
+    assert row["duracao_h"] == pytest.approx(10 / 6, abs=0.01)
+    assert "motivos" not in row and "horas_por_motivo" not in result["resumo"]
+    assert any("motivo" in aviso for aviso in result["avisos"])
+    assert "erro" in tools.call("sinais_controle", {"execucao": "FECHADA", "zona": ROOM,
+                                                    "inicio": "01-01", "colunas": ["x"]})
+
+
 def test_resultado_grande_e_cortado(root, monkeypatch):
     tools = Toolbox(root)
     monkeypatch.setattr(tools, "listar_execucoes",
