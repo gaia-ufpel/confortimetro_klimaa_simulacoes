@@ -124,24 +124,24 @@ class SimulationsPanel(ttk.Frame):
         self.actions_bar.pack(fill="x", pady=(0, SPACE[3]))
 
         self.btn_details = RoundedButton(
-            self.actions_bar, text="Ver detalhes", variant="primary", icon="details",
-            command=self._open_details)
+            self.actions_bar, text="", variant="primary", icon="details",
+            tooltip="Ver detalhes", command=self._open_details)
         self.btn_details.pack(side="left")
 
         self.btn_duplicate = RoundedButton(
-            self.actions_bar, text="Duplicar", variant="ghost", icon="duplicate",
-            command=self._duplicate)
-        self.btn_duplicate.pack(side="left", padx=(SPACE[1], 0))
+            self.actions_bar, text="", variant="ghost", icon="duplicate",
+            tooltip="Duplicar simulação", command=self._duplicate)
+        self.btn_duplicate.pack(side="left", padx=(SPACE[2], 0))
 
         self.btn_open = RoundedButton(
-            self.actions_bar, text="Abrir pasta", variant="ghost", icon="open",
-            command=self.open_selected_folder)
-        self.btn_open.pack(side="left", padx=(SPACE[1], 0))
+            self.actions_bar, text="", variant="ghost", icon="open",
+            tooltip="Abrir pasta no gerenciador de arquivos", command=self.open_selected_folder)
+        self.btn_open.pack(side="left", padx=(SPACE[2], 0))
 
         self.btn_assistant = RoundedButton(
-            self.actions_bar, text="Assistente", variant="ghost", icon="info",
-            command=self._ask_assistant)
-        self.btn_assistant.pack(side="left", padx=(SPACE[1], 0))
+            self.actions_bar, text="", variant="ghost", icon="info",
+            tooltip="Assistente de análise", command=self._ask_assistant)
+        self.btn_assistant.pack(side="left", padx=(SPACE[2], 0))
 
         # Indicadores Chave de Desempenho (KPI Cards)
         self.kpi_frame = ttk.Frame(detail_card.body, style="Surface.TFrame")

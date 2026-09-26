@@ -444,12 +444,83 @@ def widget_background(widget) -> str:
         return ttk.Style().lookup(style, "background") or COLORS["surface"]
 
 
+class Tooltip:
+    """Tooltip flutuante para widgets com texto explicativo no hover."""
+
+    def __init__(self, widget: tk.Widget, text: str = "", delay: int = 400):
+        self.widget = widget
+        self.text = text
+        self.delay = delay
+        self._tipwindow: tk.Toplevel | None = None
+        self._after_id: str | None = None
+
+        self.widget.bind("<Enter>", self._on_enter, add="+")
+        self.widget.bind("<Leave>", self._on_leave, add="+")
+        self.widget.bind("<ButtonPress>", self._on_leave, add="+")
+
+    def set_text(self, text: str):
+        self.text = text
+        if self._tipwindow and not self.text:
+            self.hide()
+
+    def _on_enter(self, _event=None):
+        self._cancel()
+        if self.text:
+            self._after_id = self.widget.after(self.delay, self.show)
+
+    def _on_leave(self, _event=None):
+        self._cancel()
+        self.hide()
+
+    def _cancel(self):
+        if self._after_id:
+            self.widget.after_cancel(self._after_id)
+            self._after_id = None
+
+    def show(self):
+        if self._tipwindow or not self.text:
+            return
+        # Posiciona logo abaixo do widget
+        try:
+            x = self.widget.winfo_rootx() + (self.widget.winfo_width() // 2)
+            y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+        except tk.TclError:
+            return
+
+        self._tipwindow = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        try:
+            tw.wm_attributes("-topmost", True)
+        except tk.TclError:
+            pass
+
+        frame = tk.Frame(tw, bg=COLORS["surface_2"],
+                         highlightthickness=1, highlightbackground=COLORS["line"])
+        frame.pack()
+        label = tk.Label(frame, text=self.text, font=FONTS.get("caption", ("Segoe UI", 9)),
+                         bg=COLORS["surface_2"], fg=COLORS["text"],
+                         padx=SPACE[2], pady=SPACE[1])
+        label.pack()
+
+        tw.update_idletasks()
+        # Ajusta para não sair da borda direita da tela se possível
+        tip_w = tw.winfo_reqwidth()
+        tip_x = max(0, x - tip_w // 2)
+        tw.wm_geometry(f"+{tip_x}+{y}")
+
+    def hide(self):
+        if self._tipwindow:
+            self._tipwindow.destroy()
+            self._tipwindow = None
+
+
 class RoundedButton(tk.Canvas):
     """Botão de cantos arredondados. Variantes: primary, ghost, bar, danger.
 
     A largura sai do próprio rótulo: todos os botões ficam com a mesma altura,
     o mesmo respiro lateral e a mesma largura mínima, sem número mágico em cada
     chamada. `width=` continua existindo para o caso raro de forçar uma medida.
+    Quando text="" e icon é fornecido, comporta-se como botão quadrado de ícone.
     """
 
     _HEIGHT = 34
@@ -458,9 +529,9 @@ class RoundedButton(tk.Canvas):
     _ICON_SIZE = 16
     _ICON_GAP = SPACE[2]
 
-    def __init__(self, parent, text: str, command=None, variant: str = "primary",
+    def __init__(self, parent, text: str = "", command=None, variant: str = "primary",
                  icon: str = None, width: int = None,
-                 radius: int = RADIUS["control"]):
+                 radius: int = RADIUS["control"], tooltip: str = None):
         super().__init__(parent, height=self._HEIGHT,
                          width=width or self._width_for(text, icon),
                          bg=widget_background(parent), highlightthickness=0, bd=0,
@@ -474,6 +545,7 @@ class RoundedButton(tk.Canvas):
         self._state = "normal"
         self._hover = False
         self._pressed = False
+        self._tooltip = Tooltip(self, tooltip) if tooltip else None
 
         self.bind("<Configure>", lambda e: self._redraw())
         self.bind("<Enter>", self._on_enter)
@@ -483,7 +555,10 @@ class RoundedButton(tk.Canvas):
 
     @classmethod
     def _width_for(cls, text: str, icon_name: str = None) -> int:
-        """Largura do conteúdo mais o respiro lateral, nunca abaixo do mínimo."""
+        """Largura do conteúdo mais o respiro lateral, nunca abaixo do mínimo.
+        Se não há texto e há ícone, resulta num botão quadrado compacto."""
+        if not text and icon_name:
+            return cls._HEIGHT
         try:
             measured = tkfont.Font(font=FONTS["body"]).measure(text)
         except (tk.TclError, KeyError):
@@ -494,8 +569,14 @@ class RoundedButton(tk.Canvas):
         return max(cls._MIN_WIDTH, measured + 2 * cls._PAD_X)
 
     def configure(self, **kwargs):  # type: ignore[override]
-        """Aceita text/variant/command/state; o resto vai para o Canvas."""
+        """Aceita text/variant/command/state/icon/tooltip; o resto vai para o Canvas."""
         redraw = False
+        if "tooltip" in kwargs:
+            tip_val = kwargs.pop("tooltip")
+            if self._tooltip:
+                self._tooltip.set_text(tip_val)
+            elif tip_val:
+                self._tooltip = Tooltip(self, tip_val)
         for key in ("text", "variant", "command", "state", "icon"):
             if key in kwargs:
                 setattr(self, f"_{key}", kwargs.pop(key))
@@ -535,11 +616,15 @@ class RoundedButton(tk.Canvas):
                      fill=fill, outline=outline or fill, width=1)
 
         # O ícone é uma imagem na cor do texto; o par ícone + rótulo fica
-        # centralizado como um bloco só.
+        # centralizado como um bloco só. Se não houver texto, o ícone fica centralizado.
         image = icon(self._icon, self._ICON_SIZE, fg, master=self) if self._icon else None
         if image is None:
             self.create_text(width / 2, height / 2, text=self._text, fill=fg,
                              font=FONTS["body"])
+            return
+
+        if not self._text:
+            self.create_image(width / 2, height / 2, image=image)
             return
 
         text_width = tkfont.Font(font=FONTS["body"]).measure(self._text)
@@ -548,8 +633,8 @@ class RoundedButton(tk.Canvas):
         # A referência da imagem vive no cache do módulo; o Tk não segura a sua.
         self.create_image(left + self._ICON_SIZE / 2, height / 2, image=image)
         self.create_text(left + self._ICON_SIZE + self._ICON_GAP, height / 2,
-                         text=self._text, fill=fg, font=FONTS["body"],
-                         anchor="w")
+                          text=self._text, fill=fg, font=FONTS["body"],
+                          anchor="w")
 
     def _on_enter(self, _event):
         self._hover = True
