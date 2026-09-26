@@ -265,11 +265,14 @@ class SimulationsPanel(ttk.Frame):
             'modificado': datetime.datetime.now(),
             'config': {},
         }
+        self.btn_new_run.configure(text="Ver em andamento", icon="running")
         self.refresh()
 
     def clear_running(self, path: str):
         """Execução terminou: sai do estado 'em simulação'."""
         if self._running.pop(path, None) is not None:
+            if not self._running:
+                self.btn_new_run.configure(text="Nova execução", icon="new")
             self.refresh()
 
     def _sort_by(self, column):
@@ -282,36 +285,58 @@ class SimulationsPanel(ttk.Frame):
 
     def _selected_runs(self) -> list[dict]:
         selected = set(self.tree.selection())
-        return [run for run in self._runs if run['path'] in selected]
+        all_runs = list(self._running.values()) + [r for r in self._runs if r['path'] not in self._running]
+        return [run for run in all_runs if run['path'] in selected]
 
-    def _update_button_states(self, selected_count: int):
+    def _update_button_states(self, selected_count: int, is_running_selected: bool = False):
         """Habilita ou desabilita as ações contextuais conforme a seleção."""
         item_state = "normal" if selected_count >= 1 else "disabled"
-        for btn in (self.btn_details, self.btn_duplicate, self.btn_open,
-                    self.btn_assistant, self.btn_recompute):
+        for btn in (self.btn_details, self.btn_open, self.btn_assistant):
             btn.configure(state=item_state)
 
+        # Execução ainda em andamento não pode ser duplicada nem ter estatísticas regeradas
+        can_operate = item_state if not is_running_selected else "disabled"
+        self.btn_duplicate.configure(state=can_operate)
+        self.btn_recompute.configure(state=can_operate)
+
+        if is_running_selected and selected_count == 1:
+            self.btn_details.configure(tooltip="Ver simulação em andamento", icon="running")
+        else:
+            self.btn_details.configure(tooltip="Ver detalhes", icon="details")
+
         if selected_count >= 2:
-            self.compare_btn.configure(state="normal")
-            self.compare_info_var.set(f"{selected_count} execuções selecionadas para comparação")
+            self.compare_btn.configure(state="normal" if not is_running_selected else "disabled")
+            if is_running_selected:
+                self.compare_info_var.set("Simulação em andamento não pode ser comparada")
+            else:
+                self.compare_info_var.set(f"{selected_count} execuções selecionadas para comparação")
         elif selected_count == 1:
             self.compare_btn.configure(state="disabled")
-            self.compare_info_var.set("Selecione mais uma execução (Ctrl+Clique) para comparar")
+            if is_running_selected:
+                self.compare_info_var.set("Simulação em andamento — clique em Ver detalhes para acompanhar")
+            else:
+                self.compare_info_var.set("Selecione mais uma execução (Ctrl+Clique) para comparar")
         else:
             self.compare_btn.configure(state="disabled")
             self.compare_info_var.set("Selecione 2 ou mais execuções para comparar")
 
     def _on_select(self, _event=None):
         runs = self._selected_runs()
-        self._update_button_states(len(runs))
+        is_running_selected = any(r['path'] in self._running for r in runs)
+        self._update_button_states(len(runs), is_running_selected=is_running_selected)
 
         if len(runs) == 1:
             run = runs[0]
+            is_running = run['path'] in self._running
             run["summary"] = self._summary_for(run)
 
             # Atualizar os cards de KPI
-            consumo_val = self._metric_text(run, 'Energia total (kWh)', 'kWh')
-            desconf_val = self._metric_text(run, 'Desconforto')
+            if is_running:
+                consumo_val = "em andamento"
+                desconf_val = "em andamento"
+            else:
+                consumo_val = self._metric_text(run, 'Energia total (kWh)', 'kWh')
+                desconf_val = self._metric_text(run, 'Desconforto')
             self.kpi_energy_val.configure(text=consumo_val)
             self.kpi_discomfort_val.configure(text=desconf_val)
 
@@ -503,6 +528,9 @@ class SimulationsPanel(ttk.Frame):
             toast(self, "Escolha uma execução para abrir a pasta.", "warn")
             return
         path = os.path.abspath(runs[0]['path'])
+        if not os.path.exists(path):
+            toast(self, "A pasta desta execução ainda não foi criada no disco.", "info")
+            return
         if sys.platform == "win32":
             os.startfile(path)  # type: ignore[attr-defined]
         else:

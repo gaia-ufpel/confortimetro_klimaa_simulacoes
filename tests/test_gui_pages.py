@@ -405,3 +405,61 @@ def test_assistente_nos_detalhes_e_na_pagina_geral(window, tmp_path, monkeypatch
     assert window._current_page == "assistant"
     assert window.assistant_panel.conversation["runs"] == ["run_a"]
     assert window.assistant_panel.conversation["contents"] == []
+
+
+def test_fluxo_simulacao_em_andamento_botoes_e_selecao(window, tmp_path):
+    """Testa se a execução em andamento pode ser selecionada, se os botões são
+    renomeados adequadamente e se clicar nela navega de volta ao editor com o log aberto."""
+    panel = window.simulations_panel
+    run_path = str(tmp_path / "saidas" / "run_em_andamento")
+
+    # Inicia simulação registrada
+    panel.set_running(run_path, window.configs)
+    _settle(window)
+
+    # 1. Botão do painel de simulações deve estar renomeado
+    assert panel.btn_new_run._text == "Ver em andamento"
+    assert panel.btn_new_run._icon == "running"
+
+    # 2. Execução em andamento aparece na treeview e pode ser selecionada
+    assert run_path in panel._running
+    panel.tree.selection_set(run_path)
+    panel._on_select()
+    _settle(window)
+
+    selected = panel._selected_runs()
+    assert len(selected) == 1
+    assert selected[0]['path'] == run_path
+    assert selected[0]['status'] == 'em simulação'
+
+    # Indicadores e botões contextuais atualizados
+    assert panel.kpi_energy_val.cget("text") == "em andamento"
+    assert panel.btn_duplicate._state == "disabled"
+    assert panel.btn_recompute._state == "disabled"
+    assert panel.btn_details._icon == "running"
+
+    # 3. Abrir detalhes da simulação em andamento navega para a página editor com log aberto
+    window.show_page("runs")
+    _settle(window)
+    assert window._current_page == "runs"
+
+    panel._open_details()
+    _settle(window)
+    assert window._current_page == "editor"
+    assert window.log_sheet.is_open
+
+    # 4. Botão do nav da página de execuções reflete simulação ativa
+    window.on_run_simulation = lambda: None  # mock para teste isolado
+    window._running_run_path = run_path
+    window.btn_nav_new_run.configure(text="Ver em andamento", icon="running")
+    assert window.btn_nav_new_run._text == "Ver em andamento"
+
+    # 5. Finalizar simulação restaura botões para "Nova execução"
+    panel.clear_running(run_path)
+    window.btn_nav_new_run.configure(text="Nova execução", icon="new")
+    _settle(window)
+    assert panel.btn_new_run._text == "Nova execução"
+    assert panel.btn_new_run._icon == "new"
+    assert window.btn_nav_new_run._text == "Nova execução"
+    assert window.btn_nav_new_run._icon == "new"
+

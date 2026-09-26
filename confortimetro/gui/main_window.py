@@ -195,8 +195,10 @@ class MainWindow(tk.Tk):
 
         page = ttk.Frame(self.page_host, style="Main.TFrame")
         nav = self._page_nav(page, "Execuções")
-        RoundedButton(nav, text="Nova execução", variant="primary", icon="new",
-                      command=lambda: self.show_page("editor")).pack(side="right")
+        self.btn_nav_new_run = RoundedButton(
+            nav, text="Nova execução", variant="primary", icon="new",
+            command=lambda: self.show_page("editor"))
+        self.btn_nav_new_run.pack(side="right")
         RoundedButton(nav, text="Atualizar", variant="bar", icon="refresh",
                       command=lambda: self.simulations_panel.refresh()).pack(
                           side="right", padx=(0, SPACE[2]))
@@ -758,6 +760,8 @@ class MainWindow(tk.Tk):
             if finished_path:
                 self.simulations_panel.clear_running(finished_path)
                 self._running_run_path = None
+            if hasattr(self, "btn_nav_new_run"):
+                self.btn_nav_new_run.configure(text="Nova execução", icon="new")
             self.simulation = None
             if finished_path and not interrupted and not has_error:
                 run = next((r for r in self.simulations_panel._runs
@@ -873,6 +877,8 @@ class MainWindow(tk.Tk):
         # pasta existir.
         self._running_run_path = self.configs.output_path
         self.simulations_panel.set_running(self._running_run_path, self.configs)
+        if hasattr(self, "btn_nav_new_run"):
+            self.btn_nav_new_run.configure(text="Ver em andamento", icon="running")
         
         # Start simulation
         self.control_panel.set_running_state(True)
@@ -922,7 +928,15 @@ class MainWindow(tk.Tk):
         self.show_page("assistant")
 
     def on_open_run_details(self, run: dict):
-        """Página com a configuração completa da execução escolhida."""
+        """Página com a configuração completa da execução escolhida. Se estiver
+        em andamento, abre a página de execução com o log ativo para acompanhamento."""
+        if (run.get('status') == 'em simulação'
+                or run['path'] in self.simulations_panel._running
+                or run['path'] == getattr(self, '_running_run_path', None)):
+            self.show_page("editor")
+            self.log_sheet.set_open(True)
+            return
+
         self._detail_run = run
         lines = [run['run'], "-" * len(run['run']), "",
                  f"{'pasta':24s} {os.path.abspath(run['path'])}",
