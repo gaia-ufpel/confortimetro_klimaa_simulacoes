@@ -64,11 +64,15 @@ class SimulationsPanel(ttk.Frame):
         list_card = Card(panes, "Simulações executadas")
         panes.add(list_card, weight=3)
 
-        # Barra de status sutil no topo da tabela
+        # Barra de status sutil no topo da tabela e ação rápida de nova execução
         top_info = ttk.Frame(list_card.body, style="Surface.TFrame")
         top_info.pack(fill="x", pady=(0, SPACE[2]))
         ttk.Label(top_info, textvariable=self.status_var,
                   style="Caption.TLabel").pack(side="left")
+        self.btn_new_run = RoundedButton(
+            top_info, text="Nova execução", variant="primary", icon="new",
+            command=self._new_run)
+        self.btn_new_run.pack(side="right")
 
         # Container da Treeview com barras de rolagem
         tree_container = ttk.Frame(list_card.body, style="Surface.TFrame")
@@ -127,17 +131,17 @@ class SimulationsPanel(ttk.Frame):
         self.btn_duplicate = RoundedButton(
             self.actions_bar, text="Duplicar", variant="ghost", icon="duplicate",
             command=self._duplicate)
-        self.btn_duplicate.pack(side="left", padx=(SPACE[2], 0))
+        self.btn_duplicate.pack(side="left", padx=(SPACE[1], 0))
 
         self.btn_open = RoundedButton(
             self.actions_bar, text="Abrir pasta", variant="ghost", icon="open",
             command=self.open_selected_folder)
-        self.btn_open.pack(side="left", padx=(SPACE[2], 0))
+        self.btn_open.pack(side="left", padx=(SPACE[1], 0))
 
         self.btn_assistant = RoundedButton(
             self.actions_bar, text="Assistente", variant="ghost", icon="info",
             command=self._ask_assistant)
-        self.btn_assistant.pack(side="left", padx=(SPACE[2], 0))
+        self.btn_assistant.pack(side="left", padx=(SPACE[1], 0))
 
         # Indicadores Chave de Desempenho (KPI Cards)
         self.kpi_frame = ttk.Frame(detail_card.body, style="Surface.TFrame")
@@ -165,13 +169,32 @@ class SimulationsPanel(ttk.Frame):
             fg=COLORS["text"], font=FONTS["h2"])
         self.kpi_discomfort_val.pack(anchor="w", padx=SPACE[3], pady=(0, SPACE[2]))
 
-        # Texto detalhado com parâmetros e configurações
+        # Texto detalhado com parâmetros e configurações formatados
+        detail_text_frame = ttk.Frame(detail_card.body, style="Surface.TFrame")
+        detail_text_frame.pack(fill="both", expand=True)
+
         self.detail_text = tk.Text(
-            detail_card.body, height=12, width=42, wrap="none", state="disabled",
-            font=FONTS["mono"], background=COLORS["surface"], foreground=COLORS["text"],
+            detail_text_frame, height=12, width=42, wrap="word", state="disabled",
+            font=FONTS["body"], background=COLORS["surface"], foreground=COLORS["text"],
             relief="flat", borderwidth=0, highlightthickness=1,
             highlightbackground=COLORS["line"], padx=SPACE[3], pady=SPACE[3])
-        self.detail_text.pack(fill="both", expand=True)
+        detail_scroll = ttk.Scrollbar(detail_text_frame, orient="vertical",
+                                      command=self.detail_text.yview)
+        self.detail_text.configure(yscrollcommand=detail_scroll.set)
+        detail_scroll.pack(side="right", fill="y")
+        self.detail_text.pack(side="left", fill="both", expand=True)
+
+        # Tags de formatação visual do texto
+        self.detail_text.tag_configure("title", font=FONTS["h2"], foreground=COLORS["primary"],
+                                       spacing1=2, spacing3=4)
+        self.detail_text.tag_configure("section", font=FONTS["label"], foreground=COLORS["primary_d"],
+                                       spacing1=10, spacing3=4)
+        self.detail_text.tag_configure("param_label", font=FONTS["label"], foreground=COLORS["text_mute"])
+        self.detail_text.tag_configure("param_val", font=FONTS["body"], foreground=COLORS["text"])
+        self.detail_text.tag_configure("help", font=FONTS["caption"], foreground=COLORS["text_mute"],
+                                       spacing1=4, spacing3=4)
+        self.detail_text.tag_configure("bullet", font=FONTS["body"], foreground=COLORS["text"],
+                                       lmargin1=12, lmargin2=24)
 
         # Rodapé do painel de detalhes: Ação secundária para regerar estatísticas
         self.detail_footer = ttk.Frame(detail_card.body, style="Surface.TFrame")
@@ -292,37 +315,83 @@ class SimulationsPanel(ttk.Frame):
             self.kpi_energy_val.configure(text=consumo_val)
             self.kpi_discomfort_val.configure(text=desconf_val)
 
-            # Conteúdo dos parâmetros
-            lines = []
-            lines.append(f"EXECUÇÃO: {run['run']}")
-            lines.append("=" * 40)
-            lines.append(f"status:       {run['status']}")
-            lines.append(f"período:      {self._period_text(run)}")
-            lines.append(f"zonas ({len(run['rooms_disponiveis'])}):  {', '.join(run['rooms_disponiveis']) or '—'}")
-            lines.append("")
-            lines.append("CONFIGURAÇÕES DO MODELO:")
-            lines.append("-" * 40)
-            for key, value in run['config'].items():
-                if key in ('rooms', 'input_path', 'expanded_idf_path', 'idf_filename'):
-                    continue
-                if isinstance(value, str) and os.sep in value:
-                    value = os.path.basename(value)
-                lines.append(f"{key.lstrip('_'):22s} {value}")
-
+            # Renderização estruturada e amigável dos detalhes
             self.detail_text.configure(state="normal")
             self.detail_text.delete("1.0", "end")
-            self.detail_text.insert("1.0", "\n".join(lines))
+
+            # Cabeçalho da execução
+            self.detail_text.insert("end", f"{run['run']}\n", "title")
+
+            # Seção: Informações Gerais
+            self.detail_text.insert("end", "INFORMAÇÕES GERAIS\n", "section")
+            self._insert_detail_field("Status:", run['status'].capitalize())
+            self._insert_detail_field("Modificado:", run['modificado'].strftime("%d/%m/%Y às %H:%M"))
+            self._insert_detail_field("Período:", str(self._period_text(run)))
+
+            zonas = run.get('rooms_disponiveis') or []
+            if zonas:
+                zonas_str = ", ".join(zonas)
+                self._insert_detail_field(f"Zonas ({len(zonas)}):", zonas_str)
+
+            # Seção: Arquivos do Modelo
+            self.detail_text.insert("end", "\nARQUIVOS E DIRETÓRIOS\n", "section")
+            if run.get('idf'):
+                self._insert_detail_field("Modelo (IDF):", run['idf'])
+            if run.get('epw'):
+                self._insert_detail_field("Clima (EPW):", run['epw'])
+            if run.get('module_type'):
+                self._insert_detail_field("Módulo:", run['module_type'])
+
+            # Seção: Parâmetros de Simulação
+            config = run.get('config', {})
+            _PARAM_LABELS = {
+                'pmv_comfort_bound': "Banda de conforto PMV",
+                'pmv_upperbound': "Limite sup. PMV",
+                'pmv_lowerbound': "Limite inf. PMV",
+                'adaptative_bound': "Margem adaptativa (°C)",
+                'met': "Taxa metabólica (met)",
+                'met_as_watts': "Metabólico (W)",
+                'wme': "Trabalho externo (W/m²)",
+                'clo_min': "Clo mínimo",
+                'clo_max': "Clo máximo",
+                'clo_delta': "Variação do Clo",
+                'clo_priority': "Prioridade do vestuário",
+                'temp_ac_min': "Temp. mín. AC (°C)",
+                'temp_ac_max': "Temp. máx. AC (°C)",
+                'co2_limit': "Limite de CO₂ (ppm)",
+                'max_vel': "Vel. máx. ventilador (m/s)",
+                'air_speed_delta': "Variação vel. ar (m/s)",
+                'temp_open_window_bound': "Margem abertura janela (°C)",
+            }
+
+            known_params = []
+            for key, label in _PARAM_LABELS.items():
+                if key in config:
+                    val = config[key]
+                    if isinstance(val, float):
+                        val_str = f"{val:.2f}".rstrip("0").rstrip(".")
+                    else:
+                        val_str = str(val)
+                    known_params.append((label, val_str))
+
+            if known_params:
+                self.detail_text.insert("end", "\nPARÂMETROS DE CONFORTO E OPERAÇÃO\n", "section")
+                for label, val in known_params:
+                    self._insert_detail_field(f"{label}:", val)
+
             self.detail_text.configure(state="disabled")
 
         elif runs:
             self.kpi_energy_val.configure(text="—")
             self.kpi_discomfort_val.configure(text="—")
-            lines = [f"{len(runs)} execuções selecionadas para comparação:\n"]
-            lines.extend(f"· {run['run']} ({run['status']})" for run in runs)
-            lines.append("\nClique em 'Comparar selecionadas' abaixo para abrir a análise comparativa completa.")
             self.detail_text.configure(state="normal")
             self.detail_text.delete("1.0", "end")
-            self.detail_text.insert("1.0", "\n".join(lines))
+            self.detail_text.insert("end", f"{len(runs)} execuções selecionadas\n", "title")
+            self.detail_text.insert("end", "ITENS SELECIONADOS\n", "section")
+            for run in runs:
+                self.detail_text.insert("end", f"•  {run['run']} ", "bullet")
+                self.detail_text.insert("end", f"({run['status']})\n", "help")
+            self.detail_text.insert("end", "\nClique em 'Comparar selecionadas' abaixo para abrir a análise comparativa completa.\n", "help")
             self.detail_text.configure(state="disabled")
         else:
             self._render_detail_empty()
@@ -365,6 +434,11 @@ class SimulationsPanel(ttk.Frame):
         self._summary_cache[path] = summary
         return summary
 
+    def _insert_detail_field(self, label: str, value: str):
+        """Insere um par chave-valor formatado no Text widget com tabs alinhadas."""
+        self.detail_text.insert("end", f"{label:<32}", "param_label")
+        self.detail_text.insert("end", f" {value}\n", "param_val")
+
     def _render_detail_empty(self):
         self._update_button_states(0)
         if hasattr(self, "kpi_energy_val"):
@@ -373,7 +447,7 @@ class SimulationsPanel(ttk.Frame):
             self.kpi_discomfort_val.configure(text="—")
         self.detail_text.configure(state="normal")
         self.detail_text.delete("1.0", "end")
-        self.detail_text.insert("1.0", "Selecione uma execução na lista para visualizar seus indicadores, parâmetros e ações.")
+        self.detail_text.insert("1.0", "Selecione uma execução na lista para visualizar seus indicadores, parâmetros e ações.", "help")
         self.detail_text.configure(state="disabled")
 
     # -------------------------------------------------------------- ações

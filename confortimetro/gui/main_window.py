@@ -195,8 +195,14 @@ class MainWindow(tk.Tk):
 
         page = ttk.Frame(self.page_host, style="Main.TFrame")
         nav = self._page_nav(page, "Execuções")
+        RoundedButton(nav, text="Nova execução", variant="primary", icon="new",
+                      command=lambda: self.show_page("editor")).pack(side="right")
+        RoundedButton(nav, text="Atualizar", variant="bar", icon="refresh",
+                      command=lambda: self.simulations_panel.refresh()).pack(
+                          side="right", padx=(0, SPACE[2]))
         RoundedButton(nav, text="Configurações", variant="bar", icon="settings",
-                      command=lambda: self.show_page("settings")).pack(side="right")
+                      command=lambda: self.show_page("settings")).pack(
+                          side="right", padx=(0, SPACE[2]))
 
         self.simulations_panel = SimulationsPanel(page, self._outputs_root(),
                                                   callback=self)
