@@ -139,7 +139,7 @@ class SimulationsPanel(ttk.Frame):
         self.btn_open.pack(side="left", padx=(SPACE[2], 0))
 
         self.btn_assistant = RoundedButton(
-            self.actions_bar, text="", variant="ghost", icon="info",
+            self.actions_bar, text="", variant="ghost", icon="bot",
             tooltip="Assistente de análise", command=self._ask_assistant)
         self.btn_assistant.pack(side="left", padx=(SPACE[2], 0))
 

@@ -75,6 +75,7 @@ ICONS = {
     "chevron-right": 57455,
     "chevron-down": 57453,
     "info": 57593,
+    "bot": 57787,
     "running": 57609,
     "success": 57894,
     "warning": 57747,
