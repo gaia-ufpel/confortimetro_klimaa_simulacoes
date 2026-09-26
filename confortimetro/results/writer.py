@@ -8,6 +8,10 @@ from openpyxl.styles import Font
 import pandas
 
 
+import os
+import tempfile
+
+
 def write_frames(path, sheets):
     workbook = Workbook(write_only=True)
     for name, frame in sheets:
@@ -25,4 +29,19 @@ def write_frames(path, sheets):
                 value.item() if hasattr(value, "item") and not isinstance(value, (date, datetime)) else value
                 for value in row
             ])
-    workbook.save(path)
+    # Grava primeiro em arquivo temporário no mesmo diretório e renomeia
+    # atomicamente; evita deixar um .xlsx truncado/corrompido (BadZipFile) se o
+    # processo for interrompido antes do término da compactação.
+    target_dir = os.path.dirname(os.path.abspath(path))
+    fd, tmp_path = tempfile.mkstemp(prefix=".tmp_write_", suffix=".xlsx", dir=target_dir)
+    os.close(fd)
+    try:
+        workbook.save(tmp_path)
+        os.replace(tmp_path, path)
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+

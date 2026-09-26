@@ -152,3 +152,35 @@ def test_ignora_arquivo_de_bloqueio_do_excel(tmp_path):
     (run_path / f'~${ROOM}.xlsx').write_bytes(b'\x00' * 64)
 
     assert recompute_run(str(run_path)) == (str(run_path), None)
+
+
+def test_recompute_recupera_planilha_corrompida_se_eso_existe(tmp_path, monkeypatch):
+    """Se a planilha da sala existir mas estiver corrompida (BadZipFile/incompleta) e houver .eso, reextrai."""
+    import os
+    run_path = tmp_path / "CORROMPIDA_COM_ESO"
+    run_path.mkdir()
+    idf_path = tmp_path / "modelo.idf"
+    idf_path.write_text("RunPeriod,\n  Anual, 1, 1, 2015, 1, 2, 2015;\nTimestep, 6;\n")
+    (run_path / 'configs.json').write_text(json.dumps({
+        'rooms': [ROOM],
+        '_idf_path': str(idf_path),
+    }), encoding='utf-8')
+    (run_path / 'eplusout.eso').write_text("dummy eso")
+    # Escreve arquivo truncado/corrompido (não é zip)
+    (run_path / f"{ROOM}.xlsx").write_bytes(b"PK\x03\x04corrupted file content truncated")
+
+    called_with = []
+
+    def mock_extract(output_path, rooms, timesteps_per_hour=6, start_date=None, end_date=None):
+        called_with.append((output_path, rooms, timesteps_per_hour, start_date, end_date))
+        for room in rooms:
+            _room_dataframe().to_excel(os.path.join(output_path, f"{room}.xlsx"), index=False)
+
+    import confortimetro.results.excel
+    monkeypatch.setattr(confortimetro.results.excel, 'summary_rooms_results_from_eso', mock_extract)
+
+    assert recompute_run(str(run_path)) == (str(run_path), None)
+    assert len(called_with) == 1
+    assert called_with[0][1] == [ROOM]
+    assert (run_path / 'ESTATISTICAS.xlsx').exists()
+

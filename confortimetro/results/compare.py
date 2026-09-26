@@ -5,6 +5,7 @@ import datetime
 import fnmatch
 import json
 import os
+import zipfile
 
 import pandas
 
@@ -56,30 +57,40 @@ def needs_recompute(run_path, known_mtimes=None):
     stats_path = os.path.join(run_path, 'ESTATISTICAS.xlsx')
     if not os.path.exists(stats_path):
         return True
+    if not zipfile.is_zipfile(stats_path):
+        return True
     if known_mtimes and known_mtimes.get(run_path) == os.path.getmtime(stats_path):
         return False
-    columns = pandas.read_excel(stats_path, nrows=0).columns
-    return any(column not in columns for column in REQUIRED_COLUMNS)
+    try:
+        columns = pandas.read_excel(stats_path, nrows=0).columns
+        return any(column not in columns for column in REQUIRED_COLUMNS)
+    except Exception:
+        return True
 
 
 def _room_files(run_path, rooms):
-    """Zonas com planilha na pasta da execução.
+    """Zonas com planilha válida na pasta da execução.
 
     As execuções antigas (`parameters.txt`) não gravam a lista de zonas: nesse
     caso as próprias planilhas são a lista. Com uma planilha aberta no Excel,
     o Windows deixa ao lado um `~$NOME.xlsx` de bloqueio, que não é um .xlsx:
     contá-lo como zona quebrava a regeração com "Excel file format cannot be
-    determined".
+    determined". Arquivos corrompidos ou incompletos (que não são ZIPs válidos)
+    também são ignorados para permitir recuperação automática se eplusout.eso existir.
     """
+    def _is_valid_room_xlsx(path):
+        return os.path.isfile(path) and zipfile.is_zipfile(path)
+
     if rooms:
         return [room for room in rooms
-                if os.path.exists(os.path.join(run_path, f"{room}.xlsx"))]
+                if _is_valid_room_xlsx(os.path.join(run_path, f"{room}.xlsx"))]
     try:
         names = sorted(os.path.splitext(entry.name)[0]
                        for entry in os.scandir(run_path)
                        if entry.is_file() and entry.name.endswith('.xlsx')
                        and not entry.name.startswith('~$')
-                       and entry.name != 'ESTATISTICAS.xlsx')
+                       and entry.name != 'ESTATISTICAS.xlsx'
+                       and zipfile.is_zipfile(entry.path))
     except OSError:
         return []
     return names
@@ -186,29 +197,34 @@ def recompute_run(run_path):
     """
     try:
         info = read_run(run_path)
-        if not info['rooms_disponiveis']:
-            eso_path = os.path.join(run_path, 'eplusout.eso')
-            if os.path.exists(eso_path):
-                config = read_config(run_path)
-                rooms = config.get('rooms') or []
-                if rooms:
-                    idf_path = (config.get('_idf_path')
-                                or config.get('idf_path')
-                                or os.path.join(run_path, 'modelo.idf'))
-                    if not os.path.exists(idf_path) and os.path.exists(os.path.join(run_path, 'modelo.idf')):
-                        idf_path = os.path.join(run_path, 'modelo.idf')
-                    from confortimetro.idf import read_run_period, read_timesteps_per_hour
-                    from confortimetro.results.excel import summary_rooms_results_from_eso
+        config = read_config(run_path)
+        rooms = config.get('rooms') or []
+        eso_path = os.path.join(run_path, 'eplusout.eso')
 
-                    start, end = read_run_period(idf_path)
-                    ts = read_timesteps_per_hour(idf_path)
-                    summary_rooms_results_from_eso(
-                        run_path, rooms, timesteps_per_hour=ts,
-                        start_date=start, end_date=end,
-                    )
-                    info = read_run(run_path)
-            else:
-                return run_path, 'sem planilhas por zona nem arquivo eplusout.eso'
+        # Se não há planilhas válidas ou se alguma sala esperada está ausente/corrompida
+        # e existe eplusout.eso, extraímos novamente do .eso.
+        needs_eso_extraction = (
+            not info['rooms_disponiveis']
+            or (rooms and any(r not in info['rooms_disponiveis'] for r in rooms))
+        )
+        if needs_eso_extraction and os.path.exists(eso_path):
+            target_rooms = rooms or info['rooms_disponiveis']
+            if target_rooms:
+                idf_path = (config.get('_idf_path')
+                            or config.get('idf_path')
+                            or os.path.join(run_path, 'modelo.idf'))
+                if not os.path.exists(idf_path) and os.path.exists(os.path.join(run_path, 'modelo.idf')):
+                    idf_path = os.path.join(run_path, 'modelo.idf')
+                from confortimetro.idf import read_run_period, read_timesteps_per_hour
+                from confortimetro.results.excel import summary_rooms_results_from_eso
+
+                start, end = read_run_period(idf_path)
+                ts = read_timesteps_per_hour(idf_path)
+                summary_rooms_results_from_eso(
+                    run_path, target_rooms, timesteps_per_hour=ts,
+                    start_date=start, end_date=end,
+                )
+                info = read_run(run_path)
 
         if not info['rooms_disponiveis']:
             return run_path, 'sem planilhas por zona nem arquivo eplusout.eso'

@@ -1,6 +1,8 @@
 """Estatísticas agregadas por sala a partir das planilhas por zona."""
 
 import os
+import tempfile
+import zipfile
 
 import pandas
 
@@ -70,7 +72,18 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
                     f"{room}.xlsx não encontrado em {output_path}; rode "
                     "summary_rooms_results_from_eso antes das estatísticas"
                 )
-            df = pandas.read_excel(excel_file)
+            if not zipfile.is_zipfile(excel_file):
+                raise ValueError(
+                    f"{room}.xlsx está corrompido ou incompleto (não é um arquivo Excel válido); "
+                    "remova-o ou regere a partir do eplusout.eso"
+                )
+            try:
+                df = pandas.read_excel(excel_file)
+            except Exception as error:
+                raise ValueError(
+                    f"Erro ao ler {room}.xlsx: {error}. O arquivo pode estar corrompido; "
+                    "remova-o para reextrair do eplusout.eso"
+                ) from error
 
         # Planilhas antigas (geradas antes da checagem de período em
         # summary_rooms_results_from_eso) trazem o ano inteiro carimbado mesmo
@@ -152,11 +165,22 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
         stats_df = pandas.concat([stats_df, pandas.DataFrame(row, index=[len(stats_df)])])
 
     stats_path = os.path.join(output_path, "ESTATISTICAS.xlsx")
+    target_dir = os.path.dirname(os.path.abspath(stats_path))
+    fd, tmp_path = tempfile.mkstemp(prefix=".tmp_stats_", suffix=".xlsx", dir=target_dir)
+    os.close(fd)
     try:
-        stats_df.to_excel(stats_path, index=False)
+        stats_df.to_excel(tmp_path, index=False)
+        os.replace(tmp_path, stats_path)
     except PermissionError as error:
         # No Windows o Excel bloqueia o arquivo aberto para escrita.
         raise PermissionError(
             f"{stats_path} está aberto em outro programa (Excel?); feche-o e "
             "gere as estatísticas de novo"
         ) from error
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
