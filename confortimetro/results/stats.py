@@ -140,11 +140,16 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
             return df[names].to_numpy().sum() / JOULES_PER_KWH
 
         row['Aquecimento (kWh)'] = kwh(*heating_electric_columns)
-        row['Resfriamento (kWh)'] = kwh(*cooling_electric_columns)
-        row['Ventilador (kWh)'] = kwh(fan_electric_column)
+        cooling_kwh = kwh(*cooling_electric_columns)
+        fan_kwh = kwh(fan_electric_column)
         if (fan_electric_column.format(room) not in df.columns
                 and pthp_electric_column.format(room) in df.columns):
-            row['Ventilador (kWh)'] = 0.0  # sala sem ventilador de teto
+            fan_kwh = 0.0  # sala sem ventilador de teto
+        row['Ventilador (kWh)'] = fan_kwh
+        if pandas.isna(cooling_kwh) and pandas.isna(fan_kwh):
+            row['Resfriamento (kWh)'] = float('nan')
+        else:
+            row['Resfriamento (kWh)'] = (0.0 if pandas.isna(cooling_kwh) else cooling_kwh) + (0.0 if pandas.isna(fan_kwh) else fan_kwh)
         # A planilha nova traz o total por zona: PTHP, ventilador, demais
         # equipamentos elétricos e iluminação. Planilhas antigas mantêm a
         # regra anterior para continuarem comparáveis consigo mesmas.

@@ -70,6 +70,7 @@ def test_energia_eletrica_inclui_ventilador_de_teto(tmp_path):
     stats = pandas.read_excel(tmp_path / "ESTATISTICAS.xlsx").iloc[0]
 
     assert stats["Ventilador (kWh)"] == pytest.approx(1.0)
+    assert stats["Resfriamento (kWh)"] == pytest.approx(1.0)
     assert stats["Energia total (kWh)"] == pytest.approx(11.0)
 
 

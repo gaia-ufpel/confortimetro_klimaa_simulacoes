@@ -106,16 +106,19 @@ def energia_por_execucao(df):
     labels = [_short(label) for label in _labels(df)]  # prefixo comum já removido
     positions = numpy.arange(len(labels))
     heating = df['Aquecimento (kWh)'].to_numpy()
-    cooling = df['Resfriamento (kWh)'].to_numpy()
+    cooling_total = df['Resfriamento (kWh)'].to_numpy()
     fan = (df['Ventilador (kWh)'].fillna(0).to_numpy() if 'Ventilador (kWh)' in df
            else numpy.zeros(len(df)))
+    # Como Resfriamento (kWh) agora inclui o ventilador, subtraímos para
+    # manter a barra de resfriamento (AC) segmentada da do ventilador sem duplicar.
+    cooling_ac = numpy.clip(cooling_total - fan, 0, None)
 
     axes.bar(positions, heating, 0.6, label='Aquecimento', color=PALETTE[1])
-    axes.bar(positions, cooling, 0.6, bottom=heating, label='Resfriamento',
+    axes.bar(positions, cooling_ac, 0.6, bottom=heating, label='Resfriamento (AC)',
              color=PALETTE[0])
-    axes.bar(positions, fan, 0.6, bottom=heating + cooling, label='Ventilador',
+    axes.bar(positions, fan, 0.6, bottom=heating + cooling_ac, label='Ventilador',
              color=PALETTE[2])
-    for position, total in zip(positions, heating + cooling + fan):
+    for position, total in zip(positions, heating + cooling_total):
         axes.text(position, total, f"{total:,.0f}".replace(',', '.'),
                   ha='center', va='bottom', fontsize=9, color=TEXT_COLOR)
 
