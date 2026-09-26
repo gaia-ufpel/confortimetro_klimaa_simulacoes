@@ -6,6 +6,7 @@ from queue import Queue
 from importlib import import_module
 import shutil
 import logging
+from time import perf_counter
 
 from confortimetro.control import MODULES_MAPPER
 from confortimetro.control.base import request_stop
@@ -54,6 +55,7 @@ class Simulation:
         Args:
             q: Queue para comunicação com interface gráfica
         """
+        started = perf_counter()
         try:
             self._queue = q
             self.logger.info("Iniciando simulação")
@@ -72,17 +74,17 @@ class Simulation:
 
             # Etapa 3: Processar o IDF (a cópia da execução, não o original)
             q.put("Processando arquivo IDF...")
-            self._process_idf()
+            self._timed("Processamento IDF", self._process_idf)
 
             # Etapa 4: Expandir objetos EnergyPlus
             q.put("Expandindo objetos EnergyPlus...")
-            self._expand_objects()
+            self._timed("ExpandObjects", self._expand_objects)
 
             self.configs.to_json(os.path.join(self.configs.output_path, "configs.json"))
             
             # Etapa 5: Executar simulação EnergyPlus
             q.put("Executando simulação EnergyPlus...")
-            self._run_energyplus()
+            self._timed("EnergyPlus", self._run_energyplus)
 
             if self.stop_requested:
                 q.put("Simulação interrompida")
@@ -99,6 +101,22 @@ class Simulation:
             self.logger.error(error_msg)
             q.put(error_msg)
             raise
+        finally:
+            self._record_time("Total", perf_counter() - started)
+
+    def _record_time(self, stage, seconds):
+        message = f"Tempo {stage}: {seconds:.2f} s"
+        self.logger.info(message)
+        if self._queue is not None:
+            self._queue.put(message)
+        print(message, flush=True)
+
+    def _timed(self, stage, action, *args, **kwargs):
+        started = perf_counter()
+        try:
+            return action(*args, **kwargs)
+        finally:
+            self._record_time(stage, perf_counter() - started)
     
     def _process_idf(self):
         """Processar arquivo IDF usando o IDFProcessor."""
@@ -291,17 +309,18 @@ class Simulation:
             # O período e o passo vêm do IDF simulado: com valores fixos, um
             # modelo de outro ano ou outro timestep sairia com datas erradas.
             start, end = read_run_period(self.configs.idf_path)
-            frames = summary_rooms_results_from_eso(
+            frames = self._timed("Extração ESO e Excel por sala", summary_rooms_results_from_eso,
                 self.configs.output_path, self.configs.rooms,
                 timesteps_per_hour=read_timesteps_per_hour(self.configs.idf_path),
-                start_date=start, end_date=end)
+                start_date=start, end_date=end, on_timing=self._record_time)
             self._say(q, "Resultados extraidos com sucesso!")
             
             if self._stopped(q):
                 return
 
             self._say(q, "Extraindo estatísticas...")
-            get_stats_from_simulation(self.configs.output_path, self.configs.rooms, frames=frames)
+            self._timed("Estatísticas", get_stats_from_simulation,
+                        self.configs.output_path, self.configs.rooms, frames=frames)
             self._say(q, "Estatísticas extraidas com sucesso!")
             
             if self._stopped(q):
@@ -311,7 +330,7 @@ class Simulation:
             for room in self.configs.rooms:
                 if self._stopped(q):
                     return
-                split_target_period_excel(
+                self._timed(f"Recortes {room}", split_target_period_excel,
                     os.path.join(self.configs.output_path, f"{room}.xlsx"),
                     room,
                     df=frames.get(room) if frames else None,

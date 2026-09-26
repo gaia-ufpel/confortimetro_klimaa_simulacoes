@@ -185,6 +185,23 @@ nenhum para copiar) continua como aviso, e aí resta rodar assim mesmo com
 
 Uma simulação anual leva de dezenas de minutos a horas. O EnergyPlus escreve
 seu progresso direto no stdout (`Warming up`, `Starting Simulation at …`).
+Ao final de cada etapa, linhas `Tempo ...: N s` mostram duração do IDF,
+ExpandObjects, EnergyPlus, leitura do ESO, escrita das planilhas, estatísticas,
+recortes por sala e tempo total. Elas também aparecem no log da GUI.
+
+### Lote de execuções independentes
+
+Prepare um JSON por execução, cada um com um `output_path` diferente e vazio,
+e execute a partir da raiz do repositório:
+
+```bash
+.venv/bin/python scripts/lote.py --workers 2 configs/rodada_1.json configs/rodada_2.json
+```
+
+Cada simulação roda em um processo próprio, com log em `<output_path>/lote.log`.
+O lote rejeita saídas repetidas ou já preenchidas e retorna erro se alguma
+simulação falhar. Ajuste `--workers` à memória, CPU e disco disponíveis;
+isso reduz o tempo do conjunto, não a duração de cada simulação.
 
 ## 6. Requisitos do IDF
 

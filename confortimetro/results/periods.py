@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 
 import pandas
+from confortimetro.results.writer import write_frames
 
 # Mês e dia de cada recorte; o ano vem da própria planilha, que carrega o
 # RunPeriod simulado — fixar 2015 quebrava qualquer modelo de outro ano.
@@ -52,9 +53,8 @@ def split_target_period_excel(excel_path, room=None, df=None):
         df, room, year)
 
     target_path = excel_path[:-5] + "_SPLIT.xlsx"
-    with pandas.ExcelWriter(target_path) as writer:
-        summer.to_excel(writer, sheet_name="VERAO", index=False)
-        winter.to_excel(writer, sheet_name="INVERNO", index=False)
-        days_summer.to_excel(writer, sheet_name="DIAS_VERAO", index=False)
-        days_winter.to_excel(writer, sheet_name="DIAS_INVERNO", index=False)
+    write_frames(target_path, zip(
+        ("VERAO", "INVERNO", "DIAS_VERAO", "DIAS_INVERNO"),
+        (summer, winter, days_summer, days_winter),
+    ))
     return target_path

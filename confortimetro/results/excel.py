@@ -1,10 +1,12 @@
 """Exportação dos resultados do EnergyPlus (.eso/.csv) para planilhas."""
 
 import os
+from time import perf_counter
 from concurrent.futures import ThreadPoolExecutor
 
 import esoreader
 import pandas
+from confortimetro.results.writer import write_frames
 
 # Dias de aquecimento que o EnergyPlus escreve no .eso antes do período
 # simulado. Em 6 timesteps por hora davam as 288 linhas descartadas à mão.
@@ -64,7 +66,7 @@ def _add_electricity_columns(df, room):
     df[ELECTRICITY_TOTAL] = df[ac] + df[equipment] + df[lights]
 
 
-def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_per_hour:int=6, start_date='2015-01-01', end_date='2016-1-1 T00:00') -> dict[str, pandas.DataFrame]:
+def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_per_hour:int=6, start_date='2015-01-01', end_date='2016-1-1 T00:00', on_timing=None) -> dict[str, pandas.DataFrame]:
     """
     Resumo dos resultados de cada sala em um arquivo .xlsx a partir de um arquivo .eso
 
@@ -72,6 +74,7 @@ def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_p
     simulado — a `Simulation` os lê do próprio arquivo. Os padrões só existem
     para quem chama a função à mão sobre uma execução antiga.
     """
+    extraction_started = perf_counter()
     minutes = 60 // timesteps_per_hour
     warmup_rows = WARMUP_DAYS * 24 * timesteps_per_hour
     start_date = pandas.to_datetime(start_date) + pandas.Timedelta(minutes=minutes)
@@ -137,15 +140,22 @@ def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_p
 
         frames[room] = df
 
+    if on_timing:
+        on_timing("Leitura ESO e montagem das séries", perf_counter() - extraction_started)
+
+    writing_started = perf_counter()
     # ThreadPoolExecutor em vez de Thread crua: com Thread, uma exceção no
     # to_excel só era impressa e o join passava, deixando o xlsx faltando.
     futures = []
     with ThreadPoolExecutor(max_workers=len(frames) or 1) as pool:
         futures = [
-            pool.submit(df.to_excel, os.path.join(output_path, f"{room}.xlsx"), index=False)
+            pool.submit(write_frames, os.path.join(output_path, f"{room}.xlsx"), [("Sheet1", df)])
             for room, df in frames.items()
         ]
     for future in futures:
         future.result()
+
+    if on_timing:
+        on_timing("Excel por sala", perf_counter() - writing_started)
 
     return frames
