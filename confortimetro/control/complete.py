@@ -1,4 +1,5 @@
 from confortimetro.control.base import Conditioner
+from confortimetro.control.motivos import Motivo
 
 class ConditionerComplete(Conditioner):
     def room_conditioner(self, state, room):
@@ -20,14 +21,18 @@ class ConditionerComplete(Conditioner):
             temp_cool_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_cool_ac_handler[room])
             temp_heat_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_heat_ac_handler[room])
 
+            motivo = Motivo.OCUPADA
+
             clo, comfort_achieved = self.get_best_clo_for_comfort(temp_ar, mrt, 0.0, hum_rel, clo)  # vel=0: só desliga o ventilador se o conforto se mantém sem vento
             if comfort_achieved:
+                motivo |= Motivo.CONFORTO_SO_COM_CLO
                 vel = 0.0
                 status_ac = 0
                 self.ac_on_counter[room] = 0
 
             if self.ac_timed_out(room):
                 # Desligando o ar condicionado se passar do limite de tempo
+                motivo |= Motivo.AC_TEMPO_MAXIMO
                 status_janela = 0
                 vel = 0.0
                 status_ac = 0
@@ -36,6 +41,7 @@ class ConditionerComplete(Conditioner):
                 # Abrindo a janela se a temperatura externa estiver entre os limites e o ar condicionado estiver desligado
                 if temp_max_adaptativo >= temp_op >= temp_min_adaptativo:
                     # Se a temperatura operativa estiver entre os limites, a janela é aberta
+                    motivo |= Motivo.JANELA_ABERTA_ADAPTATIVO
                     status_janela = 1
                     vel = 0.0
                 elif temp_op > temp_max_adaptativo and 25.0 <= temp_op <= 27.2:
@@ -45,14 +51,23 @@ class ConditionerComplete(Conditioner):
                         vel = 0.0
                     else:
                         vel, status_janela = self.get_best_velocity_with_adaptative(temp_op)
+                    if status_janela:
+                        motivo |= Motivo.JANELA_ABERTA_COM_VENTILADOR
+                    else:
+                        # A velocidade adaptativa passaria de max_vel.
+                        motivo |= (Motivo.JANELA_FECHADA_OPERATIVA_FORA
+                                   | Motivo.JANELA_FECHADA_VENTILADOR_NO_LIMITE)
                     temp_op_max = self.get_temp_max_op(vel)
                 else:
                     # Se a temperatura operativa estiver abaixo de 25 graus, a janela é fechada
+                    motivo |= Motivo.JANELA_FECHADA_OPERATIVA_FORA
                     status_janela = 0
             else:
                 # Fechando a janela se a temperatura externa estiver fora dos limites
+                motivo |= self.window_blocks(tdb, temp_ar, temp_max_adaptativo, status_ac)
                 status_janela = 0
 
+            ac_antes = status_ac
             if status_janela == 0 and not comfort_achieved:
                 # Se a janela estiver fechada, o ar condicionado é ligado
                 if status_ac == 0:
@@ -62,14 +77,20 @@ class ConditionerComplete(Conditioner):
                     # Se o ar condicionado estiver ligado, a velocidade é ajustada sem alterar o status
                     vel, _, clo = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
 
+                if vel > 0:
+                    motivo |= Motivo.VENTILADOR_POR_PMV
+
             if status_ac == 1:
                 # Se o ar condicionado estiver ligado, o modelo PMV é executado
                 temp_cool_ac, temp_heat_ac, clo = self.get_best_temperatures_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
                 self.ac_on_counter[room] += 1
+                motivo |= Motivo.AC_MANTIDO if ac_antes == 1 else Motivo.AC_LIGADO_POR_PMV
+                motivo |= self.setpoint_motivo
 
             status_doas = 0
             if co2 >= self.configs.co2_limit and status_janela == 0:
                 # Se o CO2 estiver acima do limite e a janela estiver fechada, o DOAS é ligado
+                motivo |= Motivo.DOAS_POR_CO2
                 status_doas = 1
 
             pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
@@ -78,7 +99,7 @@ class ConditionerComplete(Conditioner):
                 state, room, clo=clo, vel=vel, status_ac=status_ac,
                 status_doas=status_doas, temp_cool_ac=temp_cool_ac,
                 temp_heat_ac=temp_heat_ac, status_janela=status_janela,
-                temp_op_max=temp_op_max, pmv=pmv,
+                temp_op_max=temp_op_max, pmv=pmv, motivo=motivo,
                 em_conforto=self.is_comfortable(temp_op, temp_neutra_adaptativo,
                                                 temp_op_max, pmv, status_janela, vel),
             )
@@ -87,8 +108,11 @@ class ConditionerComplete(Conditioner):
             status_janela = self.window_without_people(
                 state, room, tdb, temp_ar, temp_op, temp_neutra_adaptativo,
                 temp_min_adaptativo, temp_max_adaptativo)
+            motivo = self.window_without_people_motivo(
+                state, tdb, temp_ar, temp_op, temp_neutra_adaptativo,
+                temp_max_adaptativo, status_janela)
             self.ac_on_counter[room] = 0
             self.write_room(state, room, status_janela=status_janela, status_ac=0,
-                            status_doas=0, pmv=0, em_conforto=1)
+                            status_doas=0, pmv=0, em_conforto=1, motivo=motivo)
 
         self.write_adaptative(state, room, temp_min_adaptativo, temp_max_adaptativo)

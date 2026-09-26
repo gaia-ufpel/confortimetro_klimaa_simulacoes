@@ -172,7 +172,7 @@ nenhum para copiar) continua como aviso, e aí resta rodar assim mesmo com
    `<output_path>/modelo.idf`; é essa cópia que segue no pipeline.
 3. **Processamento do IDF** (`confortimetro/idf/processor.py`): valida e insere
    os schedules de controle (`AC_*`, `VENT_*`, `JANELA_*`, `PMV_*`, `ADAP_*`,
-   `EM_CONFORTO_*`, `DOAS_STATUS_*`, `METABOLISMO`, `WORK_EF`, …). **Grava o IDF
+   `EM_CONFORTO_*`, `DOAS_STATUS_*`, `MOTIVO_*`, `METABOLISMO`, `WORK_EF`, …). **Grava o IDF
    modificado no lugar.**
 4. **ExpandObjects**: copia o IDF para `<output_path>/in.idf`, roda o binário
    `ExpandObjects` (timeout 300 s) e gera `<output_path>/expanded.idf`.
@@ -223,7 +223,7 @@ descarte inicial é de dois dias de aquecimento, proporcional ao timestep.
 |---|---|
 | `configs.json` | Configuração efetiva daquela execução. |
 | `eplusout.eso` / `.csv` / `.err` / `.eio` / `.rdd` | Saídas brutas do EnergyPlus. Comece o diagnóstico por `eplusout.err`. |
-| `<ZONA>.xlsx` | Série temporal por zona: temperatura externa, ocupação, PMV, temperatura operativa, CO₂, estados de janela/ventilador/AC/DOAS e energia elétrica por timestep (AC, ventilador, demais equipamentos, iluminação e total). |
+| `<ZONA>.xlsx` | Série temporal por zona: temperatura externa, ocupação, PMV, temperatura operativa, CO₂, estados de janela/ventilador/AC/DOAS e energia elétrica por timestep (AC, ventilador, demais equipamentos, iluminação e total). Também `MOTIVO_<ZONA>:Schedule Value` — soma de bits com o porquê das decisões do controlador (`confortimetro.control.motivos.decode` devolve os nomes; tabela no PRD 004) — e as variáveis de diagnóstico: demanda sensível até os setpoints, potência das serpentinas, setpoints do termostato, balanço de calor do ar da zona e ganho/perda pelas janelas. IDFs processados antes do `MOTIVO_*` simulam normalmente, sem a coluna. |
 | `ESTATISTICAS.xlsx` | Uma linha por zona com frações do tempo ocupado (aquecimento, resfriamento, ventilador ligado, janela aberta, DOAS, desconforto, CO₂ máximo), o consumo anual (`Aquecimento (kWh)`, `Resfriamento (kWh)` — incluindo AC e ventilador —, `Ventilador (kWh)`, `Energia total (kWh)`, incluindo equipamentos e iluminação), o conforto agregado (`PMV médio`, `PMV fora da faixa`, `Fora da banda adaptativa`) e `Timesteps simulados` — é ele que denuncia execuções de períodos diferentes, que não podem ser comparadas pelos totais. |
 | `<ZONA>_SPLIT.xlsx` | Recorte por período de cada zona (`VERAO`, `INVERNO`, `DIAS_VERAO`, `DIAS_INVERNO`), só com as horas ocupadas. O ano dos recortes vem da própria planilha. |
 

@@ -1,4 +1,5 @@
 from confortimetro.control.base import Conditioner
+from confortimetro.control.motivos import Motivo
 
 class ConditionerClosedWindow(Conditioner):
     def room_conditioner(self, state, room):
@@ -16,28 +17,38 @@ class ConditionerClosedWindow(Conditioner):
             temp_cool_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_cool_ac_handler[room])
             temp_heat_ac = self.ep_api.exchange.get_actuator_value(state, self.temp_heat_ac_handler[room])
 
+            motivo = Motivo.OCUPADA
+
             clo, comfort_achieved = self.get_best_clo_for_comfort(temp_ar, mrt, 0.0, hum_rel, clo)  # vel=0: só desliga o ventilador se o conforto se mantém sem vento
             if comfort_achieved:
+                motivo |= Motivo.CONFORTO_SO_COM_CLO
                 vel = 0.0
                 status_ac = 0
                 self.ac_on_counter[room] = 0
 
             if self.ac_timed_out(room):
+                motivo |= Motivo.AC_TEMPO_MAXIMO
                 vel = 0.0
                 status_ac = 0
 
+            ac_antes = status_ac
             if not comfort_achieved and status_ac == 0:
                 vel, status_ac, clo = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
             elif not comfort_achieved:
                 vel, _, clo = self.get_best_velocity_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
+            if not comfort_achieved and vel > 0:
+                motivo |= Motivo.VENTILADOR_POR_PMV
 
             if status_ac == 1:
                 # Executar com o modelo PMV
                 temp_cool_ac, temp_heat_ac, clo = self.get_best_temperatures_with_pmv(temp_ar, mrt, vel, hum_rel, clo)
                 self.ac_on_counter[room] += 1
+                motivo |= Motivo.AC_MANTIDO if ac_antes == 1 else Motivo.AC_LIGADO_POR_PMV
+                motivo |= self.setpoint_motivo
 
             status_doas = 0
             if co2 >= self.configs.co2_limit:
+                motivo |= Motivo.DOAS_POR_CO2
                 status_doas = 1
 
             pmv = self.get_pmv(temp_ar, mrt, vel, hum_rel, clo)
@@ -47,7 +58,7 @@ class ConditionerClosedWindow(Conditioner):
                 state, room, clo=clo, vel=vel, status_ac=status_ac,
                 status_doas=status_doas, temp_cool_ac=temp_cool_ac,
                 temp_heat_ac=temp_heat_ac, status_janela=0, temp_op_max=0.0,
-                pmv=pmv,
+                pmv=pmv, motivo=motivo,
                 em_conforto=self.is_comfortable(0.0, 0.0, 0.0, pmv, 0, vel),
             )
         else:

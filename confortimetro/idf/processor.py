@@ -528,6 +528,8 @@ class IDFProcessor:
     ADAP_MIN_SCHEDULE_NAME = "ADAP_MIN_{}"
     ADAP_MAX_SCHEDULE_NAME = "ADAP_MAX_{}"
     EM_CONFORTO_SCHEDULE_NAME = "EM_CONFORTO_{}"
+    # Soma de bits de control.motivos.Motivo, escrita pelo controlador.
+    MOTIVO_SCHEDULE_NAME = "MOTIVO_{}"
     MET_SCHEDULE_NAME = "METABOLISMO"
     WME_SCHEDULE_NAME = "WORK_EF"
     
@@ -715,7 +717,8 @@ class IDFProcessor:
                     (self.TEMP_OP_SCHEDULE_NAME.format(room), "Any Number", 0),
                     (self.ADAP_MIN_SCHEDULE_NAME.format(room), "Any Number", 0),
                     (self.ADAP_MAX_SCHEDULE_NAME.format(room), "Any Number", 0),
-                    (self.EM_CONFORTO_SCHEDULE_NAME.format(room), "On/Off", 0)
+                    (self.EM_CONFORTO_SCHEDULE_NAME.format(room), "On/Off", 0),
+                    (self.MOTIVO_SCHEDULE_NAME.format(room), "Any Number", 0),
                 ]
                 
                 for schedule_name, schedule_type, value in room_schedules:
@@ -833,7 +836,24 @@ class IDFProcessor:
                 # permitem atribuir iluminação e cargas de tomada à sala certa.
                 "Zone Electric Equipment Electricity Energy",
                 "Zone Lights Electricity Energy",
-                "Zone Infiltration Air Change Rate"
+                "Zone Infiltration Air Change Rate",
+                # Diagnóstico do assistente: demanda × entrega do HVAC, setpoint
+                # efetivo e balanço de calor do ar por timestep.
+                "Zone Predicted Sensible Load to Heating Setpoint Heat Transfer Rate",
+                "Zone Predicted Sensible Load to Cooling Setpoint Heat Transfer Rate",
+                "Heating Coil Heating Rate",
+                "Cooling Coil Total Cooling Rate",
+                "Zone Thermostat Heating Setpoint Temperature",
+                "Zone Thermostat Cooling Setpoint Temperature",
+                "Zone Air Heat Balance Internal Convective Heat Gain Rate",
+                "Zone Air Heat Balance Surface Convection Rate",
+                "Zone Air Heat Balance Interzone Air Transfer Rate",
+                "Zone Air Heat Balance Outdoor Air Transfer Rate",
+                "Zone Air Heat Balance System Air Transfer Rate",
+                "Zone Air Heat Balance System Convective Heat Gain Rate",
+                "Zone Air Heat Balance Air Energy Storage Rate",
+                "Zone Windows Total Heat Gain Energy",
+                "Zone Windows Total Heat Loss Energy",
             ]
             
             # Verificar variáveis já existentes

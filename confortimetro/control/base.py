@@ -9,6 +9,7 @@ from ladybug_comfort.pmv import predicted_mean_vote_no_set
 from typing import Optional
 
 from confortimetro.config import SimulationConfig
+from confortimetro.control.motivos import Motivo
 
 
 # predicted_mean_vote_no_set dá o mesmo PMV de predicted_mean_vote, mas só roda o
@@ -84,6 +85,10 @@ class Conditioner:
         self.adaptativo_max_handler = {}
         self.em_conforto_handler = {}
         self.status_doas_handler = {}
+        self.motivo_handler = {}
+
+        # Bits de setpoint no limite da última get_best_temperatures_with_pmv.
+        self.setpoint_motivo = Motivo(0)
 
         self.ac_on_counter: dict[str, int] = {room : 0 for room in self.configs.rooms}
         self.ac_on_max_timesteps: int = ac_on_max_timesteps
@@ -159,6 +164,25 @@ class Conditioner:
                 and tdb >= temp_ar - self.configs.temp_open_window_bound
                 and status_ac == 0)
 
+    def window_blocks(self, tdb, temp_ar, temp_max_adaptativo, status_ac) -> Motivo:
+        """Todas as condições que impedem can_open_window, somadas em bits."""
+        motivo = Motivo(0)
+        if tdb > temp_max_adaptativo:
+            motivo |= Motivo.JANELA_BLOQUEADA_EXTERNA_QUENTE
+        if tdb < temp_ar - self.configs.temp_open_window_bound:
+            motivo |= Motivo.JANELA_BLOQUEADA_EXTERNA_FRIA
+        if status_ac != 0:
+            motivo |= Motivo.JANELA_BLOQUEADA_AC_LIGADO
+        return motivo
+
+    def window_by_adaptative_motivo(self, tdb, temp_ar, temp_op, temp_min_adaptativo,
+                                    temp_max_adaptativo, status_ac, status_janela) -> Motivo:
+        """Porquê de window_by_adaptative (chamar com o mesmo status_ac)."""
+        if status_janela:
+            return Motivo.JANELA_ABERTA_ADAPTATIVO
+        return (self.window_blocks(tdb, temp_ar, temp_max_adaptativo, status_ac)
+                or Motivo.JANELA_FECHADA_OPERATIVA_FORA)
+
     def window_by_adaptative(self, tdb, temp_ar, temp_op, temp_min_adaptativo,
                              temp_max_adaptativo, status_ac) -> int:
         """Janela aberta só quando a operativa também está dentro do adaptativo."""
@@ -187,9 +211,29 @@ class Conditioner:
             return 1
         return 0
 
+    def window_without_people_motivo(self, state, tdb, temp_ar, temp_op,
+                                     temp_neutra_adaptativo, temp_max_adaptativo,
+                                     status_janela) -> Motivo:
+        """Porquê de window_without_people, lido *depois* dela (usa a trava já
+        atualizada e não mexe em estado)."""
+        if status_janela:
+            return Motivo.VAZIA_JANELA_PURGA_CO2
+        motivo = Motivo(0)
+        if tdb >= temp_max_adaptativo:
+            motivo |= Motivo.JANELA_BLOQUEADA_EXTERNA_QUENTE
+        if tdb < temp_ar - self.configs.temp_open_window_bound:
+            motivo |= Motivo.JANELA_BLOQUEADA_EXTERNA_FRIA
+        if self.ep_api.exchange.month(state) in self.periodo_inverno:
+            motivo |= Motivo.VAZIA_JANELA_INVERNO
+        # A trava só segura a janela enquanto a operativa não volta à neutra
+        # (temp_op <= mínimo também cai aqui: é o que acabou de travar).
+        if self.janela_sem_pessoas_bloqueada and temp_op < temp_neutra_adaptativo:
+            motivo |= Motivo.VAZIA_JANELA_TRAVADA_FRIO
+        return motivo
+
     def write_room(self, state, room, *, status_janela, status_ac, status_doas,
                    pmv, em_conforto, clo=None, vel=0.0, temp_cool_ac=None,
-                   temp_heat_ac=None, temp_op_max=0.0, equipment=True):
+                   temp_heat_ac=None, temp_op_max=0.0, equipment=True, motivo=0.0):
         """Devolve ao EnergyPlus o estado decidido no timestep.
 
         `equipment=False` para os módulos sem ventilador e com AC de setpoint
@@ -211,6 +255,10 @@ class Conditioner:
             set_value(state, self.temp_heat_ac_handler[room],
                       self.configs.temp_ac_min if temp_heat_ac is None else temp_heat_ac)
             set_value(state, self.temp_op_max_handler[room], temp_op_max)
+        # IDFs processados antes do MOTIVO_<ZONA> não têm o schedule.
+        motivo_handler = getattr(self, "motivo_handler", {}).get(room)
+        if motivo_handler:
+            set_value(state, motivo_handler, float(motivo))
 
     def write_adaptative(self, state, room, temp_min_adaptativo, temp_max_adaptativo):
         """Limites do adaptativo, escritos no fim de todo timestep."""
@@ -304,11 +352,17 @@ class Conditioner:
         if not self._clo_priority():
             clo = self._step_clo(temp_ar, mrt, vel, hum_rel, clo)
 
+        # Setpoint no limite só conta se o PMV nele ainda fica fora da faixa
+        # (o laço para no limite sem avaliá-lo). Não muda a decisão.
+        self.setpoint_motivo = Motivo(0)
+
         pmv = self.get_pmv(best_cool_temp, mrt, vel, hum_rel, clo)
         while pmv > self.configs.pmv_upperbound:
             best_cool_temp -= 1.0
             if best_cool_temp <= self.configs.temp_ac_min:
                 best_cool_temp = self.configs.temp_ac_min
+                if self.get_pmv(best_cool_temp, mrt, vel, hum_rel, clo) > self.configs.pmv_upperbound:
+                    self.setpoint_motivo |= Motivo.SETPOINT_RESFRIAMENTO_NO_LIMITE
                 break
             pmv = self.get_pmv(best_cool_temp, mrt, vel, hum_rel, clo)
 
@@ -317,6 +371,8 @@ class Conditioner:
             best_heat_temp += 1.0
             if best_heat_temp >= self.configs.temp_ac_max:
                 best_heat_temp = self.configs.temp_ac_max
+                if self.get_pmv(best_heat_temp, mrt, vel, hum_rel, clo) < self.configs.pmv_lowerbound:
+                    self.setpoint_motivo |= Motivo.SETPOINT_AQUECIMENTO_NO_LIMITE
                 break
             pmv = self.get_pmv(best_heat_temp, mrt, vel, hum_rel, clo)
 
@@ -488,6 +544,13 @@ class Conditioner:
             if handler <= 0:
                 missing.append(f"DOAS_STATUS ({room})")
             self.status_doas_handler.update({ room : handler})
+
+            # Opcional: IDFs processados antes do MOTIVO_<ZONA> não o têm.
+            handler = self.ep_api.exchange.get_actuator_handle(state, "Schedule:Constant", "Schedule Value", f"MOTIVO_{room.upper()}")
+            if handler > 0:
+                self.motivo_handler[room] = handler
+            else:
+                self.logger.warning("Schedule MOTIVO_%s ausente no IDF; motivo não será gravado", room.upper())
 
         if missing:
             raise RuntimeError(
