@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Protocol, Optional
 
-from ..theme import SPACE, ChipSelect, RangeField, fmt_num, parse_num
+from ..theme import COLORS, SPACE, ChipSelect, RangeField, fmt_num, icon, parse_num
 from confortimetro.config import ADAPTATIVE2PORCENT, PORCENT2ADAPTATIVE
 from confortimetro.module_type import ModuleType
 
@@ -55,21 +55,29 @@ class SimulationConfigPanel(ttk.Frame):
         self._build_rooms_module_tab()
 
     def insert_tab(self, index: int, widget, title: str,
-                   select: bool = True) -> None:
+                   select: bool = True, icon_name: Optional[str] = None) -> None:
         """Insert an externally built frame as a tab of this panel.
 
         ``select=False`` allows complementary tabs to be mounted without
         taking focus from the initial configuration tab.
         """
-        self.notebook.insert(index, widget, text=title)
+        self.notebook.insert(index, widget, **self._tab_label(title, icon_name))
         if select:
             self.notebook.select(index)
 
-    def _tab(self, title: str) -> ttk.Frame:
+    def _tab_label(self, title: str, icon_name: Optional[str]) -> dict:
+        """Texto e ícone da aba, no mesmo padrão do IDFEditorPanel."""
+        image = icon(icon_name, 16, COLORS["text_mute"], master=self) \
+            if icon_name else None
+        if image is None:
+            return {"text": title}
+        return {"text": f" {title}", "image": image, "compound": "left"}
+
+    def _tab(self, title: str, icon_name: Optional[str] = None) -> ttk.Frame:
         """Create a notebook tab whose four columns share the width."""
         frame = ttk.Frame(self.notebook, style="Surface.TFrame",
                           padding=SPACE[3])
-        self.notebook.add(frame, text=title)
+        self.notebook.add(frame, **self._tab_label(title, icon_name))
         for column in range(4):
             frame.columnconfigure(column, weight=1, uniform="fields")
         return frame
@@ -112,7 +120,7 @@ class SimulationConfigPanel(ttk.Frame):
         """Um bloco por assunto: índice, ocupante e vestimenta."""
         tab = ttk.Frame(self.notebook, style="Surface.TFrame",
                         padding=SPACE[3])
-        self.notebook.add(tab, text="Conforto")
+        self.notebook.add(tab, **self._tab_label("Conforto", "armchair"))
 
         index = self._section(tab, "Índice de conforto")
         # Faixa do PMV na escala ASHRAE (-3 frio … +3 quente).
@@ -157,7 +165,7 @@ class SimulationConfigPanel(ttk.Frame):
         """Um bloco por equipamento: fica claro o que cada ajuste comanda."""
         tab = ttk.Frame(self.notebook, style="Surface.TFrame",
                         padding=SPACE[3])
-        self.notebook.add(tab, text="Equipamentos")
+        self.notebook.add(tab, **self._tab_label("Equipamentos", "fan"))
 
         ac = self._section(tab, "Ar-condicionado")
         self.temp_ac_range = self._range(
@@ -175,7 +183,7 @@ class SimulationConfigPanel(ttk.Frame):
 
     def _build_rooms_module_tab(self):
         """Zonas simuladas e módulo de condicionamento."""
-        tab = self._tab("Zonas")
+        tab = self._tab("Zonas", "layout-grid")
 
         # Mesmo padding do rótulo e do campo que `_combo` usa: sem isso o
         # seletor de salas descia quatro pixels e desalinhava do Módulo.

@@ -368,7 +368,8 @@ class MainWindow(tk.Tk):
                                            callback=self,
                                            fields=SIMULATION_FIELDS,
                                            padding=SPACE[3])
-        self.simulation_panel.insert_tab(0, self.path_panel, "Arquivos")
+        self.simulation_panel.insert_tab(0, self.path_panel, "Arquivos",
+                                          icon_name="files")
         self._build_idf_editor_tabs()
         return page
 
@@ -377,9 +378,11 @@ class MainWindow(tk.Tk):
         self.idf_editor_panel = IDFEditorPanel(self.simulation_panel.notebook,
                                                 on_save=self.on_save_idf_copy)
         self.simulation_panel.insert_tab(1, self.idf_editor_panel.period_tab,
-                                          "Período", select=False)
+                                          "Período", select=False,
+                                          icon_name="timestep")
         self.simulation_panel.insert_tab(2, self.idf_editor_panel.occupation_tab,
-                                          "Ocupação", select=False)
+                                          "Ocupação", select=False,
+                                          icon_name="details")
         self.simulation_panel.notebook.bind(
             "<<NotebookTabChanged>>", self._load_idf_editor_for_selected_tab,
             add="+")

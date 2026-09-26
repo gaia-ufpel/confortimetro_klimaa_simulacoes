@@ -68,7 +68,7 @@ def test_editar_idf_abre_periodo_na_tela_de_execucao(window):
     _settle(window)
 
     assert window._current_page == "editor"
-    assert window.simulation_panel.notebook.tab("current", "text") == "Período"
+    assert window.simulation_panel.notebook.tab("current", "text").strip() == "Período"
     assert window.idf_editor_panel.period_tab.winfo_ismapped()
 
 
