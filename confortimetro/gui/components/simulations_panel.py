@@ -7,10 +7,10 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
-from tkinter import ttk
+from tkinter import filedialog, ttk
 
 from confortimetro.results import database
-from confortimetro.results.compare import list_runs, recompute_runs
+from confortimetro.results.compare import export_runs_zip, list_runs, recompute_runs
 
 from ..theme import COLORS, FONTS, SPACE, Card, RoundedButton, toast
 
@@ -137,6 +137,11 @@ class SimulationsPanel(ttk.Frame):
             self.actions_bar, text="", variant="ghost", icon="open",
             tooltip="Abrir pasta no gerenciador de arquivos", command=self.open_selected_folder)
         self.btn_open.pack(side="left", padx=(SPACE[2], 0))
+
+        self.btn_export = RoundedButton(
+            self.actions_bar, text="", variant="ghost", icon="export",
+            tooltip="Exportar resultados em ZIP", command=self.export_selected_zip)
+        self.btn_export.pack(side="left", padx=(SPACE[2], 0))
 
         self.btn_assistant = RoundedButton(
             self.actions_bar, text="", variant="ghost", icon="bot",
@@ -297,6 +302,7 @@ class SimulationsPanel(ttk.Frame):
         # Execução ainda em andamento não pode ser duplicada nem ter estatísticas regeradas
         can_operate = item_state if not is_running_selected else "disabled"
         self.btn_duplicate.configure(state=can_operate)
+        self.btn_export.configure(state=can_operate)
         self.btn_recompute.configure(state=can_operate)
 
         if is_running_selected and selected_count == 1:
@@ -535,6 +541,47 @@ class SimulationsPanel(ttk.Frame):
             os.startfile(path)  # type: ignore[attr-defined]
         else:
             subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", path])
+
+    def export_selected_zip(self):
+        """Compacta as pastas das execuções selecionadas num único zip."""
+        if self._busy:
+            return
+        runs = [run for run in self._selected_runs()
+                if run['path'] not in self._running and os.path.isdir(run['path'])]
+        if not runs:
+            toast(self, "Escolha uma execução concluída para exportar.", "warn")
+            return
+        name = (os.path.basename(os.path.normpath(runs[0]['path']))
+                if len(runs) == 1 else "execucoes")
+        zip_path = filedialog.asksaveasfilename(
+            parent=self, title="Exportar resultados", defaultextension=".zip",
+            initialfile=f"{name}.zip", filetypes=[("ZIP", "*.zip")])
+        if not zip_path:
+            return
+
+        self._busy = True
+        self._set_status(f"Compactando {len(runs)} "
+                         f"{'execução' if len(runs) == 1 else 'execuções'}. "
+                         "Uma simulação anual passa de 1 GB e leva minutos.")
+
+        def work():
+            try:
+                export_runs_zip([run['path'] for run in runs], zip_path)
+                error = None
+            except OSError as exc:
+                error = str(exc)
+            self.after(0, lambda: self._export_done(zip_path, error))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _export_done(self, zip_path: str, error):
+        self._busy = False
+        if error:
+            self._set_status("")
+            toast(self, f"Falha ao exportar: {error}", "error", timeout=10000)
+        else:
+            self._set_status(f"Resultados exportados para {zip_path}")
+            toast(self, "Resultados exportados.", "ok")
 
     def recompute_selected(self):
         """Regera ESTATISTICAS.xlsx das execuções selecionadas, em segundo plano."""

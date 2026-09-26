@@ -9,6 +9,7 @@ import zipfile
 
 import pandas
 
+from . import series
 from .stats import get_stats_from_simulation
 
 # Campos do configs.json que descrevem o cenário simulado; viram colunas da tabela.
@@ -250,6 +251,31 @@ def recompute_runs(run_paths, workers=None, on_result=None):
             if on_result:
                 on_result(run_path, error)
     return errors
+
+
+def export_runs_zip(run_paths, zip_path):
+    """Compacta as pastas inteiras das execuções num zip, uma pasta por execução.
+
+    O `.series_cache` fica de fora: é pickle regerável e só serve à máquina que
+    o gerou.
+    """
+    zip_path = os.path.abspath(zip_path)
+    try:
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as archive:
+            for run_path in run_paths:
+                run_path = os.path.abspath(run_path)
+                parent = os.path.dirname(run_path)
+                for root, dirs, files in os.walk(run_path):
+                    dirs[:] = [d for d in dirs if d != series.CACHE_DIRECTORY]
+                    for name in files:
+                        path = os.path.join(root, name)
+                        if path != zip_path:
+                            archive.write(path, os.path.relpath(path, parent))
+    except BaseException:
+        # Zip pela metade parece íntegro no gerenciador de arquivos.
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+        raise
 
 
 def mismatched_periods(df):

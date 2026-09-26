@@ -184,3 +184,26 @@ def test_recompute_recupera_planilha_corrompida_se_eso_existe(tmp_path, monkeypa
     assert called_with[0][1] == [ROOM]
     assert (run_path / 'ESTATISTICAS.xlsx').exists()
 
+
+
+def test_export_runs_zip_keeps_one_folder_per_run_without_cache(tmp_path):
+    import zipfile
+
+    from confortimetro.results.compare import export_runs_zip
+
+    outputs = tmp_path / 'outputs'
+    outputs.mkdir()
+    run_a = _make_run(outputs, 'run_a', 'complete')
+    run_b = _make_run(outputs, 'run_b', 'without_fan')
+    (run_a / '.series_cache').mkdir()
+    (run_a / '.series_cache' / 'x.pkl').write_bytes(b'cache')
+    (run_b / 'eplusout.err').write_text('ok', encoding='utf-8')
+
+    zip_path = tmp_path / 'resultados.zip'
+    export_runs_zip([str(run_a), str(run_b)], str(zip_path))
+
+    names = set(zipfile.ZipFile(zip_path).namelist())
+    assert f'run_a/{ROOM}.xlsx' in names
+    assert 'run_b/configs.json' in names
+    assert 'run_b/eplusout.err' in names
+    assert not any('.series_cache' in name for name in names)

@@ -69,7 +69,8 @@ duas páginas; misturar `pack` e `place` no mesmo host empurra a que entra).
 
 - `runs` (inicial) — `SimulationsPanel`: topbar com todas as ações
   (**Nova execução**, **Ver detalhes**, **Duplicar**, **Regerar
-  estatísticas**, **Abrir pasta**, **Atualizar** e **Comparar
+  estatísticas**, **Abrir pasta**, **Exportar ZIP** (`compare.export_runs_zip`:
+  pasta inteira de cada execução selecionada, sem `.series_cache`), **Atualizar** e **Comparar
   selecionadas**), pasta de saídas e status na linha de baixo, listagem e
   detalhes da selecionada ocupando o resto. **Configurações** fica no
   cabeçalho da página.
