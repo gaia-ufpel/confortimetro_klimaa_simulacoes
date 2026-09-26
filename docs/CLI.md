@@ -1,6 +1,6 @@
 # Execução por linha de comando
 
-Guia para agentes automatizados rodarem as simulações do Confortímetro Klimaa
+Guia para agentes automatizados rodarem as simulações do Ambiens
 sem interface gráfica.
 
 ## 1. Pré-requisitos
@@ -101,7 +101,7 @@ Validar sem simular:
 |---|---|---|
 | `_idf_path` | str | Caminho do IDF de entrada. **No JSON o nome tem underscore**; em `--set` use `idf_path` (é uma property). |
 | `epw_path` | str | Arquivo climático `.epw`. |
-| `output_path` | str | Diretório da execução. Criado se não existir. **Vazio (o padrão) gera uma subpasta com carimbo de data na pasta de dados da aplicação** — `~/.local/share/ConfortimetroKlimaa/execucoes` no Linux, `%LOCALAPPDATA%\\ConfortimetroKlimaa` no Windows, `~/Library/Application Support` no macOS. A variável `CONFORTIMETRO_DATA_DIR` troca essa raiz. |
+| `output_path` | str | Diretório da execução. Criado se não existir. **Vazio (o padrão) gera uma subpasta com carimbo de data na pasta de dados da aplicação** — `~/.local/share/Ambiens/execucoes` no Linux, `%LOCALAPPDATA%\\Ambiens` no Windows, `~/Library/Application Support` no macOS. A variável `AMBIENS_DATA_DIR` (ou `CONFORTIMETRO_DATA_DIR`) troca essa raiz. |
 | `runs_root_path` | str | Raiz que guarda as execuções (a GUI mostra este campo em "Pasta das execuções"). Vazio: a pasta de dados da aplicação. Cada rodada da GUI cria uma subpasta nova dela e grava em `output_path`. |
 | `energy_path` | str | Raiz da instalação do EnergyPlus. Detectado automaticamente quando o valor gravado no config não existe (veja abaixo). |
 | `input_path` | str | Derivado de `idf_path` (diretório do IDF). Não defina manualmente. |

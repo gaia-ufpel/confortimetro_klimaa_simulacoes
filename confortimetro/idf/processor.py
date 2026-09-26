@@ -382,7 +382,7 @@ def apply_equipment_fixes(src_path: str, dst_path: str, fixes: List[dict]) -> No
 
     stamp = datetime.now().strftime("%d/%m/%Y %H:%M")
     with open(dst_path, "a", encoding="latin-1") as handle:
-        handle.write(f"\n! Equipamento adicionado pelo Confortímetro Klimaa em "
+        handle.write(f"\n! Equipamento adicionado pelo Ambiens em "
                      f"{stamp}\n")
         handle.write("\n".join(lines) + "\n")
 

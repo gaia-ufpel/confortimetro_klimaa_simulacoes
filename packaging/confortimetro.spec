@@ -1,4 +1,4 @@
-# PyInstaller spec do Confortímetro Klimaa (GUI Tkinter, Windows).
+# PyInstaller spec do Ambiens (GUI Tkinter, Windows).
 # Build (a partir da raiz do repositório):
 #   pyinstaller packaging/confortimetro.spec --noconfirm
 #
@@ -52,7 +52,7 @@ exe = EXE(
     pyz,
     a.scripts,
     exclude_binaries=True,
-    name="ConfortimetroKlimaa",
+    name="Ambiens",
     console=False,
     icon=None,
 )
@@ -61,5 +61,5 @@ coll = COLLECT(
     exe,
     a.binaries,
     a.datas,
-    name="ConfortimetroKlimaa",
+    name="Ambiens",
 )

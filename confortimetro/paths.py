@@ -14,14 +14,16 @@ import datetime
 import os
 import platform
 
-APP_NAME = "ConfortimetroKlimaa"
+APP_NAME = "Ambiens"
+LEGACY_APP_NAME = "ConfortimetroKlimaa"
 RUNS_DIRECTORY = "execucoes"
-DATA_DIR_VARIABLE = "CONFORTIMETRO_DATA_DIR"
+DATA_DIR_VARIABLE = "AMBIENS_DATA_DIR"
+LEGACY_DATA_DIR_VARIABLE = "CONFORTIMETRO_DATA_DIR"
 
 
 def app_data_path() -> str:
     """Pasta de dados da aplicação, conforme a convenção de cada sistema."""
-    override = os.environ.get(DATA_DIR_VARIABLE)
+    override = os.environ.get(DATA_DIR_VARIABLE) or os.environ.get(LEGACY_DATA_DIR_VARIABLE)
     if override:
         return os.path.abspath(os.path.expanduser(override))
 
@@ -35,7 +37,13 @@ def app_data_path() -> str:
         base = os.environ.get("XDG_DATA_HOME") or os.path.join(
             os.path.expanduser("~"), ".local", "share")
 
-    return os.path.join(base, APP_NAME)
+    primary = os.path.join(base, APP_NAME)
+    legacy = os.path.join(base, LEGACY_APP_NAME)
+    # Se a pasta antiga já existe e a nova ainda não, usa a existente para não perder execuções/dados
+    if not os.path.exists(primary) and os.path.exists(legacy):
+        return legacy
+
+    return primary
 
 
 def runs_root(create: bool = False) -> str:

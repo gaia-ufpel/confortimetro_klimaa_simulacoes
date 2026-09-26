@@ -1,8 +1,8 @@
-; Instalador Windows do Confortimetro Klimaa (Inno Setup 6).
+; Instalador Windows do Ambiens (Inno Setup 6).
 ; Compilar: iscc packaging\installer.iss  (depois do PyInstaller)
 ; Instala em %LOCALAPPDATA% -> nao pede permissao de administrador.
 
-#define AppName "Confortimetro Klimaa"
+#define AppName "Ambiens"
 ; A versao vem do build (iscc /DAppVersion=...), que a tira da tag do git.
 ; O valor abaixo so vale para uma compilacao local avulsa.
 #ifndef AppVersion
@@ -14,12 +14,12 @@ AppId={{2C0B0F2E-6C6F-4B57-9E2E-9E3C2E0A9A11}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=GAIA - UFPel
-DefaultDirName={localappdata}\ConfortimetroKlimaa
+DefaultDirName={localappdata}\Ambiens
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=ConfortimetroKlimaa-{#AppVersion}-setup
+OutputBaseFilename=Ambiens-{#AppVersion}-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -33,14 +33,14 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 Name: "desktopicon"; Description: "Criar atalho na area de trabalho"; GroupDescription: "Atalhos:"
 
 [Files]
-Source: "..\dist\ConfortimetroKlimaa\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\Ambiens\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\ConfortimetroKlimaa.exe"
-Name: "{userdesktop}\{#AppName}"; Filename: "{app}\ConfortimetroKlimaa.exe"; Tasks: desktopicon
+Name: "{group}\{#AppName}"; Filename: "{app}\Ambiens.exe"
+Name: "{userdesktop}\{#AppName}"; Filename: "{app}\Ambiens.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\ConfortimetroKlimaa.exe"; Description: "Abrir o {#AppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\Ambiens.exe"; Description: "Abrir o {#AppName}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 // O EnergyPlus 9.4 nao e embutido: a simulacao carrega o pyenergyplus da
@@ -93,7 +93,7 @@ begin
     // Uma linha nao pode comecar com #13#10: o preprocessador leria o '#'
     // como diretiva. Por isso as quebras ficam no fim da linha.
     if MsgBox('O EnergyPlus 9.4 nao foi encontrado nesta maquina.' + #13#10 + #13#10 +
-              'A instalacao do Confortimetro continua, mas para simular e ' +
+              'A instalacao do Ambiens continua, mas para simular e ' +
               'preciso instalar o EnergyPlus 9.4.' + #13#10 + #13#10 +
               'Abrir agora a pagina de download?',
               mbConfirmation, MB_YESNO) = IDYES then

@@ -72,7 +72,7 @@ class MainWindow(tk.Tk):
     
     def _setup_window(self):
         """Setup the main window properties."""
-        self.title("Confortímetro Klimaa — Simulações EnergyPlus")
+        self.title("Ambiens — Simulações EnergyPlus")
         self.geometry("1200x900")
         self.minsize(800, 600)
         self.configure(background=COLORS["bg"])
@@ -108,7 +108,7 @@ class MainWindow(tk.Tk):
         header.pack(fill="x", pady=(0, SPACE[3]))
         # `background` explícito: sobre o fundo da janela o estilo não basta
         # (ver o tk_setPalette em theme.apply_theme).
-        ttk.Label(header, text="Confortímetro Klimaa", style="H1.TLabel",
+        ttk.Label(header, text="Ambiens", style="H1.TLabel",
                   background=COLORS["bg"]).pack(anchor="w")
         self.subtitle_label = ttk.Label(
             header, text="Simulações personalizadas com EnergyPlus",

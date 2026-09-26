@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 dynamic = ["dependencies"]
 
 [project.scripts]
+ambiens = "cli:main"
 confortimetro = "cli:main"
 
 [tool.setuptools]

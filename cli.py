@@ -17,7 +17,7 @@ from confortimetro.config import SimulationConfig
 
 
 def parse_args(argv=None):
-    parser = argparse.ArgumentParser(description="Confortímetro Klimaa - simulação via CLI")
+    parser = argparse.ArgumentParser(description="Ambiens - simulação via CLI")
     parser.add_argument("--config", default="examples/config.json",
                         help="JSON de configuração (padrão: examples/config.json)")
     parser.add_argument("--set", action="append", default=[], metavar="CHAVE=VALOR",

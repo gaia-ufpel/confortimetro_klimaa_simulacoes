@@ -1,5 +1,5 @@
 """
-Confortímetro Klimaa - Simulações Personalizadas com EnergyPlus e Python
+Ambiens - Simulações de Conforto Térmico com EnergyPlus e Python
 
 Ponto de entrada principal da aplicação.
 """
@@ -54,7 +54,7 @@ def main():
     """
     Função principal da aplicação.
 
-    Cria e executa a interface gráfica principal do Confortímetro Klimaa.
+    Cria e executa a interface gráfica principal do Ambiens.
     """
     # No executável do Windows, o ProcessPoolExecutor de recompute_runs relança
     # este mesmo .exe para cada worker (spawn). Sem freeze_support o filho volta

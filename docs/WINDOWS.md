@@ -10,10 +10,10 @@ partir do código** (para quem vai mexer no projeto).
    `Windows-x86_64.exe`), aceitando o diretório padrão `C:\EnergyPlusV9-4-0`.
    A versão **tem que ser a 9.4**: o programa usa o `pyenergyplus` que vem
    dentro da instalação, e as demais versões mudam essa API.
-2. Baixe `ConfortimetroKlimaa-<versão>-setup.exe` na página de *Releases* do
+2. Baixe `Ambiens-<versão>-setup.exe` na página de *Releases* do
    repositório e execute. Não pede senha de administrador (instala em
-   `%LOCALAPPDATA%\ConfortimetroKlimaa`) e cria atalho no menu Iniciar.
-3. Abra pelo atalho **Confortimetro Klimaa**. Python não é necessário: já vem
+   `%LOCALAPPDATA%\Ambiens`) e cria atalho no menu Iniciar.
+3. Abra pelo atalho **Ambiens**. Python não é necessário: já vem
    embutido no executável. O caminho do EnergyPlus é detectado sozinho — se
    você instalou fora do padrão, use o botão **🔍 Detectar** ou **📂 Procurar**
    no campo "Caminho do EnergyPlus".
@@ -22,11 +22,11 @@ Onde ficam as coisas depois de instalado:
 
 | O quê | Onde |
 |---|---|
-| Configuração da interface | `%LOCALAPPDATA%\ConfortimetroKlimaa\config.json` |
+| Configuração da interface | `%LOCALAPPDATA%\Ambiens\config.json` |
 | IDF e EPW de exemplo | pasta `_internal\examples` dentro da instalação |
-| Saída padrão das simulações | `Documentos\ConfortimetroKlimaa\run_001` |
+| Saída padrão das simulações | `~/.local/share/Ambiens/execucoes` (ou `%LOCALAPPDATA%\Ambiens\execucoes`) |
 
-Para desinstalar: *Configurações → Aplicativos → Confortimetro Klimaa*.
+Para desinstalar: *Configurações → Aplicativos → Ambiens*.
 
 ### Como o instalador é gerado
 

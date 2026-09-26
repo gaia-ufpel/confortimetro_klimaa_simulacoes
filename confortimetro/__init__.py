@@ -1,1 +1,1 @@
-"""Confortímetro Klimaa — simulações de conforto térmico com EnergyPlus."""
+"""Ambiens — simulações de conforto térmico com EnergyPlus."""

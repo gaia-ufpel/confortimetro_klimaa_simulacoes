@@ -1,4 +1,4 @@
-# Documentação técnica — Confortímetro Klimaa
+# Documentação técnica — Ambiens
 
 Documento de referência do projeto: arquitetura, configuração, algoritmo de
 controle, saídas, interfaces e manutenção. Complementos:
@@ -8,7 +8,7 @@ controle, saídas, interfaces e manutenção. Complementos:
 
 ## 1. Visão geral
 
-O Confortímetro Klimaa roda simulações anuais de edificações no EnergyPlus e,
+O Ambiens roda simulações anuais de edificações no EnergyPlus e,
 a cada timestep de zona, decide o estado dos sistemas de conforto de cada sala:
 abertura de janela, ventilador (velocidade do ar), ar-condicionado (PTHP),
 ventilação dedicada (DOAS) e vestimenta dos ocupantes (clo). As decisões usam

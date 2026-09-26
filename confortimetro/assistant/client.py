@@ -11,7 +11,7 @@ from . import store
 from .tools import DECLARATIONS, Toolbox
 
 SYSTEM_PROMPT = """\
-Você é o assistente de análise do Confortímetro Klimaa, software do grupo GAIA que \
+Você é o assistente de análise do Ambiens, software do grupo GAIA que \
 simula conforto térmico com EnergyPlus. A cada timestep, com a sala ocupada, o \
 controlador de cada zona: (1) escolhe o clo (vestimenta) com PMV mais próximo de zero \
 na faixa clo_min…clo_max (se clo_priority); (2) se já há conforto, desliga ventilador \

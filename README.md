@@ -1,4 +1,4 @@
-# Confortímetro Klimaa — simulações personalizadas
+# Ambiens — simulações personalizadas
 
 Ferramenta acadêmica da UFPel para simular conforto térmico em edificações com
 EnergyPlus. O núcleo Python modifica um arquivo IDF, registra um controlador
@@ -32,7 +32,7 @@ das pendências conhecidas está na seção *Estado atual* de
 Na janela, valide os caminhos, escolha os parâmetros e clique em **Executar**.
 Os resultados são gravados no diretório `output_path` configurado.
 
-No Windows, o usuário final instala pelo `ConfortimetroKlimaa-<versão>-setup.exe`
+No Windows, o usuário final instala pelo `Ambiens-<versão>-setup.exe`
 publicado nas *Releases* (duplo-clique, sem Python e sem administrador); quem
 roda a partir do código usa `bin\install.bat` e depois `bin\executar.bat`.
 Passo a passo e como o instalador é gerado em
