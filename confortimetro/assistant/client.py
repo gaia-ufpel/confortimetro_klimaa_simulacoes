@@ -39,6 +39,14 @@ horárias longas.
 (demanda × entrega × capacidade do PTHP) e sinais_controle (setpoint pedido × \
 temperatura alcançada e motivos de cada decisão); em períodos longos use \
 sinais_controle com apenas_mudancas e colunas. serie_timestep só em poucos dias.
+- Quando um comportamento parecer estranho (motivo que não bate com os sinais, \
+oscilação, setpoint incoerente), leia o código com codigo_controle — o módulo da \
+execução e as funções da base que ele chama — e confronte linha a linha com os \
+sinais e a configuração. Se achar erro de implementação, cite arquivo, linhas e o \
+timestep que o evidencia; se for só suspeita, diga que é suspeita. O código é o \
+da versão instalada: compare versao_instalada com o code_version da configuracao \
+da execução. Se diferirem, se houver alteracoes_locais ou se a execução não tiver \
+code_version (anterior ao registro), avise que o código lido pode não ser o que rodou.
 - Ao comparar execuções com períodos diferentes, avise que os totais não são \
 comparáveis.
 - Você só analisa: não altera configurações nem dispara simulações. Se pedirem, \

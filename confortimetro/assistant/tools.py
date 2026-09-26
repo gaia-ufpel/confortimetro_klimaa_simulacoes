@@ -5,15 +5,18 @@ pedido, nunca a planilha. Toda saída passa por `_limit`, para que uma série
 anual não estoure o contexto.
 """
 
+import ast
 import json
 import math
 import os
 
 import pandas
 
-from ..control import motivos
+from .. import control
+from ..control import MODULES_MAPPER, motivos
 from ..idf.processor import _iter_objects, _read_text
 from ..results import compare, series, tabular
+from ..versao import code_version
 
 MAX_ROWS = 200
 MAX_BYTES = 20_000
@@ -42,6 +45,15 @@ CONTROL_VARIABLES = [
 ]
 
 # J por timestep nas planilhas; as colunas `*_w` já são W médios.
+# Arquivo de cada módulo de controle. No executável do Windows os .py vão
+# como dados ao lado dos .pyc (datas do .spec), então o caminho vale lá também.
+CODE_FILES = {
+    **{str(module): cls.__module__.rsplit(".", 1)[-1]
+       for module, cls in MODULES_MAPPER.items()},
+    "base": "base",
+    "motivos": "motivos",
+}
+
 ENERGY_VARIABLES = ("aquecimento", "resfriamento", "janelas_ganho", "janelas_perda")
 
 # Seleção aceita por `sinais_controle(colunas=...)`.
@@ -226,6 +238,26 @@ DECLARATIONS = [
                 **_PERIOD,
             },
             "required": ["execucao", "zona", "variaveis", "inicio"],
+        },
+    },
+    {
+        "name": "codigo_controle",
+        "description": ("Código-fonte do controlador, com números de linha, para conferir "
+                        "se o comportamento observado (sinais_controle, motivos) bate com "
+                        "o implementado ou revela erro. arquivo = um módulo (COMPLETE, …), "
+                        "'base' (funções comuns: PMV, janela, setpoints, escrita) ou "
+                        "'motivos' (bits). Sem `funcoes`, módulo e motivos vêm inteiros e "
+                        "a base vem como índice de funções; peça as da base pelo nome. "
+                        "É o código da versão instalada (versao_instalada); compare com o "
+                        "code_version da configuracao da execução."),
+        "parameters_json_schema": {
+            "type": "object",
+            "properties": {
+                "arquivo": {"type": "string", "enum": [*CODE_FILES]},
+                "funcoes": {"type": "array", "items": {"type": "string"},
+                            "description": "Nomes de funções/métodos daquele arquivo."},
+            },
+            "required": ["arquivo"],
         },
     },
 ]
@@ -613,6 +645,45 @@ class Toolbox:
                     round(float((delivered >= 0.9 * nominal).sum()) * step_hours, 2)
                     if nominal else None),
             }
+        return result
+
+    def codigo_controle(self, arquivo, funcoes=None) -> dict:
+        if arquivo not in CODE_FILES:
+            raise ToolError(f"arquivo deve ser um de {list(CODE_FILES)}.")
+        path = os.path.join(os.path.dirname(control.__file__), f"{CODE_FILES[arquivo]}.py")
+        try:
+            with open(path, encoding="utf-8") as handle:
+                source = handle.read()
+        except OSError as error:
+            raise ToolError(f"Código de {arquivo} indisponível nesta instalação.") from error
+        lines = source.splitlines()
+
+        def numbered(first, last):
+            return "\n".join(f"{number:4}| {lines[number - 1]}"
+                             for number in range(first, last + 1))
+
+        functions = {}
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                start = min([node.lineno] + [d.lineno for d in node.decorator_list])
+                functions.setdefault(node.name, (start, node.end_lineno, node))
+        result = {"arquivo": f"confortimetro/control/{CODE_FILES[arquivo]}.py",
+                  "versao_instalada": code_version()}
+        if funcoes:
+            missing = [name for name in funcoes if name not in functions]
+            if missing:
+                raise ToolError(f"Funções inexistentes em {arquivo}: {missing}. "
+                                f"Disponíveis: {sorted(functions)}.")
+            result["funcoes"] = {name: numbered(*functions[name][:2]) for name in funcoes}
+        elif arquivo == "base":
+            # Inteira passaria de 20 kB; o índice basta para escolher o que ler.
+            result["indice"] = [
+                {"funcao": name, "linhas": f"{start}-{end}",
+                 "doc": (ast.get_docstring(node) or "").split("\n")[0]}
+                for name, (start, end, node) in sorted(functions.items(),
+                                                        key=lambda item: item[1][0])]
+        else:
+            result["codigo"] = numbered(1, len(lines))
         return result
 
 

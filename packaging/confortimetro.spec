@@ -18,6 +18,10 @@ datas = [
     # então precisa existir como arquivo dentro do bundle.
     (os.path.join(ROOT, "confortimetro", "gui", "assets"),
      "confortimetro/gui/assets"),
+    # O assistente lê o código do controlador (ferramenta codigo_controle); no
+    # PYZ só há bytecode, então os .py vão como arquivos.
+    (os.path.join(ROOT, "confortimetro", "control", "*.py"),
+     "confortimetro/control"),
     (os.path.join(ROOT, "examples", "config.json"), "examples"),
     (os.path.join(ROOT, "examples", "idf"), "examples/idf"),
     (os.path.join(ROOT, "examples", "epw"), "examples/epw"),

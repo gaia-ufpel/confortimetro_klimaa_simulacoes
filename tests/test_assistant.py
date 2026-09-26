@@ -278,6 +278,25 @@ def test_sinais_controle_execucao_antiga(root):
                                                     "inicio": "01-01", "colunas": ["x"]})
 
 
+def test_codigo_controle(root):
+    tools = Toolbox(root)
+    module = tools.call("codigo_controle", {"arquivo": "COMPLETE"})
+    assert module["arquivo"].endswith("complete.py")
+    assert "versao" in module["versao_instalada"]
+    assert "   1| " in module["codigo"] and "room_conditioner" in module["codigo"]
+
+    # A base vem como índice; as funções, com o número de linha real.
+    index = tools.call("codigo_controle", {"arquivo": "base"})["indice"]
+    start = next(row for row in index if row["funcao"] == "can_open_window")["linhas"]
+    code = tools.call("codigo_controle", {"arquivo": "base",
+                                          "funcoes": ["can_open_window"]})
+    assert code["funcoes"]["can_open_window"].lstrip().startswith(start.split("-")[0] + "|")
+
+    assert "erro" in tools.call("codigo_controle", {"arquivo": "base",
+                                                    "funcoes": ["nao_existe"]})
+    assert "erro" in tools.call("codigo_controle", {"arquivo": "../assistant/tools"})
+
+
 def test_resultado_grande_e_cortado(root, monkeypatch):
     tools = Toolbox(root)
     monkeypatch.setattr(tools, "listar_execucoes",
