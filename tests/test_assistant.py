@@ -192,7 +192,8 @@ def _add_new_columns(root):
     from tests.test_stats import _room_dataframe
 
     df = _room_dataframe(rows=10, nan_rows=0)
-    col = lambda alias: series.column(alias, ROOM)
+    def col(alias):
+        return series.column(alias, ROOM)
     three = int(Motivo.OCUPADA | Motivo.JANELA_BLOQUEADA_EXTERNA_FRIA | Motivo.AC_MANTIDO)
     df[col("janela")] = [0, 0, 1, 1, 1, 0, 0, 0, 0, 0]
     df[col("motivo")] = [three] * 5 + [int(Motivo.OCUPADA)] * 5

@@ -518,7 +518,8 @@ class Toolbox:
             avisos.append(f"Série indisponível: {error}")
         if df is not None and any(c in df for c in BALANCE_COLUMNS):
             hours = _step_hours(df.index)
-            kwh = lambda values: round(float(values.sum()) * hours / 1000, 3)
+            def kwh(values):
+                return round(float(values.sum()) * hours / 1000, 3)
             air = {}
             for name in BALANCE_COLUMNS:
                 if name in df:
@@ -547,8 +548,9 @@ class Toolbox:
             avisos.append(str(error))
         report = "Sensible Heat Gain Summary"
         if tables is not None:
-            pick = lambda title: next((row for row in tabular.table(tables, report, title)
-                                       if row["nome"] == zone), None)
+            def pick(title):
+                return next((row for row in tabular.table(tables, report, title)
+                             if row["nome"] == zone), None)
             annual = pick("Annual Building Sensible Heat Gain Components")
             if annual is None:
                 avisos.append(f"{execucao} não tem o relatório {report}.")
@@ -566,9 +568,11 @@ class Toolbox:
 
     def inspecionar_hvac(self, execucao, zona, inicio=None, fim=None) -> dict:
         _, tables, zone = self._zone_tables(execucao, zona)
-        own = lambda name: str(name).split(" ")[0] in (zone, f"DOAS_{zone}")
-        pick = lambda report, title: [row for row in tabular.table(tables, report, title)
-                                      if own(row["nome"])]
+        def own(name):
+            return str(name).split(" ")[0] in (zone, f"DOAS_{zone}")
+        def pick(report, title):
+            return [row for row in tabular.table(tables, report, title)
+                    if own(row["nome"])]
         equipment = {title: pick("Equipment Summary", title)
                      for title in ("Cooling Coils", "Heating Coils", "DX Heating Coils",
                                    "Fans")}
@@ -648,7 +652,8 @@ def _demand_vs_delivery(df, capacity):
         return ("Execução anterior às colunas de demanda e serpentinas: resimule para "
                 "comparar demanda × capacidade.")
     hours = _step_hours(df.index)
-    count = lambda mask: round(float(mask.sum()) * hours, 2)
+    def count(mask):
+        return round(float(mask.sum()) * hours, 2)
     on = df["ac"] > 0 if "ac" in df else pandas.Series(True, index=df.index)
     result = {"horas_ac_ligado": count(on)}
     # A demanda de resfriamento do EnergyPlus é negativa.
@@ -679,7 +684,8 @@ def _demand_vs_delivery(df, capacity):
 def _control_summary(df) -> dict:
     """Horas em que o AC ligado não segurou o setpoint pedido pelo controlador."""
     hours = _step_hours(df.index)
-    count = lambda mask: round(float(mask.sum()) * hours, 2)
+    def count(mask):
+        return round(float(mask.sum()) * hours, 2)
     occupied = df["ocupacao"] > 0
     summary = {"horas_ocupado": count(occupied)}
     if "motivo" in df:
