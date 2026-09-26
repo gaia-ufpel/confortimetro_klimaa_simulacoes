@@ -36,6 +36,8 @@ jobs:
             $versao = "$projeto-dev+$($env:GITHUB_SHA.Substring(0,7))"
           }
           echo "VERSAO=$versao" >> $env:GITHUB_ENV
+          # Sem git no executável: a versão vai embutida para o configs.json.
+          Set-Content -Path confortimetro/_build.py -Value ('VERSAO = "' + $versao + '"') -Encoding utf8
           echo "Versão do build: $versao"
 
       - name: Empacotar (PyInstaller)

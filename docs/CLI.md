@@ -129,6 +129,7 @@ Validar sem simular:
 | `rooms` | lista | Zonas do IDF processadas e exportadas. |
 | `module_type` | `COMPLETE` | Estratégia de condicionamento (seção 4). |
 | `ignore_missing_equipment` | `false` | Roda mesmo com zonas sem o equipamento exigido pelo módulo (só avisa no log). |
+| `code_version` | — | Preenchido pela simulação: `versao` do `pyproject.toml` (no executável, a do build), `commit` do git e `alteracoes_locais` em `control/`/`idf/`. Não é para editar. |
 
 ## 4. Módulos de condicionamento (`module_type`)
 

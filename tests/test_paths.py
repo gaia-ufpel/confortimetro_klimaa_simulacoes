@@ -98,3 +98,18 @@ def test_config_antigo_migra_ao_carregar(data_dir, tmp_path):
     config = SimulationConfig.from_json(str(antigo))
 
     assert config.runs_root_path == str(raiz)
+
+
+def test_versao_do_codigo_volta_do_configs_json(data_dir, tmp_path):
+    from confortimetro.versao import code_version
+
+    config = SimulationConfig(met_as_watts=0, _idf_path=IDF, _met=1.2,
+                              output_path=str(tmp_path / 'run'))
+    config.code_version = code_version()
+    path = tmp_path / 'configs.json'
+    config.to_json(str(path))
+
+    # Duplicar relê o configs.json com SimulationConfig(**dados): o campo
+    # novo não pode quebrar a leitura.
+    assert SimulationConfig.from_json(str(path)).code_version == code_version()
+    assert code_version()['versao']

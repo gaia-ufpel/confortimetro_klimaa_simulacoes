@@ -9,6 +9,7 @@ import logging
 from time import perf_counter
 
 from confortimetro.control import MODULES_MAPPER
+from confortimetro.versao import code_version
 from confortimetro.control.base import request_stop
 from confortimetro.results import (
     summary_rooms_results_from_eso,
@@ -80,6 +81,7 @@ class Simulation:
             q.put("Expandindo objetos EnergyPlus...")
             self._timed("ExpandObjects", self._expand_objects)
 
+            self.configs.code_version = code_version()
             self.configs.to_json(os.path.join(self.configs.output_path, "configs.json"))
             
             # Etapa 5: Executar simulação EnergyPlus

@@ -237,6 +237,9 @@ class SimulationConfig:
     # Rodar mesmo com zonas sem o equipamento que o módulo exige: o usuário
     # confirmou o aviso. Fica no configs.json para a execução registrar isso.
     ignore_missing_equipment: bool = False
+    # Versão do código que rodou a execução (`versao.code_version`), gravada
+    # quando a simulação começa; o assistente compara com a instalada.
+    code_version: dict = None
 
     def __post_init__(self):
         # Sem saída escolhida, cada execução ganha a sua subpasta na pasta de

@@ -25,7 +25,8 @@ __pycache__/
 # backups de IDF gerados pelo EnergyPlus/eppy
 backups/
 
-# empacotamento Windows
+# empacotamento Windows (_build.py é gerado pelo CI com a versão)
+confortimetro/_build.py
 dist/
 build/
 

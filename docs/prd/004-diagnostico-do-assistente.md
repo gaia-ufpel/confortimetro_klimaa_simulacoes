@@ -21,6 +21,17 @@ por `_limit`.
 | `inspecionar_hvac` | `eplustbl.csv` + série | capacidades das serpentinas, vazões, carga de projeto, setpoint não atendido do E+, potência entregue × capacidade |
 | `sinais_controle` | série da zona | PMV/clo do controlador, setpoints, banda adaptativa, estados, W do PTHP + resumo |
 | `serie_timestep` | série da zona | qualquer variável sem agregação |
+| `codigo_controle` | `confortimetro/control/*.py` | código do módulo ou de `motivos` com número de linha; a `base` vem como índice de funções e cada função sai sob demanda |
+
+`codigo_controle` existe para o modelo confrontar o comportamento observado
+com o que está implementado e apontar erro de implementação (arquivo, linhas,
+timestep). Lê o código da versão instalada e devolve `versao_instalada`; cada
+execução grava a sua em `code_version` no `configs.json` (`confortimetro/versao.py`:
+versão, commit e alterações locais em `control/`/`idf/`; no executável, a
+versão embutida pelo CI em `confortimetro/_build.py`). Versões diferentes, ou
+execução sem `code_version`, fazem o assistente avisar que o código lido pode
+não ser o que rodou. No executável do Windows os `.py` de `control/` entram como
+dados pelo `.spec`, porque o PYZ só guarda bytecode.
 
 `results/tabular.py` lê o `eplustbl.csv`; o mapa superfície → zona sai do texto
 do `modelo.idf` (`idf.processor._iter_objects`), sem eppy.
