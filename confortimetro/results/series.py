@@ -14,7 +14,7 @@ import pandas
 
 CACHE_DIRECTORY = '.series_cache'
 # Sobe quando `COLUMNS` ganha apelidos: o pickle antigo não os tem.
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 
 # Nomes das colunas do <ZONA>.xlsx, com a zona interpolada.
 COLUMNS = {
@@ -113,6 +113,13 @@ def load_zone_series(run_path, room, refresh=False):
         for alias in COLUMNS if column(alias, room) in raw.columns
     })
     df = df.dropna(subset=['ocupacao'])
+
+    # Fallback para 'clo': se a variável do EnergyPlus não foi gravada ou resultou
+    # em 0 em timesteps ocupados (ex.: IDF que não amarrou ClothingInsulationSchedule),
+    # usa os valores controlados pelo schedule `CLO_{room}`.
+    if 'clo_controle' in df:
+        if 'clo' not in df or (df.loc[df['ocupacao'] > 0, 'clo'] == 0).all():
+            df['clo'] = df['clo_controle']
 
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     df.to_pickle(cache_path)

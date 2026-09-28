@@ -45,3 +45,16 @@ def test_cache_invalidado_quando_a_planilha_muda(tmp_path):
     df.to_excel(run_path / f"{ROOM}.xlsx", index=False)
 
     assert len(load_zone_series(str(run_path), ROOM)) == 6
+
+
+def test_fallback_clo_quando_energyplus_reporta_zero(tmp_path):
+    run_path = _make_run(tmp_path, 'RUN', 'COMPLETE')
+    excel_file = run_path / f"{ROOM}.xlsx"
+    df = pandas.read_excel(excel_file)
+    # Simula EnergyPlus reportando 0.0 para vestimenta enquanto CLO schedule varia
+    df[f"PEOPLE_{ROOM}:Zone Thermal Comfort Clothing Value"] = 0.0
+    df[f"CLO_{ROOM}:Schedule Value"] = 0.85
+    df.to_excel(excel_file, index=False)
+
+    loaded = load_zone_series(str(run_path), ROOM, refresh=True)
+    assert (loaded['clo'] == 0.85).all()

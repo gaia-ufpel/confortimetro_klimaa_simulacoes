@@ -530,6 +530,7 @@ class IDFProcessor:
     EM_CONFORTO_SCHEDULE_NAME = "EM_CONFORTO_{}"
     # Soma de bits de control.motivos.Motivo, escrita pelo controlador.
     MOTIVO_SCHEDULE_NAME = "MOTIVO_{}"
+    CLO_SCHEDULE_NAME = "CLO_{}"
     MET_SCHEDULE_NAME = "METABOLISMO"
     WME_SCHEDULE_NAME = "WORK_EF"
     
@@ -711,6 +712,7 @@ class IDFProcessor:
                     (self.VEL_SCHEDULE_NAME.format(room), "On/Off", 0),
                     (self.AC_SCHEDULE_NAME.format(room), "On/Off", 0),
                     (self.DOAS_SCHEDULE_NAME.format(room), "On/Off", 0),
+                    (self.CLO_SCHEDULE_NAME.format(room), "Any Number", self.configs.clo_min),
                     (self.TEMP_COOL_AC_SCHEDULE_NAME.format(room), "Any Number", self.configs.temp_ac_max),
                     (self.TEMP_HEAT_AC_SCHEDULE_NAME.format(room), "Any Number", self.configs.temp_ac_min),
                     (self.PMV_SCHEDULE_NAME.format(room), "Any Number", 0),
@@ -789,6 +791,8 @@ class IDFProcessor:
                 people.Activity_Level_Schedule_Name = self.MET_SCHEDULE_NAME
                 people.Work_Efficiency_Schedule_Name = self.WME_SCHEDULE_NAME
                 people.Air_Velocity_Schedule_Name = self.VEL_SCHEDULE_NAME.format(people.Zone_or_ZoneList_Name)
+                people.Clothing_Insulation_Calculation_Method = "ClothingInsulationSchedule"
+                people.Clothing_Insulation_Schedule_Name = self.CLO_SCHEDULE_NAME.format(people.Zone_or_ZoneList_Name)
                 people_configured += 1
                 
                 self.logger.debug(f"Configured people object: {people.Name}")
