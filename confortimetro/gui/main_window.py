@@ -3,6 +3,7 @@ Main window for the Confortimetro Klimaa application.
 """
 
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -240,6 +241,10 @@ class MainWindow(tk.Tk):
         RoundedButton(row, text="Abrir pasta", variant="ghost", icon="open",
                        command=self._open_detail_folder).pack(side="left",
                                                               padx=(SPACE[2], 0))
+        self.detail_export_button = RoundedButton(
+            row, text="Baixar resumo", variant="ghost", icon="export",
+            command=self._export_detail_summary)
+        self.detail_export_button.pack(side="left", padx=(SPACE[2], 0))
         self.detail_recompute_button = RoundedButton(
             row, text="Regerar estatísticas", variant="ghost", icon="recompute",
             command=self._recompute_detail_stats)
@@ -976,6 +981,8 @@ class MainWindow(tk.Tk):
 
         stats_path = os.path.join(run['path'], 'ESTATISTICAS.xlsx')
         if not os.path.exists(stats_path):
+            if hasattr(self, 'detail_export_button'):
+                self.detail_export_button.configure(state="disabled")
             self.kpi_total_var.set("—")
             self.kpi_aquec_var.set("—")
             self.kpi_resfr_var.set("—")
@@ -992,6 +999,8 @@ class MainWindow(tk.Tk):
         try:
             df = pandas.read_excel(stats_path)
         except Exception as error:
+            if hasattr(self, 'detail_export_button'):
+                self.detail_export_button.configure(state="disabled")
             self.kpi_total_var.set("—")
             self.kpi_aquec_var.set("—")
             self.kpi_resfr_var.set("—")
@@ -1003,6 +1012,8 @@ class MainWindow(tk.Tk):
             self.detail_empty.pack(anchor="w", pady=(SPACE[2], 0))
             return
 
+        if hasattr(self, 'detail_export_button'):
+            self.detail_export_button.configure(state="normal")
         self.detail_empty.pack_forget()
 
         def _fmt_kwh(val):
@@ -1090,6 +1101,34 @@ class MainWindow(tk.Tk):
             return
         self.simulations_panel.tree.selection_set(self._detail_run["path"])
         self.simulations_panel.recompute_selected()
+
+    def _export_detail_summary(self):
+        """Exporta o resumo das estatísticas da execução aberta em XLSX."""
+        if not self._detail_run:
+            toast(self, "Abra uma execução antes de exportar o resumo.", "warn")
+            return
+        stats_path = os.path.join(self._detail_run['path'], 'ESTATISTICAS.xlsx')
+        if not os.path.exists(stats_path):
+            toast(self, "Esta execução ainda não possui estatísticas para exportar.", "warn")
+            return
+
+        run_name = self._detail_run.get('run') or os.path.basename(os.path.normpath(self._detail_run['path']))
+        initial_file = f"RESUMO_{run_name}.xlsx"
+        dest_path = filedialog.asksaveasfilename(
+            parent=self,
+            title="Baixar resumo da execução",
+            defaultextension=".xlsx",
+            initialfile=initial_file,
+            filetypes=[("Planilha Excel", "*.xlsx")]
+        )
+        if not dest_path:
+            return
+
+        try:
+            shutil.copyfile(stats_path, dest_path)
+            toast(self, "Resumo exportado com sucesso.", "ok")
+        except OSError as exc:
+            toast(self, f"Falha ao exportar resumo: {exc}", "error", timeout=10000)
 
     def _open_detail_folder(self):
         if not self._detail_run:

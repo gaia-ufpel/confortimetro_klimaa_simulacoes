@@ -311,14 +311,14 @@ def test_detalhes_tabela_formata_porcentagens(window, tmp_path):
     df = pandas.DataFrame({
         'Nome da sala': ['SALA1'],
         'Energia total (kWh)': [123.456],
-        'Desconforto': [0.152],
+        'Desconforto (%)': [0.152],
         'PMV médio': [-0.25],
-        'PMV fora da faixa': [0.084],
-        'Fora da banda adaptativa': [0.12],
-        'Janela aberta': [0.35],
-        'Ventilador ligado': [0.20],
-        'DOAS ligado': [0.0],
-        'CO2 máximo': [800.0],
+        'PMV fora da faixa (%)': [0.084],
+        'Fora da banda adaptativa (%)': [0.12],
+        'Janela aberta (%)': [0.35],
+        'Ventilador ligado (%)': [0.20],
+        'DOAS ligado (%)': [0.0],
+        'CO2 máximo (ppm)': [800.0],
         'Timesteps simulados': [8760],
     })
     df.to_excel(run_path / "ESTATISTICAS.xlsx", index=False)
@@ -336,17 +336,42 @@ def test_detalhes_tabela_formata_porcentagens(window, tmp_path):
     cols = window.detail_stats['columns']
     row_dict = dict(zip(cols, values))
 
-    assert row_dict['Desconforto'] == '15,2%'
-    assert row_dict['PMV fora da faixa'] == '8,4%'
-    assert row_dict['Fora da banda adaptativa'] == '12,0%'
-    assert row_dict['Janela aberta'] == '35,0%'
-    assert row_dict['Ventilador ligado'] == '20,0%'
-    assert row_dict['DOAS ligado'] == '0,0%'
+    assert row_dict['Desconforto (%)'] == '15,2%'
+    assert row_dict['PMV fora da faixa (%)'] == '8,4%'
+    assert row_dict['Fora da banda adaptativa (%)'] == '12,0%'
+    assert row_dict['Janela aberta (%)'] == '35,0%'
+    assert row_dict['Ventilador ligado (%)'] == '20,0%'
+    assert row_dict['DOAS ligado (%)'] == '0,0%'
     assert row_dict['PMV médio'] == '-0,250'
     assert row_dict['Energia total (kWh)'] == '123,456'
+    assert window.detail_export_button._state == "normal"
 
 
+def test_exportar_resumo_detalhes(window, tmp_path, monkeypatch):
+    import pandas
+    from tkinter import filedialog
 
+    run_path = tmp_path / "saidas" / "run_resumo"
+    run_path.mkdir(parents=True)
+    df = pandas.DataFrame({
+        'Nome da sala': ['SALA1'],
+        'Energia total (kWh)': [100.0],
+    })
+    df.to_excel(run_path / "ESTATISTICAS.xlsx", index=False)
+    run = {'run': 'run_resumo', 'path': str(run_path), 'status': 'pronta',
+           'rooms_disponiveis': ['SALA1'], 'config': {},
+           'modificado': datetime.datetime.now()}
+
+    window.on_open_run_details(run)
+    _settle(window)
+
+    dest_file = tmp_path / "meu_resumo.xlsx"
+    monkeypatch.setattr(filedialog, "asksaveasfilename", lambda **kw: str(dest_file))
+
+    window._export_detail_summary()
+    assert dest_file.exists()
+    df_read = pandas.read_excel(dest_file)
+    assert df_read['Energia total (kWh)'].iloc[0] == 100.0
 
 
 def _wait_answer(panel, window):

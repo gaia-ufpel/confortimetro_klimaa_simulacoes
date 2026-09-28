@@ -452,14 +452,15 @@ class SimulationsPanel(ttk.Frame):
             import pandas
             stats = pandas.read_excel(os.path.join(path, "ESTATISTICAS.xlsx"),
                                       usecols=lambda col: col in (
-                                          "Energia total (kWh)", "Desconforto"))
+                                          "Energia total (kWh)", "Desconforto (%)", "Desconforto"))
             summary = {}
             if "Energia total (kWh)" in stats:
                 summary["Energia total (kWh)"] = (
                     f"{stats['Energia total (kWh)'].sum():.2f}".replace(".", ","))
-            if "Desconforto" in stats:
+            desc_col = "Desconforto (%)" if "Desconforto (%)" in stats else ("Desconforto" if "Desconforto" in stats else None)
+            if desc_col:
                 summary["Desconforto"] = (
-                    f"{stats['Desconforto'].mean() * 100:.1f}%".replace(".", ","))
+                    f"{stats[desc_col].mean() * 100:.1f}%".replace(".", ","))
         except Exception:
             summary = {}
         self._summary_cache[path] = summary
