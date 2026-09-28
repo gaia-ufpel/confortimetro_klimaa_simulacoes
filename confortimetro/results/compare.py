@@ -19,18 +19,33 @@ CONFIG_FIELDS = ['module_type', '_idf_path', 'epw_path', '_met', 'clo_min', 'clo
 
 # Colunas de estatística introduzidas junto com a energia agregada; a ausência
 # delas marca um ESTATISTICAS.xlsx gerado por uma versão anterior.
-REQUIRED_COLUMNS = ['Energia total (kWh)', 'Ventilador (kWh)', 'PMV fora da faixa', 'Fora da banda adaptativa']
+REQUIRED_COLUMNS = ['Energia total (kWh)', 'Ventilador (kWh)', 'PMV fora da faixa (%)', 'Fora da banda adaptativa (%)']
 
 # Métricas que interessam ao comparar duas execuções, na ordem de leitura.
 COMPARISON_COLUMNS = ['Energia total (kWh)', 'Aquecimento (kWh)', 'Resfriamento (kWh)',
                       'Ventilador (kWh)',
-                      'Desconforto', 'PMV médio', 'PMV fora da faixa',
-                      'Fora da banda adaptativa', 'Janela aberta', 'Ventilador ligado',
-                      'DOAS ligado', 'CO2 máximo', 'Timesteps simulados']
+                      'Desconforto (%)', 'PMV médio', 'PMV fora da faixa (%)',
+                      'Fora da banda adaptativa (%)', 'Janela aberta (%)', 'Ventilador ligado (%)',
+                      'DOAS ligado (%)', 'CO2 máximo (ppm)', 'Timesteps simulados']
 
 # Colunas cujos valores representam frações de tempo ocupado (0.0 a 1.0)
 # e devem ser exibidas como porcentagem na interface.
 PERCENTAGE_COLUMNS = {
+    'Desconforto (%)',
+    'PMV fora da faixa (%)',
+    'Fora da banda adaptativa (%)',
+    'Janela aberta (%)',
+    'Ventilador ligado (%)',
+    'DOAS ligado (%)',
+    'Ar condicionado ligado (%)',
+    'Aquecimento (%)',
+    'Resfriamento (%)',
+    'Ventilador ligado e ar ligado (%)',
+    'Ventilador ligado, ar desligado e janela fechada (%)',
+    'Janela aberta e ventilador ligado (%)',
+    'Janela fechada, ar desligado e ventilador desligado (%)',
+    'Janela aberta sem pessoas (%)',
+    # Compatibilidade com planilhas antigas
     'Desconforto',
     'PMV fora da faixa',
     'Fora da banda adaptativa',

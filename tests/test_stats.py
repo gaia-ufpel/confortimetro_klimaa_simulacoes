@@ -44,12 +44,12 @@ def test_ignora_linhas_fora_do_periodo_e_soma_energia(tmp_path):
 
     # As 5 linhas NaN não podem entrar na ocupação (NaN != 0 é True em pandas).
     assert stats["Número ocupação"] == 10
-    assert stats["Aquecimento"] == 1.0
-    assert stats["Resfriamento"] == 0.0
+    assert stats["Aquecimento (%)"] == 1.0
+    assert stats["Resfriamento (%)"] == 0.0
     assert stats["Aquecimento (kWh)"] == pytest.approx(10.0)
     assert stats["Energia total (kWh)"] == pytest.approx(10.0)
-    assert stats["PMV fora da faixa"] == 0.0
-    assert stats["Fora da banda adaptativa"] == 0.0
+    assert stats["PMV fora da faixa (%)"] == 0.0
+    assert stats["Fora da banda adaptativa (%)"] == 0.0
 
 
 def test_get_stats_com_frames(tmp_path):

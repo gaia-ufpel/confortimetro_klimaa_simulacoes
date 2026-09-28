@@ -76,9 +76,11 @@ def _short(label, limit=22):
 
 # --------------------------------------------------------------- agregados
 
-def energia_vs_desconforto(df, comfort_metric='Desconforto'):
+def energia_vs_desconforto(df, comfort_metric=None):
     """Dispersão energia × desconforto: a fronteira de Pareto entre estratégias."""
     figure = _figure('Energia anual × desconforto')
+    if comfort_metric is None:
+        comfort_metric = 'Desconforto (%)' if 'Desconforto (%)' in df.columns else 'Desconforto'
     axes = _style(figure.add_subplot(111), 'Energia total (kWh/ano)',
                   f'{comfort_metric} (fração do tempo ocupado)')
 
@@ -128,8 +130,13 @@ def energia_por_execucao(df):
     return figure
 
 
-ACTUATION_COLUMNS = ['Janela aberta', 'Ventilador ligado', 'Ar condicionado ligado',
-                     'DOAS ligado', 'Desconforto']
+ACTUATION_COLUMNS = [
+    'Janela aberta (%)', 'Janela aberta',
+    'Ventilador ligado (%)', 'Ventilador ligado',
+    'Ar condicionado ligado (%)', 'Ar condicionado ligado',
+    'DOAS ligado (%)', 'DOAS ligado',
+    'Desconforto (%)', 'Desconforto',
+]
 
 
 def acionamentos(df):
@@ -137,7 +144,21 @@ def acionamentos(df):
     figure = _figure('Acionamentos (fração do tempo ocupado)')
     axes = _style(figure.add_subplot(111), '', 'Fração do tempo ocupado')
 
-    columns = [column for column in ACTUATION_COLUMNS if column in df.columns]
+    # Prioriza as colunas com (%) se presentes, senão legadas sem duplicar
+    desired_order = [
+        ('Janela aberta (%)', 'Janela aberta'),
+        ('Ventilador ligado (%)', 'Ventilador ligado'),
+        ('Ar condicionado ligado (%)', 'Ar condicionado ligado'),
+        ('DOAS ligado (%)', 'DOAS ligado'),
+        ('Desconforto (%)', 'Desconforto'),
+    ]
+    columns = []
+    for new_col, old_col in desired_order:
+        if new_col in df.columns:
+            columns.append(new_col)
+        elif old_col in df.columns:
+            columns.append(old_col)
+
     labels = _labels(df)
     positions = numpy.arange(len(columns))
     width = 0.8 / max(len(labels), 1)
@@ -153,9 +174,21 @@ def acionamentos(df):
     return figure
 
 
-def delta_vs_baseline(df, baseline=None,
-                      metrics=('Energia total (kWh)', 'Desconforto')):
+def delta_vs_baseline(df, baseline=None, metrics=None):
     """Diferença de cada execução contra uma de referência, métrica a métrica."""
+    if metrics is None:
+        disc_col = 'Desconforto (%)' if 'Desconforto (%)' in df.columns else 'Desconforto'
+        metrics = ('Energia total (kWh)', disc_col)
+    else:
+        # Resolve métricas passadas explicitamente que podem estar no formato legado
+        resolved = []
+        for m in metrics:
+            if m == 'Desconforto' and 'Desconforto (%)' in df.columns and 'Desconforto' not in df.columns:
+                resolved.append('Desconforto (%)')
+            else:
+                resolved.append(m)
+        metrics = tuple(resolved)
+
     # A referência é procurada pelo nome real da execução; o encurtamento vale
     # só para os rótulos desenhados.
     labels = list(df['Execução'])

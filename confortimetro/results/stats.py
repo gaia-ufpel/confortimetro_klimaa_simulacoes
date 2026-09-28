@@ -40,27 +40,27 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
     stats_df = pandas.DataFrame({'Nome do arquivo': [],
             'Nome da sala': [],
             'Número ocupação': [],
-            'Ar condicionado ligado': [],
-            'Aquecimento': [],
-            'Resfriamento': [],
-            'Ventilador ligado': [],
-            'Ventilador ligado e ar ligado': [],
-            'Ventilador ligado, ar desligado e janela fechada': [],
-            'Janela aberta': [],
-            'Janela aberta e ventilador ligado': [],
-            'DOAS ligado': [],
-            'Janela fechada, ar desligado e ventilador desligado': [],
-            'Desconforto': [],
-            'CO2 máximo': [],
+            'Ar condicionado ligado (%)': [],
+            'Aquecimento (%)': [],
+            'Resfriamento (%)': [],
+            'Ventilador ligado (%)': [],
+            'Ventilador ligado e ar ligado (%)': [],
+            'Ventilador ligado, ar desligado e janela fechada (%)': [],
+            'Janela aberta (%)': [],
+            'Janela aberta e ventilador ligado (%)': [],
+            'DOAS ligado (%)': [],
+            'Janela fechada, ar desligado e ventilador desligado (%)': [],
+            'Desconforto (%)': [],
+            'CO2 máximo (ppm)': [],
             'Timesteps simulados': [],
-            'Janela aberta sem pessoas': [],
+            'Janela aberta sem pessoas (%)': [],
             'Aquecimento (kWh)': [],
             'Resfriamento (kWh)': [],
             'Ventilador (kWh)': [],
             'Energia total (kWh)': [],
             'PMV médio': [],
-            'PMV fora da faixa': [],
-            'Fora da banda adaptativa': []})
+            'PMV fora da faixa (%)': [],
+            'Fora da banda adaptativa (%)': []})
 
     for room in rooms:
         if frames is not None and room in frames:
@@ -96,15 +96,15 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
                   "descartadas (planilha gerada por versão antiga do pós-processamento)")
     
         row = {'Nome do arquivo': id_arquivo, 'Nome da sala': room,
-               'Número ocupação': len(df[df[people_column.format(room)] != 0]), 'Ar condicionado ligado': None,
-               'Aquecimento': None, 'Resfriamento': None, 'Ventilador ligado': None,
-               'Ventilador ligado e ar ligado': None, 'Ventilador ligado, ar desligado e janela fechada': None,
-               'Janela aberta': None, 'Janela aberta e ventilador ligado': None, 'DOAS ligado': None,
-               'Janela fechada, ar desligado e ventilador desligado': None, 'Desconforto': None, 'CO2 máximo': None,
+               'Número ocupação': len(df[df[people_column.format(room)] != 0]), 'Ar condicionado ligado (%)': None,
+               'Aquecimento (%)': None, 'Resfriamento (%)': None, 'Ventilador ligado (%)': None,
+               'Ventilador ligado e ar ligado (%)': None, 'Ventilador ligado, ar desligado e janela fechada (%)': None,
+               'Janela aberta (%)': None, 'Janela aberta e ventilador ligado (%)': None, 'DOAS ligado (%)': None,
+               'Janela fechada, ar desligado e ventilador desligado (%)': None, 'Desconforto (%)': None, 'CO2 máximo (ppm)': None,
                'Timesteps simulados': None,
-               'Janela aberta sem pessoas': None, 'Aquecimento (kWh)': None,
+               'Janela aberta sem pessoas (%)': None, 'Aquecimento (kWh)': None,
                'Resfriamento (kWh)': None, 'Ventilador (kWh)': None, 'Energia total (kWh)': None, 'PMV médio': None,
-               'PMV fora da faixa': None, 'Fora da banda adaptativa': None}
+               'PMV fora da faixa (%)': None, 'Fora da banda adaptativa (%)': None}
 
         if row['Número ocupação'] == 0:
             raise ValueError(
@@ -112,20 +112,20 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
                 "são frações do tempo ocupado e não podem ser calculadas"
             )
 
-        row['Aquecimento'] = len(df[(df[people_column.format(room)] != 0) & (df[heating_column.format(room)] != 0)]) / row['Número ocupação']
-        row['Resfriamento'] = len(df[(df[people_column.format(room)] != 0) & (df[cooling_column.format(room)] != 0)]) / row['Número ocupação']
-        row['Ar condicionado ligado'] = row['Aquecimento'] + row['Resfriamento']
-        row['Ventilador ligado'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1)]) / row['Número ocupação']
-        row['Ventilador ligado e ar ligado'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1) & (df[cooling_column.format(room)] != 0)]) / row['Número ocupação']
-        row['Ventilador ligado, ar desligado e janela fechada'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1) & (df[ac_column.format(room)] == 0) & (df[janela_column.format(room)] == 0)]) / row['Número ocupação']
-        row['Janela aberta'] = len(df[(df[people_column.format(room)] != 0) & (df[janela_column.format(room)] == 1)]) / row['Número ocupação']
-        row['Janela aberta e ventilador ligado'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1) & (df[janela_column.format(room)] == 1)]) / row['Número ocupação']
-        row['DOAS ligado'] = len(df[(df[people_column.format(room)] != 0) & (df[doas_column.format(room)] == 1)]) / row['Número ocupação']
-        row['Janela fechada, ar desligado e ventilador desligado'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 0) & (df[janela_column.format(room)] == 0) & (df[ac_column.format(room)] == 0)]) / row['Número ocupação']
-        row['Desconforto'] = len(df[(df[people_column.format(room)] != 0) & (df[em_conforto_column.format(room)] == 0)]) / row['Número ocupação']
-        row['CO2 máximo'] = df[co2_column.format(room)].max()
+        row['Aquecimento (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[heating_column.format(room)] != 0)]) / row['Número ocupação']
+        row['Resfriamento (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[cooling_column.format(room)] != 0)]) / row['Número ocupação']
+        row['Ar condicionado ligado (%)'] = row['Aquecimento (%)'] + row['Resfriamento (%)']
+        row['Ventilador ligado (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1)]) / row['Número ocupação']
+        row['Ventilador ligado e ar ligado (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1) & (df[cooling_column.format(room)] != 0)]) / row['Número ocupação']
+        row['Ventilador ligado, ar desligado e janela fechada (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1) & (df[ac_column.format(room)] == 0) & (df[janela_column.format(room)] == 0)]) / row['Número ocupação']
+        row['Janela aberta (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[janela_column.format(room)] == 1)]) / row['Número ocupação']
+        row['Janela aberta e ventilador ligado (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 1) & (df[janela_column.format(room)] == 1)]) / row['Número ocupação']
+        row['DOAS ligado (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[doas_column.format(room)] == 1)]) / row['Número ocupação']
+        row['Janela fechada, ar desligado e ventilador desligado (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 0) & (df[janela_column.format(room)] == 0) & (df[ac_column.format(room)] == 0)]) / row['Número ocupação']
+        row['Desconforto (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[em_conforto_column.format(room)] == 0)]) / row['Número ocupação']
+        row['CO2 máximo (ppm)'] = df[co2_column.format(room)].max()
         without_people = df[df[people_column.format(room)] == 0]
-        row['Janela aberta sem pessoas'] = len(without_people[without_people[janela_column.format(room)] == 1]) / len(without_people) if len(without_people) else 0
+        row['Janela aberta sem pessoas (%)'] = len(without_people[without_people[janela_column.format(room)] == 1]) / len(without_people) if len(without_people) else 0
 
         # Duas execuções só são comparáveis se cobrem o mesmo período; sem esta
         # contagem, um RunPeriod de verão passava por anual na tabela.
@@ -161,11 +161,11 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
         occupied = df[df[people_column.format(room)] != 0]
         pmv = occupied[pmv_column.format(room)]
         row['PMV médio'] = pmv.mean()
-        row['PMV fora da faixa'] = (pmv.abs() > 0.5).sum() / row['Número ocupação']
+        row['PMV fora da faixa (%)'] = (pmv.abs() > 0.5).sum() / row['Número ocupação']
         temp_op = occupied[temp_op_column.format(room)]
         outside_adaptative = ((temp_op < occupied[adap_min_column.format(room)])
                               | (temp_op > occupied[adap_max_column.format(room)]))
-        row['Fora da banda adaptativa'] = outside_adaptative.sum() / row['Número ocupação']
+        row['Fora da banda adaptativa (%)'] = outside_adaptative.sum() / row['Número ocupação']
 
         stats_df = pandas.concat([stats_df, pandas.DataFrame(row, index=[len(stats_df)])])
 
