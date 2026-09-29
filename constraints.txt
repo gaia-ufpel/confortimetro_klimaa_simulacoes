@@ -108,6 +108,7 @@ websockets==16.1.1
 zipp==4.1.0
 # MCP local (SDK oficial e dependências indiretas instaladas no venv).
 mcp==1.30.0
+pywin32==311 ; sys_platform == "win32"
 httpx-sse==0.4.3
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1

@@ -1,14 +1,18 @@
 """Servidor MCP local: acesso limitado às execuções e disparo pelo CLI."""
 
 import json
+import contextlib
 import math
 import os
 import subprocess
 import sys
+import time
 import uuid
 from dataclasses import fields
+from datetime import datetime
 
 import pandas
+from eppy.modeleditor import IDDAlreadySetError
 from mcp.server.fastmcp import FastMCP
 
 from confortimetro.config import SimulationConfig, default_energy_path, find_energy_path, is_energy_path
@@ -19,6 +23,14 @@ SERVER = FastMCP("Confortímetro Klimaa")
 STATUS_FILE = "mcp_status.json"
 MAX_RUNS = 30
 MAX_ROOMS = 30
+PID_FILE = "mcp_pid.json"
+MAX_ACTIVE_ENV = "CONFORTIMETRO_MCP_MAX_ACTIVE"
+ACTIVE_STATES = ("na_fila", "executando")
+QUEUE_TIMEOUT = 120
+INTERRUPTED = "Processo da simulação não está mais ativo"
+BREAKAWAY_WARNING = ("O cliente MCP não permite desvincular processos do Job Object: "
+                     "a simulação será interrompida se o cliente fechar")
+WINDOWS = os.name == "nt"
 CONFIG_FIELDS = {field.name for field in fields(SimulationConfig)} - {
     "met_as_watts", "_idf_path", "_met", "output_path", "runs_root_path",
     "input_path", "expanded_idf_path", "source_idf_path", "idf_filename", "code_version",
@@ -51,19 +63,136 @@ def _file(run: str, name: str) -> str:
     return path
 
 
+def _read_json(path: str) -> dict:
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
 def _status(run: str) -> dict:
     path = _file(run, STATUS_FILE)
-    if os.path.isfile(path):
-        with open(path, encoding="utf-8") as handle:
-            return json.load(handle)
-    return {"estado": "concluida" if os.path.isfile(_file(run, "ESTATISTICAS.xlsx"))
-            else "desconhecido"}
+    if not os.path.isfile(path):
+        return {"estado": "concluida" if os.path.isfile(_file(run, "ESTATISTICAS.xlsx"))
+                else "desconhecido"}
+    status = _read_json(path)
+    if status.get("estado") not in ACTIVE_STATES:
+        return status
+    # O runner grava o próprio PID ao começar; antes disso vale o PID do Popen.
+    pid, started = status.get("pid"), status.get("inicio")
+    pid_file = _file(run, PID_FILE)
+    if not pid and os.path.isfile(pid_file):
+        spawned = _read_json(pid_file)
+        pid, started = spawned.get("pid"), spawned.get("inicio")
+    if pid:
+        dead = not _pid_alive(pid, started)
+    else:
+        # Servidor morreu entre reservar a pasta e disparar o runner.
+        dead = time.time() - os.path.getmtime(path) > QUEUE_TIMEOUT
+    if not dead:
+        return status
+    from confortimetro.mcp_runner import write_status
+    # Releitura: o runner pode ter gravado o resultado enquanto consultávamos o PID.
+    if _read_json(path).get("estado") not in ACTIVE_STATES:
+        return _read_json(path)
+    write_status(run, "interrompida", INTERRUPTED)
+    return {"estado": "interrompida", "erro": INTERRUPTED}
+
+
+def _process_start(pid: int):
+    """Hora (epoch) em que o processo começou; None se não der para saber."""
+    try:
+        with open(f"/proc/{pid}/stat", encoding="utf-8") as handle:
+            ticks = int(handle.read().rsplit(")", 1)[1].split()[19])
+        with open("/proc/stat", encoding="utf-8") as handle:
+            boot = next(int(line.split()[1]) for line in handle if line.startswith("btime "))
+        return boot + ticks / os.sysconf("SC_CLK_TCK")
+    except (OSError, ValueError, IndexError, StopIteration):
+        return None
+
+
+def _pid_alive(pid: int, started: float = None) -> bool:
+    """Processo existe e não é outro que reaproveitou o PID depois de `started`."""
+    if WINDOWS:
+        import ctypes
+        kernel = ctypes.windll.kernel32
+        handle = kernel.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            return bool(kernel.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == 259
+        finally:
+            kernel.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    if sys.platform == "linux":
+        try:
+            with open(f"/proc/{pid}/stat", encoding="utf-8") as handle:
+                if handle.read().rsplit(")", 1)[1].split()[0] == "Z":
+                    return False  # zombie não é execução viva
+        except OSError:
+            return False
+        begun = _process_start(pid)
+        if started and begun and begun > started + 2:
+            return False
+    return True
+
+
+@contextlib.contextmanager
+def _launch_lock(root: str):
+    """Serializa a reserva de vagas também entre servidores MCP independentes."""
+    with open(os.path.join(root, ".mcp_launch.lock"), "a+b") as handle:
+        if WINDOWS:
+            import msvcrt
+            handle.seek(0)
+            if not handle.read(1):
+                handle.write(b"0")
+                handle.flush()
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if WINDOWS:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def _active_limit() -> int:
+    try:
+        limit = int(os.environ.get(MAX_ACTIVE_ENV, "2"))
+        if limit < 1:
+            raise ValueError
+        return limit
+    except ValueError as error:
+        raise ValueError(f"{MAX_ACTIVE_ENV} deve ser inteiro positivo") from error
+
+
+def _spawn(args: list, **kwargs):
+    """Abre o runner fora da sessão/Job Object do cliente; devolve (processo, aviso)."""
+    if not WINDOWS:
+        return subprocess.Popen(args, start_new_session=True, **kwargs), ""
+    flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+    try:
+        return subprocess.Popen(args, creationflags=flags | subprocess.CREATE_BREAKAWAY_FROM_JOB,
+                                **kwargs), ""
+    except PermissionError:
+        # Job sem JOB_OBJECT_LIMIT_BREAKAWAY_OK (ex.: stdio_client do SDK Python).
+        return subprocess.Popen(args, creationflags=flags, **kwargs), BREAKAWAY_WARNING
 
 
 def _config(args: dict, output: str) -> SimulationConfig:
     if not isinstance(args, dict):
         raise ValueError("configuracao deve ser um objeto")
-    allowed = CONFIG_FIELDS | {"idf_path", "epw_path", "energy_path", "rooms", "met"}
+    allowed = CONFIG_FIELDS | {"idf_path", "epw_path", "rooms", "met"}
     unknown = set(args) - allowed
     if unknown:
         raise ValueError(f"Campos não permitidos: {sorted(unknown)}")
@@ -79,7 +208,7 @@ def _config(args: dict, output: str) -> SimulationConfig:
         and "/" not in room and "\\" not in room for room in rooms
     ):
         raise ValueError("Informe uma lista de 1 a 30 zonas")
-    energy = args.get("energy_path") or find_energy_path() or default_energy_path()
+    energy = find_energy_path() or default_energy_path()
     if not isinstance(energy, str) or not is_energy_path(energy):
         raise ValueError("Instalação do EnergyPlus inválida")
     config = SimulationConfig(met_as_watts=0, _idf_path=os.path.realpath(idf),
@@ -87,7 +216,7 @@ def _config(args: dict, output: str) -> SimulationConfig:
                               output_path=output, runs_root_path=_root(),
                               energy_path=os.path.realpath(energy), rooms=rooms)
     for key, value in args.items():
-        if key not in {"idf_path", "epw_path", "energy_path", "rooms"}:
+        if key not in {"idf_path", "epw_path", "rooms"}:
             if key == "module_type" and value not in ("COMPLETE", "CLOSED_WINDOW", "WITHOUT_FAN", "FIXED_AC_WITHOUT_FAN"):
                 raise ValueError("module_type inválido")
             if key in ("ignore_missing_equipment", "clo_priority") and not isinstance(value, bool):
@@ -165,6 +294,9 @@ def validar_configuracao(configuracao: dict) -> dict:
         if not errors:
             errors = IDFProcessor(config).validate_idf()
         return {"valida": not errors, "erros": errors[:20]}
+    except IDDAlreadySetError:
+        # O eppy fixa um IDD por processo; a instalação mudou desde a 1ª validação.
+        return {"valida": False, "erros": ["A instalação do EnergyPlus mudou; reinicie o servidor MCP"]}
     except (ValueError, OSError, TypeError) as error:
         return {"valida": False, "erros": [str(error)]}
 
@@ -177,29 +309,43 @@ def iniciar_simulacao(configuracao: dict) -> dict:
         return validation
     root = _root()
     os.makedirs(root, exist_ok=True)
-    while True:
-        name = f"mcp_{uuid.uuid4().hex[:12]}"
-        run = _run_path(name, existing=False)
+    with _launch_lock(root):
+        active = 0
+        for entry in os.scandir(root):
+            if entry.is_dir(follow_symlinks=False) and os.path.isfile(os.path.join(entry.path, STATUS_FILE)):
+                try:
+                    if _status(_run_path(entry.name))["estado"] in ACTIVE_STATES:
+                        active += 1
+                except (ValueError, OSError, KeyError, json.JSONDecodeError):
+                    continue
+        if active >= _active_limit():
+            return {"estado": "recusada", "erro": "Limite de simulações simultâneas atingido"}
+        while True:
+            name = f"{datetime.now().strftime('%Y%m%d_%H%M')}_mcp_{uuid.uuid4().hex[:12]}"
+            run = _run_path(name, existing=False)
+            try:
+                os.mkdir(run)
+                break
+            except FileExistsError:
+                continue
+        config = _config(configuracao, run)
+        config_path = _file(run, "entrada_mcp.json")
+        config.to_json(config_path)
+        from confortimetro.mcp_runner import write_status
+        write_status(run, "na_fila")
         try:
-            os.mkdir(run)
-            break
-        except FileExistsError:
-            continue
-    config = _config(configuracao, run)
-    config_path = _file(run, "entrada_mcp.json")
-    config.to_json(config_path)
-    from confortimetro.mcp_runner import write_status
-    write_status(run, "na_fila")
-    try:
-        with open(_file(run, "mcp.log"), "w", encoding="utf-8") as log:
-            subprocess.Popen([sys.executable, "-m", "confortimetro.mcp_runner", config_path],
-                             cwd=os.path.dirname(os.path.dirname(__file__)),
-                             stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
-                             close_fds=True)
-    except OSError as error:
-        write_status(run, "falhou", str(error))
-        return {"id": name, "pasta": run, "estado": "falhou", "erro": str(error)}
-    return {"id": name, "pasta": run, "estado": "na_fila"}
+            with open(_file(run, "mcp.log"), "w", encoding="utf-8") as log:
+                process, warning = _spawn(
+                    [sys.executable, "-m", "confortimetro.mcp_runner", config_path],
+                    cwd=os.path.dirname(os.path.dirname(__file__)),
+                    stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, close_fds=True)
+            with open(_file(run, PID_FILE), "w", encoding="utf-8") as handle:
+                json.dump({"pid": process.pid, "inicio": time.time()}, handle)
+        except OSError as error:
+            write_status(run, "falhou", str(error))
+            return {"id": name, "pasta": run, "estado": "falhou", "erro": str(error)}
+    started = {"id": name, "pasta": run, "estado": "na_fila"}
+    return {**started, "aviso": warning} if warning else started
 
 
 @SERVER.tool()
