@@ -9,18 +9,20 @@ do botão **Executar** (`MainWindow.start_simulation`).
 
 import datetime
 import json
+import math
 import os
 import uuid
 
-from ..config import SimulationConfig, is_energy_path
+from ..config import PORCENT2ADAPTATIVE, SimulationConfig, is_energy_path
 from ..idf.processor import (read_run_period, read_timesteps_per_hour,
                              read_zone_names, unwired_equipment)
 from ..module_type import ModuleType
 
 # Campos que o assistente pode alterar, com o tipo esperado. Caminhos de saída,
 # EnergyPlus e os derivados ficam de fora: são da máquina ou da própria execução.
+# O IDF também: é o que o usuário escolheu (ou o da execução base), e o modelo
+# não troca por outro arquivo do disco.
 EDITABLE_FIELDS = {
-    "idf_path": str,
     "epw_path": str,
     "module_type": str,
     "rooms": list,
@@ -40,6 +42,24 @@ EDITABLE_FIELDS = {
     "max_vel": float,
     "air_speed_delta": float,
     "co2_limit": float,
+}
+
+# Faixas fechadas da tela de execução (`simulation_config_panel`) e da validade
+# do PMV (ISO 7730 / ASHRAE 55); ver PRD 005. `wme` vai de 0 até abaixo de `met`.
+FIELD_RANGES = {
+    "met": (0.8, 4.0),
+    "pmv_lowerbound": (-3.0, 3.0),
+    "pmv_upperbound": (-3.0, 3.0),
+    "clo_min": (0.0, 2.0),
+    "clo_max": (0.0, 2.0),
+    "temp_ac_min": (10.0, 35.0),
+    "temp_ac_max": (10.0, 35.0),
+    "co2_limit": (400.0, 5000.0),
+}
+# Faixas abertas em zero: (0, máximo].
+POSITIVE_RANGES = {
+    "pmv_comfort_bound": 3.0,
+    "max_vel": 2.0,
 }
 
 # O que a confirmação mostra, na ordem, além das alterações.
@@ -72,6 +92,8 @@ def _coerce(field, value):
     if kind is float:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ProposalError(f"{field} precisa ser número (recebido {value!r}).")
+        if not math.isfinite(value):
+            raise ProposalError(f"{field} precisa ser um número finito (recebido {value!r}).")
         return float(value)
     if kind is bool:
         if isinstance(value, str) and value.lower() in ("true", "false"):
@@ -128,16 +150,30 @@ def validate(config: SimulationConfig):
         if getattr(config, low) > getattr(config, high):
             problems.append(f"{low} ({getattr(config, low)}) maior que "
                             f"{high} ({getattr(config, high)}).")
+    for field, (low, high) in FIELD_RANGES.items():
+        value = getattr(config, field)
+        if not low <= value <= high:
+            problems.append(f"{field} ({value}) fora da faixa {low} a {high}.")
+    for field, high in POSITIVE_RANGES.items():
+        value = getattr(config, field)
+        if not 0 < value <= high:
+            problems.append(f"{field} ({value}) precisa ser maior que 0 e até {high}.")
+    if not 0 <= config.wme < config.met:
+        problems.append(f"wme ({config.wme}) precisa ser >= 0 e menor que met ({config.met}).")
+    if config.adaptative_bound not in PORCENT2ADAPTATIVE.values():
+        problems.append(f"adaptative_bound ({config.adaptative_bound}) precisa ser um de "
+                        f"{sorted(PORCENT2ADAPTATIVE.values())}.")
     if config.clo_delta <= 0 or config.air_speed_delta <= 0:
         problems.append("clo_delta e air_speed_delta precisam ser positivos.")
 
     if os.path.isfile(config.idf_path or ""):
         zones = read_zone_names(config.idf_path)
-        unknown = [room for room in rooms if zones and room.upper() not in
+        # IDF sem Zone não tem onde aplicar o controle: toda zona é desconhecida.
+        unknown = [room for room in rooms if room.upper() not in
                    {zone.upper() for zone in zones}]
         if unknown:
             problems.append(f"Zonas que não existem no IDF: {', '.join(unknown)}. "
-                            f"Disponíveis: {', '.join(zones)}.")
+                            f"Disponíveis: {', '.join(zones) or 'nenhuma'}.")
         elif rooms:
             warnings += unwired_equipment(config.idf_path, rooms, config.module_type)
     return problems, warnings

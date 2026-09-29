@@ -42,6 +42,30 @@ sobre a configuração que vai rodar.
 7. O prompt de sistema lista o estado de cada proposta; o modelo não afirma que uma
    simulação começou ou terminou.
 
+### Faixas aceitas na proposta
+
+`FIELD_RANGES`/`POSITIVE_RANGES` em `confortimetro/assistant/simulacao.py`. Valor
+não finito é recusado em qualquer campo numérico. Faixas da tela de execução e da
+validade do PMV (ISO 7730 / ASHRAE 55):
+
+| Campo | Faixa |
+|---|---|
+| `met` | 0,8 a 4,0 |
+| `wme` | ≥ 0 e < `met` |
+| `clo_min`, `clo_max` | 0 a 2 |
+| `pmv_lowerbound`, `pmv_upperbound` | -3 a 3 |
+| `pmv_comfort_bound` | > 0 e ≤ 3 |
+| `temp_ac_min`, `temp_ac_max` | 10 a 35 °C |
+| `max_vel` | > 0 e ≤ 2 m/s |
+| `co2_limit` | 400 a 5000 ppm |
+| `adaptative_bound` | um dos valores de `PORCENT2ADAPTATIVE` |
+| `clo_delta`, `air_speed_delta` | > 0 |
+| `temp_open_window_bound` | só finito — é margem (°C) sobre `temp_ar`, padrão 5; faixa a definir |
+
+O IDF não entra na proposta: é sempre o escolhido pelo usuário (ou o da execução
+base). IDF sem `Zone` recusa qualquer `rooms`. Uma proposta pendente por resposta;
+as extras voltam ao modelo como erro.
+
 ## 3. Fora
 
 - Execução sem confirmação, fila de simulações ou várias em paralelo.

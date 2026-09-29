@@ -492,6 +492,43 @@ def test_propor_simulacao_recusa_configuracao_invalida(root, tmp_path):
     assert "erro" in Toolbox(root).call("propor_simulacao", {"base_execucao": "COM_JANELA"})
 
 
+def test_propor_simulacao_nao_troca_o_idf(root, tmp_path):
+    outro = tmp_path / "outro"
+    outro.mkdir()
+    other_idf, _, _ = modelo_valido(outro)
+    tools = Toolbox(root, base_config(tmp_path))
+    result = tools.call("propor_simulacao", {"alteracoes": [
+        {"campo": "idf_path", "valor": other_idf}]})
+    assert "erro" in result and tools.proposals == []
+
+
+def test_propor_simulacao_recusa_numero_fora_da_faixa(root, tmp_path):
+    tools = Toolbox(root, base_config(tmp_path))
+    for field, value in (("met", "1e999"), ("met", "NaN"), ("co2_limit", "-Infinity"),
+                         ("pmv_lowerbound", "-5"), ("pmv_upperbound", "3.5"),
+                         ("clo_min", "-0.1"), ("clo_max", "2.5"),
+                         ("temp_ac_min", "5"), ("temp_ac_max", "40"),
+                         ("adaptative_bound", "1"), ("met", "-5"), ("met", "0.5"),
+                         ("met", "4.5"), ("wme", "-0.1"), ("wme", "1.2"),
+                         ("pmv_comfort_bound", "0"), ("pmv_comfort_bound", "3.5"),
+                         ("max_vel", "0"), ("max_vel", "2.5"),
+                         ("co2_limit", "300"), ("co2_limit", "6000")):
+        result = tools.call("propor_simulacao", {"alteracoes": [
+            {"campo": field, "valor": value}]})
+        assert "erro" in result, (field, value)
+    assert tools.proposals == []
+
+
+def test_propor_simulacao_recusa_idf_sem_zona(root, tmp_path):
+    config = base_config(tmp_path)
+    with open(config.idf_path, "w") as output:
+        output.write("RunPeriod,\n  Curto,\n  1,\n  5,\n  2015,\n  1,\n  7,\n  2015,\n"
+                     "  Monday;\n\nTimestep,\n  6;\n")
+    tools = Toolbox(root, config)
+    result = tools.call("propor_simulacao", {})
+    assert "erro" in result and "SALA1" in result["erro"]
+
+
 def test_propor_simulacao_a_partir_de_execucao(root, tmp_path):
     import json
     config = base_config(tmp_path)
@@ -534,6 +571,27 @@ def test_pedido_vira_proposta_pendente_na_conversa(root, tmp_path):
     _, config = client.models.requests[2]
     assert "iniciada, execução 20260929_1200" in config.system_instruction
     assert store.pending_proposal(conversation) is None
+
+
+def test_uma_proposta_pendente_por_resposta(root, tmp_path):
+    client = FakeClient([
+        [_chunk(_call("propor_simulacao", alteracoes=[
+            {"campo": "module_type", "valor": "WITHOUT_FAN"}]),
+                _call("propor_simulacao", alteracoes=[
+            {"campo": "module_type", "valor": "CLOSED_WINDOW"}]))],
+        [_chunk(types.Part(text="Confirme na tela."))],
+    ])
+    conversation = store.new_conversation()
+    assistant = Assistant(conversation, root, client=client, base_config=base_config(tmp_path))
+    assistant.ask("Roda duas simulações")
+
+    pending = [p for p in conversation["proposals"] if p["status"] == "pendente"]
+    assert len(pending) == 1 and pending[0]["config"]["module_type"] == "WITHOUT_FAN"
+    # A segunda chamada volta ao modelo como erro, não some.
+    contents, _ = client.models.requests[1]
+    results = [part.function_response.response["resultado"]
+               for part in contents[-1].parts]
+    assert "erro" not in results[0] and "erro" in results[1]
 
 
 # --- Configurações e chave -----------------------------------------------

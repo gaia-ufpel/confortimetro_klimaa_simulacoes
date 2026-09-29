@@ -705,6 +705,11 @@ class Toolbox:
             base, label = self.base_config, "configuração atual da tela de execução"
         else:
             raise ToolError("Sem configuração base nesta tela; informe base_execucao.")
+        if self.proposals:
+            # A tela confirma uma proposta por vez; a extra voltaria como
+            # pendente escondida atrás da primeira.
+            raise ToolError("Já há uma proposta nesta resposta aguardando o usuário; "
+                            "proponha uma simulação por vez.")
         try:
             proposal = simulacao.build_proposal(base, alteracoes, self.root, motivo, label)
         except simulacao.ProposalError as error:
