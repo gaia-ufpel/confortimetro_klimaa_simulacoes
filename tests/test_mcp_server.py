@@ -116,7 +116,27 @@ def test_disparo_fake_runner_persiste_estado(tmp_path, monkeypatch):
             "rooms": ["../fora"]}, started["pasta"])
 
 
+@pytest.mark.skipif(not os.path.isfile("/usr/local/EnergyPlus-9-4-0/Energy+.idd"),
+                    reason="EnergyPlus 9.4 indisponível")
+def test_disparo_valida_idf_real_antes_de_abrir_runner(tmp_path, monkeypatch):
+    monkeypatch.setenv("CONFORTIMETRO_DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("AMBIENS_DATA_DIR", raising=False)
+    mcp_server._energy_installation.cache_clear()
+    monkeypatch.setattr(mcp_server, "find_energy_path", lambda: "/usr/local/EnergyPlus-9-4-0")
+    calls = []
+    monkeypatch.setattr(mcp_server.subprocess, "Popen", lambda *a, **k: calls.append((a, k))
+                        or types.SimpleNamespace(pid=os.getpid()))
+    config = {"idf_path": os.path.join(REPO, "examples", "idf", "SALA", "SALA_PTHP.idf"),
+              "epw_path": os.path.join(REPO, "examples", "epw", "BRA_RS_Camaqua.869890_INMET.epw"),
+              "rooms": ["SALA"], "module_type": "CLOSED_WINDOW"}
+    assert mcp_server.iniciar_simulacao(config)["estado"] == "na_fila"
+    assert len(calls) == 1
+    assert not mcp_server.iniciar_simulacao({**config, "rooms": ["inexistente"]})["valida"]
+    assert len(calls) == 1
+
+
 def _inputs(tmp_path, monkeypatch):
+    mcp_server._energy_installation.cache_clear()
     monkeypatch.setenv("CONFORTIMETRO_DATA_DIR", str(tmp_path))
     monkeypatch.delenv("AMBIENS_DATA_DIR", raising=False)
     idf = tmp_path / "entrada.idf"
@@ -148,6 +168,23 @@ def test_energy_path_nao_e_argumento_da_ferramenta(tmp_path, monkeypatch):
     assert refused["valida"] is False and "energy_path" in refused["erros"][0]
     config = mcp_server._config(args, str(tmp_path / "saida"))
     assert config.energy_path == os.path.realpath(energy)
+
+
+def test_caminhos_de_entrada_relativos_sao_recusados(tmp_path, monkeypatch):
+    args, _ = _inputs(tmp_path, monkeypatch)
+    for field in ("idf_path", "epw_path"):
+        assert mcp_server.validar_configuracao({**args, field: os.path.basename(args[field])})["valida"] is False
+
+
+def test_energyplus_nao_troca_idd_com_servidor_ativo(tmp_path, monkeypatch):
+    args, first = _inputs(tmp_path, monkeypatch)
+    assert mcp_server._config(args, str(tmp_path / "saida")).energy_path == str(first)
+    second = tmp_path / "outra"
+    (second / "pyenergyplus").mkdir(parents=True)
+    (second / "Energy+.idd").touch()
+    (second / "pyenergyplus" / "api.py").touch()
+    monkeypatch.setattr(mcp_server, "find_energy_path", lambda: str(second))
+    assert mcp_server._config(args, str(tmp_path / "saida")).energy_path == str(first)
 
 
 def test_idd_diferente_do_fixado_no_processo_vira_erro_tratado(tmp_path, monkeypatch):
@@ -269,7 +306,7 @@ def test_listagem_cronologica_junto_com_gui(tmp_path, monkeypatch):
     assert ids == ["29991231_2359", started["id"], "20000101_0000"]
 
 
-def test_windows_sem_breakaway_dispara_com_aviso(monkeypatch):
+def test_windows_sem_breakaway_recusa_disparo(monkeypatch):
     calls = []
 
     def popen(args, creationflags=0, **kwargs):
@@ -283,9 +320,9 @@ def test_windows_sem_breakaway_dispara_com_aviso(monkeypatch):
     for name, value in (("CREATE_NEW_PROCESS_GROUP", 0x200), ("DETACHED_PROCESS", 0x8),
                         ("CREATE_BREAKAWAY_FROM_JOB", 0x01000000)):
         monkeypatch.setattr(mcp_server.subprocess, name, value, raising=False)
-    process, warning = mcp_server._spawn(["python"])
-    assert process.pid == 1 and warning == mcp_server.BREAKAWAY_WARNING
-    assert calls == [0x01000208, 0x208]
+    with pytest.raises(PermissionError, match="Job Object"):
+        mcp_server._spawn(["python"])
+    assert calls == [0x01000208]
 
 
 def test_pywin32_fixado_no_constraints():
@@ -312,4 +349,4 @@ def test_config_invalida_remove_pasta_criada(tmp_path, monkeypatch):
     monkeypatch.setattr(mcp_server, "validar_configuracao", lambda configuracao: {"valida": True, "erros": []})
     with pytest.raises(ValueError, match="zonas"):
         mcp_server.iniciar_simulacao({**args, "rooms": ["../fora"]})
-    assert [p for p in (tmp_path / "execucoes").iterdir() if p.is_dir()] == []
+    assert not [entry for entry in (tmp_path / "execucoes").iterdir() if entry.is_dir()]

@@ -87,9 +87,8 @@ No Windows, use `claude mcp add --scope user --transport stdio confortimetro --e
 - **Windows:** o runner abre com `CREATE_BREAKAWAY_FROM_JOB`. Isso só funciona
   se o Job Object do cliente permitir (`JOB_OBJECT_LIMIT_BREAKAWAY_OK`); o
   `stdio_client` do SDK Python cria o job só com `KILL_ON_JOB_CLOSE`, sem essa
-  permissão, e o servidor não tem como obtê-la. Nesse caso o disparo segue sem
-  breakaway, a resposta traz `aviso` e a simulação morre junto com o cliente
-  (o estado vira `interrompida`). Mantenha o cliente aberto até o fim.
+   permissão, e o servidor não tem como obtê-la. Nesse caso o disparo falha
+   (`estado: falhou`) em vez de prometer uma simulação independente do cliente.
 
 A raiz padrão pode ser trocada com `CONFORTIMETRO_DATA_DIR` (ou
 `AMBIENS_DATA_DIR`, que tem precedência). As ferramentas não aceitam caminhos

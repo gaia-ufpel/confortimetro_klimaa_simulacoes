@@ -10,6 +10,7 @@ import time
 import uuid
 from dataclasses import fields
 from datetime import datetime
+from functools import lru_cache
 
 import pandas
 from eppy.modeleditor import IDDAlreadySetError
@@ -186,7 +187,16 @@ def _spawn(args: list, **kwargs):
                                 **kwargs), ""
     except PermissionError:
         # Job sem JOB_OBJECT_LIMIT_BREAKAWAY_OK (ex.: stdio_client do SDK Python).
-        return subprocess.Popen(args, creationflags=flags, **kwargs), BREAKAWAY_WARNING
+        raise PermissionError(BREAKAWAY_WARNING) from None
+
+
+@lru_cache(maxsize=1)
+def _energy_installation() -> str:
+    """Eppy fixa o IDD no processo; a instalação não deve mudar entre chamadas."""
+    energy = find_energy_path() or default_energy_path()
+    if not isinstance(energy, str) or not is_energy_path(energy):
+        raise ValueError("Instalação do EnergyPlus inválida")
+    return os.path.realpath(energy)
 
 
 def _config(args: dict, output: str) -> SimulationConfig:
@@ -198,9 +208,9 @@ def _config(args: dict, output: str) -> SimulationConfig:
         raise ValueError(f"Campos não permitidos: {sorted(unknown)}")
     idf = args.get("idf_path")
     epw = args.get("epw_path")
-    if not isinstance(idf, str) or not os.path.isfile(idf) or not idf.lower().endswith(".idf"):
+    if not isinstance(idf, str) or not os.path.isabs(idf) or not os.path.isfile(idf) or not idf.lower().endswith(".idf"):
         raise ValueError("Informe um arquivo IDF existente")
-    if not isinstance(epw, str) or not os.path.isfile(epw) or not epw.lower().endswith(".epw"):
+    if not isinstance(epw, str) or not os.path.isabs(epw) or not os.path.isfile(epw) or not epw.lower().endswith(".epw"):
         raise ValueError("Informe um arquivo EPW existente")
     rooms = args.get("rooms")
     if not isinstance(rooms, list) or not rooms or len(rooms) > MAX_ROOMS or not all(
@@ -208,13 +218,11 @@ def _config(args: dict, output: str) -> SimulationConfig:
         and "/" not in room and "\\" not in room for room in rooms
     ):
         raise ValueError("Informe uma lista de 1 a 30 zonas")
-    energy = find_energy_path() or default_energy_path()
-    if not isinstance(energy, str) or not is_energy_path(energy):
-        raise ValueError("Instalação do EnergyPlus inválida")
+    energy = _energy_installation()
     config = SimulationConfig(met_as_watts=0, _idf_path=os.path.realpath(idf),
                               _met=1.2, epw_path=os.path.realpath(epw),
                               output_path=output, runs_root_path=_root(),
-                              energy_path=os.path.realpath(energy), rooms=rooms)
+                              energy_path=energy, rooms=rooms)
     for key, value in args.items():
         if key not in {"idf_path", "epw_path", "rooms"}:
             if key == "module_type" and value not in ("COMPLETE", "CLOSED_WINDOW", "WITHOUT_FAN", "FIXED_AC_WITHOUT_FAN"):

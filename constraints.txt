@@ -122,3 +122,4 @@ sse-starlette==3.5.0
 starlette==1.7.0
 uvicorn==0.54.0
 attrs==26.1.0
+pywin32==310 ; sys_platform == "win32"
