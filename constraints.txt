@@ -106,3 +106,18 @@ typing-inspection==0.4.4
 urllib3==2.8.0
 websockets==16.1.1
 zipp==4.1.0
+# MCP local (SDK oficial e dependências indiretas instaladas no venv).
+mcp==1.30.0
+httpx-sse==0.4.3
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+PyJWT==2.15.1
+pydantic-settings==2.15.0
+python-dotenv==1.2.3
+python-multipart==0.0.32
+referencing==0.37.0
+rpds-py==0.30.0
+sse-starlette==3.5.0
+starlette==1.7.0
+uvicorn==0.54.0
+attrs==26.1.0
