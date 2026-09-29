@@ -12,7 +12,7 @@ import pytest
 pytest.importorskip("google.genai")
 from google.genai import types  # noqa: E402
 
-from confortimetro.assistant import store  # noqa: E402
+from confortimetro.assistant import simulacao, store  # noqa: E402
 from confortimetro.assistant.client import Assistant, AssistantError, Cancelled  # noqa: E402
 from confortimetro.assistant.tools import MAX_ROWS, Toolbox  # noqa: E402
 from confortimetro.results.compare import recompute_run  # noqa: E402
@@ -429,6 +429,113 @@ def test_execucao_recalculada_gera_aviso(root):
     assert "recalculada" in Assistant(conversation, root, client=object())._system_prompt()
 
 
+# --- Proposta de simulação -----------------------------------------------
+
+def modelo_valido(tmp_path, zone="SALA1"):
+    """IDF de 3 dias, EPW e uma "instalação" do EnergyPlus que passa na validação."""
+    idf = tmp_path / "modelo.idf"
+    idf.write_text(f"Zone,\n  {zone};\n\nRunPeriod,\n  Curto,\n  1,\n  5,\n  2015,\n"
+                   "  1,\n  7,\n  2015,\n  Monday;\n\nTimestep,\n  6;\n")
+    epw = tmp_path / "clima.epw"
+    epw.write_text("LOCATION,Teste\n")
+    energy = tmp_path / "EnergyPlus-9-4-0"
+    (energy / "pyenergyplus").mkdir(parents=True)
+    (energy / "Energy+.idd").write_text("")
+    (energy / "pyenergyplus" / "api.py").write_text("")
+    return str(idf), str(epw), str(energy)
+
+
+def base_config(tmp_path, zone="SALA1"):
+    from confortimetro.config import SimulationConfig
+    idf, epw, energy = modelo_valido(tmp_path, zone)
+    return SimulationConfig(met_as_watts=125.496, _idf_path=idf, _met=1.2, epw_path=epw,
+                            energy_path=energy, rooms=[zone],
+                            runs_root_path=str(tmp_path / "execucoes"))
+
+
+def test_propor_simulacao_valida_e_nao_executa(root, tmp_path):
+    tools = Toolbox(root, base_config(tmp_path))
+    result = tools.call("propor_simulacao", {
+        "alteracoes": [{"campo": "module_type", "valor": "CLOSED_WINDOW"},
+                       {"campo": "temp_ac_max", "valor": "28"}],
+        "motivo": "testar janela fechada"})
+
+    assert "erro" not in result, result
+    assert "aguardando confirmação" in result["status"]
+    assert result["alteracoes"] == {"module_type": "CLOSED_WINDOW", "temp_ac_max": 28.0}
+    assert result["periodo"]["dias"] == 3
+    (proposal,) = tools.proposals
+    assert proposal["status"] == "pendente"
+    config = proposal["config"]
+    assert config["module_type"] == "CLOSED_WINDOW" and config["temp_ac_max"] == 28.0
+    # Sem pasta de saída ainda: nasce na raiz da listagem quando o usuário confirmar.
+    assert config["output_path"] is None and config["runs_root_path"] == root
+    # A zona do modelo não tem equipamento: a confirmação avisa.
+    assert any("SALA1" in warning for warning in proposal["avisos"])
+    # Propor não cria pasta nenhuma.
+    assert {name for name in os.listdir(root)
+            if os.path.isdir(os.path.join(root, name))} == {"COM_JANELA", "FECHADA"}
+
+
+def test_propor_simulacao_recusa_configuracao_invalida(root, tmp_path):
+    tools = Toolbox(root, base_config(tmp_path))
+    for changes in ([{"campo": "rooms", "valor": '["NAO_EXISTE"]'}],
+                    [{"campo": "epw_path", "valor": str(tmp_path / "falta.epw")}],
+                    [{"campo": "output_path", "valor": "/tmp/x"}],
+                    [{"campo": "clo_min", "valor": "2"}],
+                    [{"campo": "module_type", "valor": "TURBO"}]):
+        assert "erro" in tools.call("propor_simulacao", {"alteracoes": changes}), changes
+    assert tools.proposals == []
+    # Sem configuração da tela e sem execução base não há o que propor.
+    assert "erro" in Toolbox(root).call("propor_simulacao", {})
+    # Execução antiga sem config completo: erro legível, não exceção.
+    assert "erro" in Toolbox(root).call("propor_simulacao", {"base_execucao": "COM_JANELA"})
+
+
+def test_propor_simulacao_a_partir_de_execucao(root, tmp_path):
+    import json
+    config = base_config(tmp_path)
+    run = os.path.join(root, "BASE")
+    os.makedirs(run)
+    data = simulacao.config_to_dict(config)
+    data["source_idf_path"], data["_idf_path"] = data["_idf_path"], os.path.join(run, "x.idf")
+    with open(os.path.join(run, "configs.json"), "w") as output:
+        json.dump(data, output)
+
+    tools = Toolbox(root)
+    result = tools.call("propor_simulacao", {"base_execucao": "BASE", "alteracoes": [
+        {"campo": "co2_limit", "valor": "800"}]})
+    assert "erro" not in result, result
+    # Como o Duplicar: o IDF escolhido pelo usuário, não a cópia da execução.
+    assert tools.proposals[0]["config"]["_idf_path"] == config.idf_path
+    assert tools.proposals[0]["base"] == "execução BASE"
+
+
+def test_pedido_vira_proposta_pendente_na_conversa(root, tmp_path):
+    client = FakeClient([
+        [_chunk(_call("propor_simulacao", alteracoes=[
+            {"campo": "module_type", "valor": "WITHOUT_FAN"}]))],
+        [_chunk(types.Part(text="Confirme na tela."))],
+        [_chunk(types.Part(text="ok"))],
+    ])
+    conversation = store.new_conversation()
+    assistant = Assistant(conversation, root, client=client, base_config=base_config(tmp_path))
+    assistant.ask("Roda uma simulação sem ventilador")
+
+    proposal = store.pending_proposal(conversation)
+    assert proposal is not None and proposal["posicao"] == 2
+    assert proposal["config"]["module_type"] == "WITHOUT_FAN"
+    saved = store.load_conversation(conversation["id"])
+    assert saved["proposals"][0]["status"] == "pendente"
+
+    # O modelo fica sabendo da decisão do usuário na pergunta seguinte.
+    store.set_proposal_status(conversation, proposal["id"], "iniciada", run="20260929_1200")
+    assistant.ask("E aí?")
+    _, config = client.models.requests[2]
+    assert "iniciada, execução 20260929_1200" in config.system_instruction
+    assert store.pending_proposal(conversation) is None
+
+
 # --- Configurações e chave -----------------------------------------------
 
 def test_configuracoes_e_chave_em_arquivo(monkeypatch, data_dir):
@@ -465,3 +572,12 @@ def test_api_real(root, monkeypatch):
     answer = Assistant(store.new_conversation(["COM_JANELA"]), root).ask(
         "Qual a energia total da execução COM_JANELA?")
     assert "10" in answer
+
+
+def test_confirmacao_mostra_toda_alteracao(root, tmp_path):
+    tools = Toolbox(root, base_config(tmp_path))
+    tools.call("propor_simulacao", {"alteracoes": [{"campo": "clo_delta", "valor": "0.05"}]})
+    rows = simulacao.summary(tools.proposals[0])
+    assert rows[0][0].startswith("período")
+    assert rows[1] == ("clo_delta (alterado)", "0.05")
+    assert ("rooms", "SALA1") in rows

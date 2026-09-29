@@ -49,8 +49,11 @@ da execução. Se diferirem, se houver alteracoes_locais ou se a execução não
 code_version (anterior ao registro), avise que o código lido pode não ser o que rodou.
 - Ao comparar execuções com períodos diferentes, avise que os totais não são \
 comparáveis.
-- Você só analisa: não altera configurações nem dispara simulações. Se pedirem, \
-explique o que o resultado sugere e deixe a decisão ao usuário.
+- Você não altera configurações nem dispara simulações sozinho. Se o usuário pedir \
+para rodar uma simulação, use propor_simulacao (valida e mostra a configuração na \
+tela); só o usuário inicia, clicando em Executar. Diga que a confirmação está na tela, \
+cite as alterações, o período e os avisos devolvidos, e nunca afirme que a simulação \
+começou ou terminou — o estado de cada proposta vem abaixo. Não proponha sem pedido.
 """
 
 SUMMARY_PROMPT = """\
@@ -120,11 +123,11 @@ class Assistant:
     """Responde perguntas numa conversa, chamando as ferramentas sobre `root`."""
 
     def __init__(self, conversation: dict, root: str, settings: dict = None,
-                 api_key: str = None, client=None):
+                 api_key: str = None, client=None, base_config=None):
         self.conversation = conversation
         self.root = root
         self.settings = settings or store.load_settings()
-        self.toolbox = Toolbox(root)
+        self.toolbox = Toolbox(root, base_config)
         self._client = client
         self._api_key = api_key
 
@@ -177,6 +180,17 @@ class Assistant:
                     lines.append(f"- {run}: não existe mais")
         else:
             lines.append("Nenhuma execução em foco: descubra-as com listar_execucoes.")
+
+        proposals = self.conversation.get("proposals") or []
+        if proposals:
+            lines.append("Simulações propostas nesta conversa (estado atual, decidido pelo "
+                         "usuário na interface):")
+            for proposal in proposals:
+                state = proposal["status"]
+                if proposal.get("execucao"):
+                    state += f", execução {proposal['execucao']}"
+                lines.append(f"- {proposal['id']}: {state}; alterações "
+                             f"{proposal['alteracoes'] or 'nenhuma'} sobre {proposal['base']}")
 
         stale = store.stale_runs(self.conversation, self.root)
         if stale:
@@ -301,6 +315,17 @@ class Assistant:
         conversation = self.conversation
         conversation["contents"] = [content.model_dump(mode="json", exclude_none=True)
                                     for content in contents]
+        # Proposta nasce pendente; só a interface a leva a "iniciada" ou
+        # "descartada". `posicao` é depois de quantas mensagens ela aparece.
+        position = len(store.visible_messages(conversation))
+        if self.toolbox.proposals:
+            # Uma confirmação por vez: a proposta nova substitui a que esperava.
+            for old in conversation.get("proposals") or []:
+                if old["status"] == "pendente":
+                    old["status"] = "substituida"
+        for proposal in self.toolbox.proposals:
+            proposal["posicao"] = position
+            conversation.setdefault("proposals", []).append(proposal)
         if conversation["title"] == "Nova conversa":
             conversation["title"] = question.strip().splitlines()[0][:80]
         # Execuções que a conversa usou, com a versão dos resultados de agora.

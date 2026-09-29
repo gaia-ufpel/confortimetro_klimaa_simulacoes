@@ -40,6 +40,8 @@ padrão: **Gemini 3.8 Flash**, via SDK `google-genai`.
 
 **Fora (por enquanto):**
 - Sugerir ou alterar configurações, IDF ou disparar simulações. O assistente só analisa.
+  (Revisto no PRD 005: ele passa a *propor* simulações, que só rodam com a confirmação
+  do usuário.)
 - Roteador/servidor próprio com chave compartilhada (descartado).
 - Outros provedores e modelo local (Ollama).
 - Gerar gráficos pelo chat.
