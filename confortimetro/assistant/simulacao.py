@@ -63,11 +63,14 @@ POSITIVE_RANGES = {
     "max_vel": 2.0,
 }
 
-# O que a confirmação mostra, na ordem, além das alterações.
-SUMMARY_FIELDS = ("idf_path", "epw_path", "module_type", "rooms", "met", "clo_min",
-                  "clo_max", "pmv_lowerbound", "pmv_upperbound", "adaptative_bound",
-                  "temp_ac_min", "temp_ac_max", "max_vel", "co2_limit", "energy_path",
-                  "runs_root_path")
+# Parâmetros efetivos da confirmação, inclusive os herdados da configuração base.
+# Não listar saída/arquivos derivados: só são definidos quando a execução começa.
+SUMMARY_FIELDS = ("idf_path", "epw_path", "module_type", "rooms", "met", "wme",
+                  "clo_min", "clo_max", "clo_delta", "clo_priority", "pmv_lowerbound",
+                  "pmv_upperbound", "pmv_comfort_bound", "adaptative_bound",
+                  "temp_ac_min", "temp_ac_max", "temp_open_window_bound", "max_vel",
+                  "air_speed_delta", "co2_limit", "energy_path", "runs_root_path",
+                  "ignore_missing_equipment")
 
 # Acima disto a simulação deixa de ser "rápida": avisar do tempo e do disco.
 LONG_RUN_DAYS = 31
@@ -243,7 +246,7 @@ def build_proposal(base: SimulationConfig, changes, runs_root: str, reason: str 
 
 
 def summary(proposal: dict) -> list:
-    """(rótulo, valor) do que a confirmação mostra: período, o que mudou e o resto."""
+    """(rótulo, valor) dos parâmetros efetivos, destacando os alterados."""
     config = proposal["config"]
     period = proposal["periodo"]
     rows = [("período (RunPeriod do IDF)",

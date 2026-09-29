@@ -664,3 +664,25 @@ def test_confirmacao_mostra_toda_alteracao(root, tmp_path):
     assert rows[0][0].startswith("período")
     assert rows[1] == ("clo_delta (alterado)", "0.05")
     assert ("rooms", "SALA1") in rows
+
+
+def test_confirmacao_mostra_parametros_herdados_e_efetivos(root, tmp_path):
+    config = base_config(tmp_path)
+    config.wme = 0.3
+    config.clo_delta = 0.2
+    config.temp_open_window_bound = 7.0
+    tools = Toolbox(root, config)
+    result = tools.call("propor_simulacao", {"alteracoes": [
+        {"campo": "co2_limit", "valor": "850"}]})
+    assert "erro" not in result, result
+
+    proposal = tools.proposals[0]
+    rows = dict(simulacao.summary(proposal))
+    for field in simulacao.EDITABLE_FIELDS:
+        assert (field + (" (alterado)" if field == "co2_limit" else "")) in rows
+    assert rows["wme"] == "0.3"
+    assert rows["clo_delta"] == "0.2"
+    assert rows["temp_open_window_bound"] == "7.0"
+    assert rows["co2_limit (alterado)"] == "850.0"
+    assert rows["ignore_missing_equipment"] == "True"
+    assert dict(simulacao.for_model(proposal)["configuracao"]) == rows
