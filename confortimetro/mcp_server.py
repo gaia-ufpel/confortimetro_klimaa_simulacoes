@@ -225,7 +225,7 @@ def _config(args: dict, output: str) -> SimulationConfig:
                               energy_path=energy, rooms=rooms)
     for key, value in args.items():
         if key not in {"idf_path", "epw_path", "rooms"}:
-            if key == "module_type" and value not in ("COMPLETE", "CLOSED_WINDOW", "WITHOUT_FAN", "FIXED_AC_WITHOUT_FAN"):
+            if key == "module_type" and value not in ("COMPLETE", "CLOSED_WINDOW", "WITHOUT_FAN", "FIXED_AC_WITHOUT_FAN", "ENERGYPLUS_ONLY"):
                 raise ValueError("module_type inválido")
             if key in ("ignore_missing_equipment", "clo_priority") and not isinstance(value, bool):
                 raise ValueError(f"{key} deve ser booleano")

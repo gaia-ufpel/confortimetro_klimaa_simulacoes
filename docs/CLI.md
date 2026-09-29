@@ -141,6 +141,7 @@ Definidos em `confortimetro/control/`, mapeados em `MODULES_MAPPER`:
 | `CLOSED_WINDOW` | `ConditionerClosedWindow` | Janela sempre fechada. |
 | `FIXED_AC_WITHOUT_FAN` | `ConditionerFixedAcWithoutFan` | Setpoint fixo de ar-condicionado, sem ventilador. |
 | `WITHOUT_FAN` | `ConditionerWithoutFan` | Sem ventilador, demais estratégias ativas. |
+| `ENERGYPLUS_ONLY` | — (sem controlador) | Só roda o EnergyPlus: nenhum callback/atuador, IDF idêntico ao escolhido (nem `Output:Variable` são acrescentadas; só o ExpandObjects, etapa do próprio EnergyPlus, expande `HVACTemplate:*` em `expanded.idf`). Sem planilhas nem estatísticas do Ambiens; ficam os `eplusout.*` na pasta da execução. |
 
 ### Equipamento exigido por zona
 

@@ -64,6 +64,16 @@ armadilhas e convenções.
 - [`docs/WINDOWS.md`](docs/WINDOWS.md) — instalação no Windows.
 - [`docs/MCP.md`](docs/MCP.md) — integração com clientes MCP locais.
 
+## Módulos de simulação
+
+`module_type`: `COMPLETE` (janela adaptativa, ventilador, AC e DOAS),
+`CLOSED_WINDOW` (janela sempre fechada), `WITHOUT_FAN` (sem ventilador),
+`FIXED_AC_WITHOUT_FAN` (setpoints fixos do IDF, sem ventilador) e
+`ENERGYPLUS_ONLY` — "Somente EnergyPlus (sem modificações)": roda o EnergyPlus
+com o IDF e o clima escolhidos, sem controlador, callbacks, atuadores nem
+edição do IDF (nem `Output:Variable`). Não gera planilhas/estatísticas do
+Ambiens; ficam os `eplusout.*` na pasta da execução.
+
 ## Estrutura essencial
 
 ```text
@@ -75,7 +85,7 @@ confortimetro/
   module_type.py            enum ModuleType
   simulation.py             orquestração EnergyPlus e pós-processamento
   idf/processor.py          alterações no IDF via eppy
-  control/                  controladores de conforto por zona (base + 4 módulos)
+  control/                  controladores de conforto por zona (base + 4 módulos; `ENERGYPLUS_ONLY` não tem controlador)
   results/                  planilhas, estatísticas, recortes sazonais, gráficos
   gui/                      interface Tkinter
 tests/                      testes do núcleo

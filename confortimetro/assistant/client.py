@@ -23,8 +23,9 @@ e a janela pode abrir para purgar CO2. Conforto: PMV (Fanger) na faixa \
 pmv_lowerbound…pmv_upperbound e banda adaptativa da ASHRAE 55 (ADAP_MIN/ADAP_MAX).
 
 Módulos (`module_type`): COMPLETE (janela adaptativa, ventilador, AC e DOAS), \
-CLOSED_WINDOW (janela sempre fechada), WITHOUT_FAN (sem ventilador) e \
-FIXED_AC_WITHOUT_FAN (sem ventilador, setpoints fixos do IDF).
+CLOSED_WINDOW (janela sempre fechada), WITHOUT_FAN (sem ventilador), \
+FIXED_AC_WITHOUT_FAN (sem ventilador, setpoints fixos do IDF) e \
+ENERGYPLUS_ONLY (só roda o EnergyPlus, sem controle nem edição do IDF).
 
 Regras:
 - Responda em português, em tom técnico e objetivo, em Markdown (tabelas quando \
