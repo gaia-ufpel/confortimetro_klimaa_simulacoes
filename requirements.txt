@@ -14,3 +14,4 @@ google-genai==2.24.0
 keyring==25.7.0  # cofre de senhas do sistema (Gerenciador de Credenciais no Windows)
 tkinterweb==4.25.4  # mostra a resposta em HTML (tabelas); traz o Tkhtml compilado
 Markdown==3.10.3
+mcp==1.30.0  # servidor MCP local (stdio)

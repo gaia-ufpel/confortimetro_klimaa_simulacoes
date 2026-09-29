@@ -235,6 +235,9 @@ a.destroy()"
 
 ## Verificação
 
+Servidor MCP local via stdio: `python -m confortimetro.mcp_server`; instalação,
+registro no Claude e limites de acesso em [`docs/MCP.md`](docs/MCP.md).
+
 ```bash
 .venv/bin/python -m compileall -q main.py cli.py confortimetro tests
 .venv/bin/python -m pytest tests -q  # inicia Xvfb automaticamente no Linux

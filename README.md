@@ -47,6 +47,10 @@ Passo a passo e como o instalador é gerado em
 Guia completo para automação e agentes em
 [`docs/CLI.md`](docs/CLI.md).
 
+Para clientes de IA (Claude Desktop/Code), há um servidor MCP local via stdio:
+[`docs/MCP.md`](docs/MCP.md). Ele lista execuções, lê resumos, valida configurações
+e inicia simulações sem bloquear o cliente (não integra o instalador Windows).
+
 ## Documentação
 
 O guia técnico completo está em
@@ -58,6 +62,7 @@ armadilhas e convenções.
 - [`docs/CLI.md`](docs/CLI.md) — execução headless e
   diagnóstico operacional.
 - [`docs/WINDOWS.md`](docs/WINDOWS.md) — instalação no Windows.
+- [`docs/MCP.md`](docs/MCP.md) — integração com clientes MCP locais.
 
 ## Estrutura essencial
 
