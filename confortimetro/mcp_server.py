@@ -328,7 +328,11 @@ def iniciar_simulacao(configuracao: dict) -> dict:
                 break
             except FileExistsError:
                 continue
-        config = _config(configuracao, run)
+        try:
+            config = _config(configuracao, run)
+        except Exception:
+            os.rmdir(run)
+            raise
         config_path = _file(run, "entrada_mcp.json")
         config.to_json(config_path)
         from confortimetro.mcp_runner import write_status

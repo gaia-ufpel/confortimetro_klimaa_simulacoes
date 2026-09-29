@@ -10,7 +10,13 @@ def write_status(run: str, state: str, error: str = "", pid: int = None) -> None
     """Grava o estado; `pid` é o do runner, para detectar se morreu sem avisar."""
     path = os.path.join(run, "mcp_status.json")
     temporary = os.path.join(run, "mcp_status.tmp")
-    with open(temporary, "w", encoding="utf-8") as handle:
+    # Remove e cria com O_EXCL: um symlink plantado no .tmp nunca é seguido.
+    try:
+        os.unlink(temporary)
+    except FileNotFoundError:
+        pass
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         json.dump({"estado": state, "erro": error[:500], "pid": pid,
                    "inicio": time.time() if pid else None}, handle)
     os.replace(temporary, path)

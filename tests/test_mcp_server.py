@@ -292,3 +292,24 @@ def test_pywin32_fixado_no_constraints():
     with open(os.path.join(REPO, "constraints.txt"), encoding="utf-8") as handle:
         pins = [line.split("#")[0].strip() for line in handle]
     assert any(re.fullmatch(r'pywin32==\d+ ; sys_platform == "win32"', pin) for pin in pins)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlink exige privilégio no Windows")
+def test_status_tmp_symlink_nao_e_seguido(tmp_path):
+    alvo = tmp_path / "alvo.txt"
+    alvo.write_text("intacto", encoding="utf-8")
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "mcp_status.tmp").symlink_to(alvo)
+    mcp_runner.write_status(str(run), "concluida")
+    assert alvo.read_text(encoding="utf-8") == "intacto"
+    assert json.loads((run / mcp_server.STATUS_FILE).read_text())["estado"] == "concluida"
+    assert not (run / "mcp_status.tmp").exists()
+
+
+def test_config_invalida_remove_pasta_criada(tmp_path, monkeypatch):
+    args, _ = _inputs(tmp_path, monkeypatch)
+    monkeypatch.setattr(mcp_server, "validar_configuracao", lambda configuracao: {"valida": True, "erros": []})
+    with pytest.raises(ValueError, match="zonas"):
+        mcp_server.iniciar_simulacao({**args, "rooms": ["../fora"]})
+    assert [p for p in (tmp_path / "execucoes").iterdir() if p.is_dir()] == []
