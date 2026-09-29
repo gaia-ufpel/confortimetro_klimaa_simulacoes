@@ -59,6 +59,7 @@ FIELD_RANGES = {
 # Faixas abertas em zero: (0, máximo].
 POSITIVE_RANGES = {
     "pmv_comfort_bound": 3.0,
+    "temp_open_window_bound": 15.0,
     "max_vel": 2.0,
 }
 

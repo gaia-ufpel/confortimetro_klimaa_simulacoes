@@ -60,7 +60,7 @@ validade do PMV (ISO 7730 / ASHRAE 55):
 | `co2_limit` | 400 a 5000 ppm |
 | `adaptative_bound` | um dos valores de `PORCENT2ADAPTATIVE` |
 | `clo_delta`, `air_speed_delta` | > 0 |
-| `temp_open_window_bound` | só finito — é margem (°C) sobre `temp_ar`, padrão 5; faixa a definir |
+| `temp_open_window_bound` | margem (°C) sobre `temp_ar`, padrão 5; maior que 0 e até 15 |
 
 O IDF não entra na proposta: é sempre o escolhido pelo usuário (ou o da execução
 base). IDF sem `Zone` recusa qualquer `rooms`. Uma proposta pendente por resposta;

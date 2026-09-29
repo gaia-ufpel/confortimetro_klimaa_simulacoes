@@ -519,6 +519,31 @@ def test_propor_simulacao_recusa_numero_fora_da_faixa(root, tmp_path):
     assert tools.proposals == []
 
 
+def test_propor_simulacao_margem_da_janela(root, tmp_path):
+    config = base_config(tmp_path)
+    tools = Toolbox(root, config)
+    for value in ("0", "-100", "15.0001", "50"):
+        result = tools.call("propor_simulacao", {"alteracoes": [
+            {"campo": "temp_open_window_bound", "valor": value}]})
+        assert "erro" in result and "temp_open_window_bound" in result["erro"], value
+    assert tools.proposals == []
+
+    for value in ("5", "15"):
+        result = Toolbox(root, config).call("propor_simulacao", {"alteracoes": [
+            {"campo": "temp_open_window_bound", "valor": value}]})
+        assert "erro" not in result, (value, result)
+    assert "erro" not in Toolbox(root, config).call(
+        "propor_simulacao", {}), "padrão deve ser aceito"
+
+
+def test_default_margem_da_janela_documentado():
+    from pathlib import Path
+    from confortimetro.config import SimulationConfig
+
+    cli = (Path(__file__).resolve().parents[1] / "docs" / "CLI.md").read_text()
+    assert f"| `temp_open_window_bound` | {SimulationConfig.temp_open_window_bound} |" in cli
+
+
 def test_propor_simulacao_recusa_idf_sem_zona(root, tmp_path):
     config = base_config(tmp_path)
     with open(config.idf_path, "w") as output:
