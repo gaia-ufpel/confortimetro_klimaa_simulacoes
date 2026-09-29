@@ -17,6 +17,7 @@ from confortimetro.results import (
     split_target_period_excel,
 )
 from confortimetro.config import SimulationConfig
+from confortimetro.module_type import ModuleType
 from confortimetro.idf import IDFProcessor, read_run_period, read_timesteps_per_hour
 
 EnergyPlusAPI = None
@@ -49,6 +50,11 @@ class Simulation:
         # Inicializar processador de IDF
         self.idf_processor = IDFProcessor(self.configs)
 
+    @property
+    def passive(self) -> bool:
+        """Módulo somente EnergyPlus: IDF intacto e nenhum callback registrado."""
+        return self.configs.module_type == ModuleType.ENERGYPLUS_ONLY
+
     def run(self, q: Queue):
         """
         Executar simulação completa.
@@ -63,19 +69,23 @@ class Simulation:
             q.put("Iniciando simulação...")
             
             # Etapa 1: Definir módulo condicionador
-            q.put("Configurando módulo condicionador...")
-            self.conditioner = MODULES_MAPPER[self.configs.module_type](
-                ep_api=self.ep_api, 
-                configs=self.configs
-            )
+            if self.passive:
+                q.put("Módulo somente EnergyPlus: sem controlador nem edição do IDF")
+            else:
+                q.put("Configurando módulo condicionador...")
+                self.conditioner = MODULES_MAPPER[self.configs.module_type](
+                    ep_api=self.ep_api,
+                    configs=self.configs
+                )
             
             # Etapa 2: Preparar o diretório da execução e copiar o IDF para lá
             q.put("Preparando diretórios de saída...")
             self._prepare_output_directories()
 
             # Etapa 3: Processar o IDF (a cópia da execução, não o original)
-            q.put("Processando arquivo IDF...")
-            self._timed("Processamento IDF", self._process_idf)
+            if not self.passive:
+                q.put("Processando arquivo IDF...")
+                self._timed("Processamento IDF", self._process_idf)
 
             # Etapa 4: Expandir objetos EnergyPlus
             q.put("Expandindo objetos EnergyPlus...")
@@ -193,9 +203,10 @@ class Simulation:
                 self.logger.info("Simulação cancelada antes de iniciar o EnergyPlus")
                 return
             # Registrar callback do condicionador
-            self.ep_api.runtime.callback_begin_zone_timestep_after_init_heat_balance(
-                self.state, self.conditioner
-            )
+            if self.conditioner is not None:
+                self.ep_api.runtime.callback_begin_zone_timestep_after_init_heat_balance(
+                    self.state, self.conditioner
+                )
             self._register_progress_callback()
             
             # Executar simulação
@@ -214,7 +225,7 @@ class Simulation:
 
             # Exceções do condicionador são engolidas pelo ctypes durante o run;
             # o condicionador guarda a primeira e ela é relançada aqui.
-            if self.conditioner.error is not None:
+            if self.conditioner is not None and self.conditioner.error is not None:
                 raise RuntimeError(
                     f"Condicionador falhou durante a simulação: {self.conditioner.error}"
                 ) from self.conditioner.error
@@ -305,6 +316,14 @@ class Simulation:
             self._say(q, "Simulação finalizada!")
             
             if self._stopped(q):
+                return
+
+            if self.passive:
+                # O IDF não ganhou as Output:Variable que as planilhas usam; o
+                # que o EnergyPlus gerou (eplusout.*, eplustbl.csv) fica na pasta.
+                self._say(q, "Sem planilhas: o módulo não altera o IDF. "
+                             "Saídas do EnergyPlus na pasta da execução.")
+                q.put("EXIT")
                 return
 
             self._say(q, "Extraindo resultados...")

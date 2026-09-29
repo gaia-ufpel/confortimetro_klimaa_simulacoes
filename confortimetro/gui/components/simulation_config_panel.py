@@ -21,6 +21,8 @@ MODULE_LABELS = {
         "Ar-condicionado fixo (janela e AC com setpoint fixo, sem ventilador)",
     ModuleType.CLOSED_WINDOW:
         "Janela fechada (ventilador e ar-condicionado)",
+    ModuleType.ENERGYPLUS_ONLY:
+        "Somente EnergyPlus (sem modificações)",
 }
 LABEL2MODULE = {label: module for module, label in MODULE_LABELS.items()}
 

@@ -141,6 +141,7 @@ Registrados em `MODULES_MAPPER` (`confortimetro/control/__init__.py`).
 | `CLOSED_WINDOW` | `ConditionerClosedWindow` | sempre fechada | sim | setpoints por PMV | sim |
 | `WITHOUT_FAN` | `ConditionerWithoutFan` | sim | não (vel fixa em 0) | setpoints por PMV | sim |
 | `FIXED_AC_WITHOUT_FAN` | `ConditionerFixedAcWithoutFan` | sim | não | setpoints fixos do IDF | sim |
+| `ENERGYPLUS_ONLY` | nenhuma | não controla | não controla | não controla | não controla |
 
 ### Lógica comum (`Conditioner`)
 
