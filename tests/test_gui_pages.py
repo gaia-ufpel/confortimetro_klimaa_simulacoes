@@ -1,6 +1,7 @@
 """Navegação por páginas da janela principal e duplicação de execução."""
 
 import datetime
+import os
 
 import pytest
 
@@ -488,3 +489,103 @@ def test_fluxo_simulacao_em_andamento_botoes_e_selecao(window, tmp_path):
     assert window.btn_nav_new_run._text == "Nova execução"
     assert window.btn_nav_new_run._icon == "new"
 
+
+
+def test_assistente_propoe_simulacao_e_so_roda_com_confirmacao(window, tmp_path, monkeypatch):
+    """Pedido → proposta validada → confirmação → execução no caminho do botão
+    Executar, listada como em simulação. Sem confirmação nada roda."""
+    import threading
+    import time
+
+    pytest.importorskip("google.genai")
+    from google.genai import types
+
+    from confortimetro.assistant import client as client_module, store
+    from tests.test_assistant import FakeClient, _call, _chunk, modelo_valido
+
+    monkeypatch.setattr(store, "_keyring", lambda: None)
+    store.set_api_key("chave-de-teste")
+    idf, epw, energy = modelo_valido(tmp_path)
+    runs_root = tmp_path / "execucoes"
+    runs_root.mkdir()
+    window.path_panel.set_idf_path(idf)
+    window.path_panel.set_epw_path(epw)
+    window.settings_panel.set_energy_path(energy)
+    window.settings_panel.set_output_path(str(runs_root))
+
+    propose = [_chunk(_call("propor_simulacao", motivo="janela fechada", alteracoes=[
+        {"campo": "module_type", "valor": "CLOSED_WINDOW"}]))]
+    fake = FakeClient([propose, [_chunk(types.Part(text="Confirme na tela."))],
+                       propose, [_chunk(types.Part(text="Confirme na tela."))]])
+    monkeypatch.setattr(client_module, "make_client", lambda key, timeout: fake)
+
+    # A simulação de verdade levaria horas: a thread só espera ser liberada.
+    release, started = threading.Event(), []
+
+    def fake_run(q, config):
+        started.append(config)
+        release.wait(10)
+        q.put("Simulação concluída")
+
+    monkeypatch.setattr(window, "_run_simulation_thread", fake_run)
+
+    window.on_ask_assistant([], str(runs_root))
+    panel = window.assistant_panel
+
+    def ask(question):
+        panel.input.insert("1.0", question)
+        panel.send()
+        _wait_answer(panel, window)
+        _settle(window)
+
+    # 1. Pedido vira proposta pendente, com a configuração validada na tela.
+    ask("Roda o modelo com a janela sempre fechada")
+    proposal = store.pending_proposal(panel.conversation)
+    assert proposal["config"]["module_type"] == "CLOSED_WINDOW"
+    assert panel.proposal_card.winfo_ismapped()
+    rows = dict(panel.proposal_table.item(item, "values")
+                for item in panel.proposal_table.get_children())
+    assert rows["module_type (alterado)"] == "CLOSED_WINDOW"
+    assert rows["rooms"] == "SALA1"
+    assert window.simulation_thread is None and not window.simulations_panel._running
+
+    # 2. Descartar: nada roda e o cartão some.
+    panel.discard_proposal()
+    _settle(window)
+    assert panel.conversation["proposals"][0]["status"] == "descartada"
+    assert not panel.proposal_card.winfo_ismapped()
+    assert window.simulation_thread is None and started == []
+
+    # 3. Nova proposta, agora confirmada: inicia pelo caminho do Executar.
+    ask("Pode propor de novo")
+    assert started == [] and window.simulation_thread is None
+    panel.confirm_proposal()
+    _settle(window)
+    for _ in range(100):
+        if started:
+            break
+        time.sleep(0.01)
+    assert started and str(started[0].module_type) == "CLOSED_WINDOW"
+    run_path = started[0].output_path
+    assert os.path.dirname(run_path) == str(runs_root)
+    assert window.simulation_thread.is_alive()
+    assert window.simulations_panel._running[run_path]["status"] == "em simulação"
+    assert window.simulations_panel.tree.exists(run_path)
+    confirmed = panel.conversation["proposals"][1]
+    assert confirmed["status"] == "iniciada"
+    assert confirmed["execucao"] == os.path.basename(run_path)
+    assert not panel.proposal_card.winfo_ismapped()
+
+    # Uma de cada vez: outra confirmação com a simulação rodando é recusada.
+    path, error = window.start_assistant_simulation(started[0])
+    assert path is None and "em andamento" in error
+
+    # 4. Terminou: sai de "em simulação" e o usuário continua na conversa.
+    release.set()
+    window.simulation_thread.join(5)
+    deadline = time.time() + 5
+    while window.simulations_panel._running and time.time() < deadline:
+        window.update()
+        time.sleep(0.02)
+    assert not window.simulations_panel._running
+    assert window._current_page == "assistant"

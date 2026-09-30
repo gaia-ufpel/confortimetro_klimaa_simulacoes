@@ -122,7 +122,7 @@ Validar sem simular:
 | `pmv_comfort_bound` | 0.2 | Margem de conforto usada nas decisões do controlador. |
 | `adaptative_bound` | 2.5 | Banda do modelo adaptativo: `2.5` = 90% de aceitação, `3.5` = 80%. |
 | `temp_ac_min` / `temp_ac_max` | 18.0 / 30.0 | Limites de setpoint do ar-condicionado (°C). |
-| `temp_open_window_bound` | 3.0 | Tolerância (°C) para abrir a janela. |
+| `temp_open_window_bound` | 5.0 | Margem (°C) para abrir a janela; nas propostas do assistente, maior que 0 e até 15. |
 | `max_vel` | 1.2 | Velocidade máxima do ar (m/s) do ventilador. |
 | `air_speed_delta` | 0.15 | Passo de incremento da velocidade do ar. |
 | `co2_limit` | 900.0 | Limite de CO₂ (ppm) que aciona a ventilação/DOAS. |

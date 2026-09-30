@@ -113,6 +113,12 @@ O `SimulationsPanel` não navega: ele chama `on_new_run`,
 `source_idf_path` e a saída por um `new_run_path()` — nunca escreve por cima
 de resultado que já existe.
 
+Toda simulação da GUI começa em `MainWindow.start_simulation(config)` — o
+botão Executar e a proposta do assistente confirmada pelo usuário
+(`start_assistant_simulation`, PRD 005). O assistente nunca executa: a
+ferramenta `propor_simulacao` só valida e deixa a proposta pendente na
+conversa; quem roda é o cartão de confirmação do `AssistantPanel`.
+
 A listagem só é relida ao voltar para `runs` quando `_runs_dirty` está
 marcado (fim de simulação): o `database.sync` custa segundos e não vale a cada
 ida e volta.

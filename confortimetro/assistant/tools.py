@@ -1,4 +1,8 @@
-"""Ferramentas que o modelo chama para ler as execuções — todas só de leitura.
+"""Ferramentas que o modelo chama para ler as execuções — só de leitura.
+
+A exceção é `propor_simulacao`, que também não roda nada: monta e valida uma
+proposta que fica pendente até o usuário confirmar na interface
+(`simulacao.py`).
 
 Rodam na máquina do usuário sobre `results/`; ao modelo vai só o recorte
 pedido, nunca a planilha. Toda saída passa por `_limit`, para que uma série
@@ -17,6 +21,7 @@ from ..control import MODULES_MAPPER, motivos
 from ..idf.processor import _iter_objects, _read_text
 from ..results import compare, series, tabular
 from ..versao import code_version
+from . import simulacao
 
 MAX_ROWS = 200
 MAX_BYTES = 20_000
@@ -260,6 +265,41 @@ DECLARATIONS = [
             "required": ["arquivo"],
         },
     },
+    {
+        "name": "propor_simulacao",
+        "description": ("Propõe uma simulação nova ao usuário — NÃO a executa. Parte da "
+                        "configuração atual da tela de execução ou, com base_execucao, da "
+                        "configuração de uma execução existente (como o Duplicar), aplica "
+                        "as alterações e valida (arquivos, EnergyPlus, zonas do IDF, "
+                        "equipamento). Válida, a interface mostra a configuração e só roda "
+                        "se o usuário confirmar; inválida, devolve o erro para corrigir. "
+                        "O período vem do RunPeriod do IDF e não é alterável aqui. Use só "
+                        "quando o usuário pedir para rodar/simular; depois diga que a "
+                        "confirmação está na tela, nunca que a simulação começou."),
+        "parameters_json_schema": {
+            "type": "object",
+            "properties": {
+                "base_execucao": {"type": "string",
+                                  "description": "Execução cuja configuração é a base."},
+                "alteracoes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "campo": {"type": "string",
+                                      "enum": list(simulacao.EDITABLE_FIELDS)},
+                            "valor": {"type": "string",
+                                      "description": "Como no --set do CLI: JSON quando "
+                                                     "der (1.3, true, [\"SALA1\"])."},
+                        },
+                        "required": ["campo", "valor"],
+                    },
+                },
+                "motivo": {"type": "string",
+                           "description": "Uma frase: o que o usuário quer testar."},
+            },
+        },
+    },
 ]
 
 
@@ -301,8 +341,13 @@ def _limit(result: dict) -> dict:
 class Toolbox:
     """Ferramentas sobre as execuções de uma pasta raiz."""
 
-    def __init__(self, root: str):
+    def __init__(self, root: str, base_config=None):
         self.root = root
+        # Configuração da tela de execução no momento da pergunta — lida na
+        # thread do Tk, nunca daqui.
+        self.base_config = base_config
+        # Propostas criadas nesta pergunta; a conversa as guarda ao terminar.
+        self.proposals = []
 
     def run_path(self, name: str) -> str:
         """Pasta da execução, recusando nomes que saiam da raiz."""
@@ -646,6 +691,31 @@ class Toolbox:
                     if nominal else None),
             }
         return result
+
+    def propor_simulacao(self, alteracoes=None, base_execucao=None, motivo="") -> dict:
+        if base_execucao:
+            path = self.run_path(base_execucao)
+            try:
+                base = simulacao.base_from_run(path)
+            except (OSError, ValueError, TypeError) as error:
+                raise ToolError(f"Não foi possível ler a configuração de {base_execucao}: "
+                                f"{error}") from error
+            label = f"execução {base_execucao}"
+        elif self.base_config is not None:
+            base, label = self.base_config, "configuração atual da tela de execução"
+        else:
+            raise ToolError("Sem configuração base nesta tela; informe base_execucao.")
+        if self.proposals:
+            # A tela confirma uma proposta por vez; a extra voltaria como
+            # pendente escondida atrás da primeira.
+            raise ToolError("Já há uma proposta nesta resposta aguardando o usuário; "
+                            "proponha uma simulação por vez.")
+        try:
+            proposal = simulacao.build_proposal(base, alteracoes, self.root, motivo, label)
+        except simulacao.ProposalError as error:
+            raise ToolError(str(error)) from error
+        self.proposals.append(proposal)
+        return simulacao.for_model(proposal)
 
     def codigo_controle(self, arquivo, funcoes=None) -> dict:
         if arquivo not in CODE_FILES:

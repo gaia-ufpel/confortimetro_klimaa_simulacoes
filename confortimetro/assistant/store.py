@@ -171,7 +171,27 @@ def new_conversation(runs=None) -> dict:
         # se mudar, a conversa falava de números que não existem mais.
         "run_mtimes": {},
         "prompt_tokens": 0,
+        # Simulações propostas pelo assistente (`simulacao.build_proposal`):
+        # pendente → iniciada/descartada/substituida, decidido na interface.
+        "proposals": [],
     }
+
+
+def pending_proposal(conversation: dict):
+    """A proposta esperando confirmação, se houver (no máximo uma)."""
+    return next((proposal for proposal in conversation.get("proposals") or []
+                 if proposal["status"] == "pendente"), None)
+
+
+def set_proposal_status(conversation: dict, proposal_id: str, status: str, run: str = None):
+    """Registra a decisão do usuário e grava a conversa."""
+    for proposal in conversation.get("proposals") or []:
+        if proposal["id"] == proposal_id:
+            proposal["status"] = status
+            proposal["decidida"] = _now()
+            if run:
+                proposal["execucao"] = run
+    save_conversation(conversation)
 
 
 def save_conversation(conversation: dict):

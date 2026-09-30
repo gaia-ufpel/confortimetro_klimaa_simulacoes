@@ -3,16 +3,21 @@
 A pergunta roda numa thread; ela só fala com o Tk por uma fila que o painel
 esvazia com `after` — widget Tk tocado fora da thread principal trava ou
 derruba a GUI.
+
+Simulação proposta pelo assistente aparece num cartão de confirmação acima da
+caixa de pergunta; só o **Executar simulação** do cartão a inicia, pelo
+`run_simulation` que a janela passa (o mesmo caminho do botão Executar).
 """
 
 import html
+import os
 import queue
 import threading
 import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
-from ...assistant import store
+from ...assistant import simulacao, store
 from ..theme import COLORS, FONTS, SPACE, RoundedButton, toast
 
 PRIVACY_NOTE = ("As perguntas e os recortes das simulações consultados são enviados ao "
@@ -26,6 +31,8 @@ body {{ font-family: sans-serif; font-size: 10pt; color: {COLORS['text']};
 .user {{ background: {COLORS['surface_2']}; }}
 .who {{ font-size: 8pt; color: {COLORS['text_mute']}; font-weight: bold; }}
 .empty {{ color: {COLORS['text_mute']}; }}
+.note {{ font-size: 9pt; color: {COLORS['text_mute']}; border-left: 3px solid {COLORS['line']};
+         padding: 4px 8px; margin: 0 0 12px 0; }}
 table {{ border-collapse: collapse; margin: 6px 0; }}
 th, td {{ border: 1px solid {COLORS['line']}; padding: 3px 8px; }}
 th {{ background: {COLORS['surface_2']}; }}
@@ -41,16 +48,40 @@ def markdown_to_html(text: str) -> str:
     return markdown.markdown(text, extensions=["tables", "fenced_code", "sane_lists"])
 
 
-def conversation_html(messages, pending_question=None, partial=None) -> str:
-    """Página com as mensagens; a pergunta em curso e a resposta parcial no fim."""
-    blocks = []
-    for role, text in messages:
+_PROPOSAL_TEXT = {
+    "pendente": "Simulação proposta — aguardando a sua confirmação abaixo.",
+    "iniciada": "Simulação confirmada e iniciada como {execucao}. Acompanhe em Execuções.",
+    "descartada": "Simulação proposta e descartada.",
+    "substituida": "Simulação proposta e substituída por uma proposta mais nova.",
+}
+
+
+def proposal_note(proposal: dict) -> str:
+    text = _PROPOSAL_TEXT.get(proposal["status"], proposal["status"])
+    return text.format(execucao=proposal.get("execucao") or "—")
+
+
+def conversation_html(messages, pending_question=None, partial=None, proposals=()) -> str:
+    """Página com as mensagens; a pergunta em curso e a resposta parcial no fim.
+
+    Cada proposta de simulação vira uma nota depois da mensagem em que surgiu.
+    """
+    notes = {}
+    for proposal in proposals or ():
+        notes.setdefault(proposal.get("posicao", len(messages)), []).append(
+            f'<div class="note">{html.escape(proposal_note(proposal))}</div>')
+    blocks = list(notes.get(0, []))
+    for index, (role, text) in enumerate(messages, start=1):
         if role == "user":
             blocks.append(f'<div class="msg user"><div class="who">Você</div>'
                           f'{html.escape(text).replace(chr(10), "<br>")}</div>')
         else:
             blocks.append(f'<div class="msg"><div class="who">Assistente</div>'
                           f'{markdown_to_html(text)}</div>')
+        blocks += notes.get(index, [])
+    for position, extra in notes.items():
+        if position > len(messages):
+            blocks += extra
     if pending_question:
         blocks.append(f'<div class="msg user"><div class="who">Você</div>'
                       f'{html.escape(pending_question)}</div>')
@@ -120,14 +151,22 @@ class AssistantPanel(ttk.Frame):
     `set_context(runs, run_filter)`: com `run_filter` (aba dos detalhes) o
     seletor mostra só as conversas daquela execução e reabre a mais recente;
     sem ele (página geral) mostra todas e começa uma conversa nova com `runs`.
+
+    `config_getter()` devolve a configuração da tela de execução (base das
+    propostas) e roda na thread do Tk, ao enviar a pergunta.
+    `run_simulation(config)` inicia a simulação confirmada e devolve
+    `(pasta, None)` ou `(None, erro)`.
     """
 
     POLL_MS = 80
     RENDER_MS = 250
 
-    def __init__(self, parent, root_getter, **kwargs):
+    def __init__(self, parent, root_getter, config_getter=None, run_simulation=None,
+                 **kwargs):
         super().__init__(parent, style="Surface.TFrame", **kwargs)
         self.root_getter = root_getter
+        self.config_getter = config_getter
+        self.run_simulation = run_simulation
         self.runs = []
         self.run_filter = None
         self.conversation = store.new_conversation()
@@ -190,6 +229,8 @@ class AssistantPanel(ttk.Frame):
         ttk.Label(self, textvariable=self.status_var, style="Caption.TLabel").pack(
             side="bottom", anchor="w")
 
+        self._build_proposal_card()
+
         self.view_host = ttk.Frame(self, style="Surface.TFrame")
         self.view_host.pack(fill="both", expand=True, pady=(SPACE[2], SPACE[2]))
         self.view = self._make_view(self.view_host)
@@ -205,6 +246,92 @@ class AssistantPanel(ttk.Frame):
                           command=lambda q=question: self._use_suggestion(q)).pack(
                               anchor="w", pady=(SPACE[1], 0))
         self.suggestions.pack(fill="x", before=self.view_host, pady=(SPACE[2], 0))
+
+    def _build_proposal_card(self):
+        """Confirmação da simulação proposta; só é packado com proposta pendente."""
+        card = self.proposal_card = tk.Frame(
+            self, background=COLORS["surface_2"], highlightthickness=1,
+            highlightbackground=COLORS["warn"], padx=SPACE[3], pady=SPACE[2])
+        ttk.Label(card, text="Confirmar simulação proposta pelo assistente",
+                  style="CardTitle.TLabel", background=COLORS["surface_2"]).pack(anchor="w")
+        self.proposal_reason = tk.StringVar()
+        ttk.Label(card, textvariable=self.proposal_reason, style="Caption.TLabel",
+                  background=COLORS["surface_2"], wraplength=900,
+                  justify="left").pack(anchor="w")
+        # Com rolagem: a configuração inteira precisa estar ao alcance antes
+        # de o usuário confirmar horas de simulação.
+        table_host = tk.Frame(card, background=COLORS["surface_2"])
+        table_host.pack(fill="x", pady=(SPACE[1], 0))
+        self.proposal_table = ttk.Treeview(table_host, columns=("campo", "valor"),
+                                           show="headings", height=8,
+                                           style="Modern.Treeview")
+        scroll = ttk.Scrollbar(table_host, orient="vertical",
+                               command=self.proposal_table.yview)
+        self.proposal_table.configure(yscrollcommand=scroll.set)
+        scroll.pack(side="right", fill="y")
+        self.proposal_table.heading("campo", text="Campo")
+        self.proposal_table.heading("valor", text="Valor")
+        self.proposal_table.column("campo", width=220, stretch=False)
+        self.proposal_table.column("valor", width=640)
+        self.proposal_table.pack(side="left", fill="x", expand=True)
+        self.proposal_warnings = tk.StringVar()
+        self.proposal_warning_label = ttk.Label(
+            card, textvariable=self.proposal_warnings, style="Caption.TLabel",
+            background=COLORS["surface_2"], foreground=COLORS["warn"], wraplength=900,
+            justify="left")
+        self.proposal_warning_label.pack(anchor="w", pady=(SPACE[1], 0))
+        buttons = tk.Frame(card, background=COLORS["surface_2"])
+        buttons.pack(anchor="e", pady=(SPACE[2], 0))
+        RoundedButton(buttons, text="Descartar", variant="ghost", icon="clear",
+                      command=self.discard_proposal).pack(side="left", padx=(0, SPACE[2]))
+        self.run_proposal_button = RoundedButton(buttons, text="Executar simulação",
+                                                 icon="play", command=self.confirm_proposal)
+        self.run_proposal_button.pack(side="left")
+
+    def _show_proposal(self):
+        proposal = store.pending_proposal(self.conversation)
+        if proposal is None or self._busy():
+            self.proposal_card.pack_forget()
+            return
+        self.proposal_reason.set(
+            f"Base: {proposal['base']}. "
+            + (f"Objetivo: {proposal['motivo']}. " if proposal.get("motivo") else "")
+            + "Nada roda até você clicar em Executar simulação; a execução aparece na "
+              "listagem de Execuções como em simulação.")
+        self.proposal_table.delete(*self.proposal_table.get_children())
+        for field, value in simulacao.summary(proposal):
+            self.proposal_table.insert("", "end", values=(field, value))
+        self.proposal_warnings.set("\n".join(f"⚠ {warning}"
+                                             for warning in proposal["avisos"]))
+        if not self.proposal_card.winfo_ismapped():
+            self.proposal_card.pack(side="bottom", fill="x", pady=(SPACE[2], 0),
+                                    before=self.view_host)
+
+    def confirm_proposal(self):
+        """O único ponto em que o assistente leva a uma simulação rodando."""
+        proposal = store.pending_proposal(self.conversation)
+        if proposal is None or self._busy():
+            return
+        if self.run_simulation is None:
+            toast(self, "Esta tela não pode iniciar simulações.", "error")
+            return
+        path, error = self.run_simulation(simulacao.config_from_dict(proposal["config"]))
+        if error:
+            toast(self, error, "error", timeout=8000)
+            return
+        store.set_proposal_status(self.conversation, proposal["id"], "iniciada",
+                                  run=os.path.basename(os.path.normpath(path)))
+        toast(self, f"Simulação iniciada: {os.path.basename(path)}. "
+                    "Acompanhe em Execuções.", "ok", timeout=6000)
+        self._refresh_selector()
+        self._render()
+
+    def discard_proposal(self):
+        proposal = store.pending_proposal(self.conversation)
+        if proposal is None or self._busy():
+            return
+        store.set_proposal_status(self.conversation, proposal["id"], "descartada")
+        self._render()
 
     def _use_suggestion(self, question: str):
         self.input.delete("1.0", "end")
@@ -350,10 +477,18 @@ class AssistantPanel(ttk.Frame):
 
         from ...assistant.client import Assistant
 
+        base_config = None
+        if self.config_getter is not None:
+            try:
+                base_config = self.config_getter()
+            except Exception:
+                base_config = None  # sem base, o modelo precisa de base_execucao
+
         self.input.delete("1.0", "end")
         self._pending, self._partial = question, ""
         self._cancel = threading.Event()
-        assistant = Assistant(self.conversation, self.root_getter())
+        assistant = Assistant(self.conversation, self.root_getter(),
+                              base_config=base_config)
         events, cancel = self._events, self._cancel
 
         def work():
@@ -432,8 +567,11 @@ class AssistantPanel(ttk.Frame):
             self.suggestions.pack_forget()
         elif not self.suggestions.winfo_ismapped():
             self.suggestions.pack(fill="x", before=self.view_host, pady=(SPACE[2], 0))
+        self._show_proposal()
+        proposals = self.conversation.get("proposals") or []
         if hasattr(self.view, "load_html"):
-            self.view.load_html(conversation_html(messages, self._pending, self._partial))
+            self.view.load_html(conversation_html(messages, self._pending, self._partial,
+                                                  proposals))
             self.view.after_idle(lambda: self.view.yview_moveto(1.0))
             return
         self.view.configure(state="normal")

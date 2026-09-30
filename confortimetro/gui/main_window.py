@@ -261,7 +261,10 @@ class MainWindow(tk.Tk):
         self.timeseries_panel.pack(fill="both", expand=True)
         assistant_tab = Card(self.detail_tabs, pad=SPACE[3])
         self.detail_tabs.add(assistant_tab, text="Assistente")
-        self.detail_assistant = AssistantPanel(assistant_tab.body, self._outputs_root)
+        self.detail_assistant = AssistantPanel(
+            assistant_tab.body, self._outputs_root,
+            config_getter=self._assistant_base_config,
+            run_simulation=self.start_assistant_simulation)
         self.detail_assistant.pack(fill="both", expand=True)
         # A série só é lida com a aba visível: abrir os detalhes continua
         # tão rápido quanto antes.
@@ -440,7 +443,10 @@ class MainWindow(tk.Tk):
         self._page_nav(page, "Assistente de análise", back_to="runs")
         card = Card(page, pad=SPACE[3])
         card.pack(fill="both", expand=True)
-        self.assistant_panel = AssistantPanel(card.body, self._outputs_root)
+        self.assistant_panel = AssistantPanel(
+            card.body, self._outputs_root,
+            config_getter=self._assistant_base_config,
+            run_simulation=self.start_assistant_simulation)
         self.assistant_panel.pack(fill="both", expand=True)
         return page
 
@@ -703,16 +709,17 @@ class MainWindow(tk.Tk):
 
         return True
     
-    def _run_simulation_thread(self, q: Queue):
+    def _run_simulation_thread(self, q: Queue, config: SimulationConfig = None):
         """Run simulation in a separate thread."""
         try:
-            if self.configs is None:
+            config = config or self.configs
+            if config is None:
                 raise ValueError("Configuration not loaded")
             # Importado aqui, e não no topo: pythermalcomfort compila com numba
             # ao ser importado e custa ~12 s — a GUI abre sem ele.
             from confortimetro.simulation import Simulation
 
-            self.simulation = Simulation(copy.deepcopy(self.configs))
+            self.simulation = Simulation(copy.deepcopy(config))
             self.simulation.run(q)
         except Exception as e:
             self._simulation_error = str(e)
@@ -771,7 +778,10 @@ class MainWindow(tk.Tk):
             if hasattr(self, "btn_nav_new_run"):
                 self.btn_nav_new_run.configure(text="Nova execução", icon="new")
             self.simulation = None
-            if finished_path and not interrupted and not has_error:
+            # A disparada pelo assistente não tira o usuário da conversa.
+            from_assistant = getattr(self, "_running_origin", None) == "assistant"
+            self._running_origin = None
+            if finished_path and not interrupted and not has_error and not from_assistant:
                 run = next((r for r in self.simulations_panel._runs
                             if r['path'] == finished_path), None)
                 if run is not None:
@@ -878,13 +888,24 @@ class MainWindow(tk.Tk):
         if not self._validate_configuration():
             return
 
+        self.start_simulation(self.configs)
+
+    def start_simulation(self, config: SimulationConfig, origin: str = "editor") -> str:
+        """Inicia `config` em segundo plano; devolve a pasta da execução.
+
+        Caminho único do botão Executar e da proposta confirmada no
+        assistente: pasta nova na raiz, linha "em simulação" na listagem, log
+        e a thread acompanhada por `_check_simulation_thread`.
+        """
+        self._simulation_error = None
         # Cada rodada escreve numa subpasta nova da raiz configurada; nunca
         # por cima da anterior.
-        self.configs.output_path = new_run_path(root=self.configs.runs_root_path)
+        config.output_path = new_run_path(root=config.runs_root_path)
         # Entra na listagem como "em simulação" já na largada, antes de a
         # pasta existir.
-        self._running_run_path = self.configs.output_path
-        self.simulations_panel.set_running(self._running_run_path, self.configs)
+        self._running_run_path = config.output_path
+        self._running_origin = origin
+        self.simulations_panel.set_running(self._running_run_path, config)
         if hasattr(self, "btn_nav_new_run"):
             self.btn_nav_new_run.configure(text="Ver em andamento", icon="running")
         
@@ -899,12 +920,31 @@ class MainWindow(tk.Tk):
         # Start simulation thread
         self.simulation_thread = threading.Thread(
             target=self._run_simulation_thread,
-            args=(self.simulation_queue,)
+            args=(self.simulation_queue, config)
         )
         self.simulation_thread.start()
         
         # Start checking thread status
         self.after(100, self._check_simulation_thread)
+        return config.output_path
+
+    def _assistant_base_config(self) -> SimulationConfig:
+        """Cópia da configuração da tela de execução: a base das propostas."""
+        self._update_config_from_ui()
+        config = copy.deepcopy(self.configs)
+        config.runs_root_path = self._outputs_root()
+        return config
+
+    def start_assistant_simulation(self, config: SimulationConfig):
+        """Proposta confirmada no assistente: `(pasta, None)` ou `(None, erro)`."""
+        if self.control_panel.get_is_running() or (
+                self.simulation_thread and self.simulation_thread.is_alive()):
+            return None, ("Já há uma simulação em andamento. Espere terminar ou "
+                          "interrompa-a na tela de execução.")
+        config.runs_root_path = self._outputs_root()
+        self.results_panel.append_info("Simulação proposta pelo assistente e "
+                                       "confirmada pelo usuário.")
+        return self.start_simulation(config, origin="assistant"), None
     
     def on_stop_simulation(self):
         """Handle stop simulation request."""
