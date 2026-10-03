@@ -3,10 +3,13 @@ id: 0001-klimaa-pesquisar-variaveis-principais-das
 title: 'klimaa: pesquisar variáveis principais das simulações energéticas'
 repo: 'gaia-ufpel/confortimetro_klimaa_simulacoes'
 type: pesquisa
-agent: ''
+agent: 'sonnet'
 priority: media
 created: 2026-10-03T06:19:45Z
-updated: 2026-10-03T06:19:46Z
+updated: 2026-10-03T06:19:53Z
+briefing_hash: b13f74f3a80d58536e53d05ddd5b87d2664b30f10a146848259ba88f0edda94e
+approved: '2026-10-03T06:19:46Z'
+panel: 'pesq-variaveis-klimaa'
 ---
 
 ## Request
@@ -29,3 +32,7 @@ Devolva: caminho do HTML + resumo das top variáveis + comandos rodados.
 ## History
 
 - 2026-10-03T06:19:45Z — todo (created)
+
+- 2026-10-03T06:19:46Z — briefing aprovado pelo dono (sha256 b13f74f3a80d)
+
+- 2026-10-03T06:19:53Z — doing
