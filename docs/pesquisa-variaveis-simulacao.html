@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variáveis analisadas nas simulações do Ambiens</title>
+<style>
+  :root { --fg:#1d2a24; --mut:#5b6b63; --bg:#fbfcfa; --card:#fff; --line:#dfe6e1; --ac:#2f6f4f; --warn:#8a5a00; --warnbg:#fff6e0; --okbg:#e8f4ec; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--fg); background:var(--bg); }
+  main { max-width:980px; margin:0 auto; padding:16px 14px 48px; }
+  h1 { font-size:1.55rem; line-height:1.25; margin:.2em 0 .1em; }
+  h2 { font-size:1.2rem; margin:1.8em 0 .5em; padding-top:.4em; border-top:2px solid var(--line); }
+  h3 { font-size:1rem; margin:1.4em 0 .4em; color:var(--ac); }
+  p, li { margin:.4em 0; }
+  .meta { color:var(--mut); font-size:.85rem; }
+  .box { background:var(--okbg); border:1px solid #bcd9c7; padding:10px 14px; border-radius:6px; margin:12px 0; }
+  .warn { background:var(--warnbg); border-color:#e8cf94; }
+  .wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:10px 0; border:1px solid var(--line); border-radius:6px; background:var(--card); }
+  table { border-collapse:collapse; width:100%; min-width:640px; font-size:.86rem; }
+  th, td { text-align:left; vertical-align:top; padding:6px 9px; border-bottom:1px solid var(--line); }
+  th { background:#f1f5f2; position:sticky; top:0; white-space:nowrap; }
+  tr:last-child td { border-bottom:0; }
+  code { font:.82rem ui-monospace,SFMono-Regular,Menlo,monospace; background:#eef3ef; padding:1px 4px; border-radius:3px; word-break:break-word; }
+  a { color:var(--ac); }
+  .tag { display:inline-block; font-size:.72rem; padding:0 6px; border-radius:9px; background:#dbeee2; color:#1f5a3c; white-space:nowrap; }
+  .tag.no { background:#fde4e0; color:#8c2b1c; }
+  .tag.mid { background:#fff0c9; color:#7a5200; }
+  ul { padding-left:1.2em; }
+  @media (max-width:600px) { body { font-size:15px; } h1 { font-size:1.35rem; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Variáveis analisadas nas simulações energéticas do Ambiens</h1>
+<p class="meta">Pesquisa sobre o código da branch <code>docs/variaveis-simulacao</code> (base <code>origin/main</code>, commit <code>5ff72d0</code>) e sobre a prática externa. Gerado em 03/10/2026. Referências no formato <code>arquivo:linha</code> são sempre desta árvore.</p>
+
+<h2 id="resumo">1. Resumo e decisões</h2>
+
+<div class="box">
+  <p><strong>Em uma frase:</strong> o Ambiens é um simulador de <em>conforto térmico com controle ativo</em> (janela, ventilador, ar-condicionado e DOAS decididos a cada timestep), não de desempenho energético normativo. O conforto é medido por <strong>temperatura operativa × banda adaptativa ASHRAE 55</strong> e <strong>PMV de Fanger</strong>; a energia, por <strong>kWh elétricos por uso final</strong>.</p>
+  <p><strong>Não há bloqueio:</strong> o código injeta suas próprias <code>Output:Variable</code> (<code>confortimetro/idf/processor.py:819-861</code>); a pesquisa não depende de inferir só dos IDFs de exemplo.</p>
+</div>
+
+<h3>Top 10 variáveis que o sistema de fato usa</h3>
+<div class="wrap"><table>
+<tr><th>#</th><th>Variável</th><th>Nome no EnergyPlus / código</th><th>Unid.</th><th>Onde</th><th>Para quê</th></tr>
+<tr><td>1</td><td>Temperatura operativa</td><td><code>Zone Operative Temperature</code></td><td>°C</td><td><code>processor.py:823</code>, <code>base.py:463</code>, <code>stats.py:32,166</code></td><td>Decide abrir janela; “fora da banda adaptativa (%)”; entra em <code>EM_CONFORTO</code></td></tr>
+<tr><td>2</td><td>PMV (Fanger)</td><td><code>Zone Thermal Comfort Fanger Model PMV</code> e PMV recalculado pelo controlador</td><td>–</td><td><code>processor.py:827</code>, <code>base.py:20-29</code>, <code>stats.py:31,163-164</code></td><td>Liga ventilador/AC; “PMV médio” e “PMV fora da faixa (%)”</td></tr>
+<tr><td>3</td><td>Temperatura neutra adaptativa ASHRAE 55 (± banda)</td><td><code>Zone Thermal Comfort ASHRAE 55 Adaptive Model Temperature</code>; <code>ADAP_MIN/MAX_&lt;zona&gt;</code></td><td>°C</td><td><code>base.py:468,142-147</code>, <code>stats.py:33,166-168</code></td><td>Banda 90% (±2,5) ou 80% (±3,5) via <code>adaptative_bound</code> (<code>config.py:215</code>)</td></tr>
+<tr><td>4</td><td>Temp. do ar, temp. radiante média, umidade relativa</td><td><code>Zone Air Temperature</code>, <code>Zone Mean Radiant Temperature</code>, <code>Zone Air Relative Humidity</code></td><td>°C, °C, %</td><td><code>base.py:448-461</code></td><td>Entradas do PMV calculado pelo controlador</td></tr>
+<tr><td>5</td><td>Ocupação</td><td><code>People Occupant Count</code></td><td>pessoas</td><td><code>processor.py:820</code>, <code>base.py:443</code>, <code>stats.py:15,98</code></td><td>Denominador de toda estatística (só horas ocupadas); sala vazia → lógica de purga de CO₂</td></tr>
+<tr><td>6</td><td>CO₂ da zona</td><td><code>Zone Air CO2 Concentration</code> (limite <code>co2_limit</code>)</td><td>ppm</td><td><code>processor.py:829</code>, <code>base.py:473</code>, <code>stats.py:126</code>, <code>config.py:213</code></td><td>Liga o DOAS; reporta “CO2 máximo (ppm)”</td></tr>
+<tr><td>7</td><td>Energia elétrica por uso final</td><td><code>Zone Packaged Terminal Heat Pump Electricity Energy</code>, <code>VENTILADOR_*:Electric Equipment Electricity Energy</code>, <code>Zone Electric Equipment/Lights Electricity Energy</code></td><td>J → kWh</td><td><code>excel.py:45-66</code>, <code>stats.py:134-159</code></td><td>Aquecimento, resfriamento, ventilador, iluminação, total (kWh) por zona</td></tr>
+<tr><td>8</td><td>Estados de controle</td><td>schedules <code>JANELA_</code>, <code>VENT_</code>, <code>VEL_</code>, <code>AC_</code>, <code>DOAS_STATUS_</code>, <code>CLO_</code></td><td>0/1, m/s, clo</td><td><code>processor.py:710-715</code>, <code>stats.py:117-124</code></td><td>% do tempo ocupado com janela aberta, ventilador, AC, DOAS</td></tr>
+<tr><td>9</td><td>“Desconforto (%)”</td><td>schedule <code>EM_CONFORTO_&lt;zona&gt;</code> (calculado por <code>is_comfortable</code>)</td><td>fração do tempo ocupado</td><td><code>base.py:426-433</code>, <code>stats.py:125</code></td><td>Métrica-título das comparações; é híbrida (adaptativo com janela aberta, PMV com janela fechada)</td></tr>
+<tr><td>10</td><td>Demanda, setpoints e potência do HVAC (diagnóstico)</td><td><code>Zone Predicted Sensible Load to Heating/Cooling Setpoint…</code>, <code>Zone Thermostat … Setpoint Temperature</code>, <code>… Coil Heating/Cooling Rate</code></td><td>W, °C</td><td><code>processor.py:846-851</code>, <code>series.py:57-63</code></td><td>Assistente de análise: demanda × entrega, horas acima de 90% da capacidade</td></tr>
+</table></div>
+
+<div class="box warn">
+  <p><strong>Achados que merecem decisão do dono</strong> (detalhes na seção 5):</p>
+  <ul>
+    <li>Duas <code>Output:Variable</code> do processador têm <strong>erro de grafia</strong> (<code>Radiante</code>, <code>Adaptative</code>) e nunca geram dado: confirmado no <code>eplusout.err</code> de uma execução real. Hoje funcionam só porque os IDFs de exemplo já trazem os nomes certos.</li>
+    <li>“PMV fora da faixa (%)” usa <code>0.5</code> fixo (<code>stats.py:164</code>) e ignora <code>pmv_lowerbound/upperbound</code> da configuração.</li>
+    <li>Lacunas mais baratas de cobrir: <strong>PPD e categorias</strong>, <strong>graus-hora/severidade do desconforto</strong>, <strong>CO₂ acima do exterior</strong>, <strong>PHFT/TOmáx/TOmín</strong> (estilo NBR 15575). Energia primária e edificação de referência (INI-C) só se o objetivo for etiqueta PBE Edifica.</li>
+  </ul>
+</div>
+
+<h2 id="detalhes">2. Detalhes do que o sistema lê, simula e reporta</h2>
+
+<h3>2.1 Entradas</h3>
+<div class="wrap"><table>
+<tr><th>Entrada</th><th>Nome no código / IDF</th><th>Unid.</th><th>Onde</th><th>Uso</th></tr>
+<tr><td>Clima</td><td>EPW passado em <code>--weather</code>; o Ambiens lê só a temperatura de bulbo seco (<code>Site Outdoor Air Drybulb Temperature</code>)</td><td>°C</td><td><code>simulation.py:213-217</code>, <code>base.py:438</code></td><td>Condição de abertura da janela. Radiação, vento e umidade externa agem dentro do EnergyPlus, sem leitura própria</td></tr>
+<tr><td>Metabolismo</td><td><code>met</code> (padrão 1,2); vira W em <code>met_as_watts = met·58,1·1,8</code>; schedule <code>METABOLISMO</code></td><td>met / W</td><td><code>config.py:257</code>, <code>processor.py:640-644</code></td><td>Atividade em <code>People</code> e entrada do PMV</td></tr>
+<tr><td>Trabalho mecânico</td><td><code>wme</code>; schedule <code>WORK_EF</code></td><td>–</td><td><code>config.py:218</code>, <code>processor.py:647-651</code></td><td>Entrada do PMV</td></tr>
+<tr><td>Vestimenta</td><td><code>clo_min</code>, <code>clo_max</code>, <code>clo_delta</code>, <code>clo_priority</code>; schedule <code>CLO_&lt;zona&gt;</code></td><td>clo</td><td><code>config.py:219-222</code>, <code>processor.py:715,794-795</code>, <code>base.py:292-317</code></td><td>O controlador varre a grade de clo antes de ligar ventilador/AC</td></tr>
+<tr><td>Velocidade do ar</td><td><code>max_vel</code>, <code>air_speed_delta</code>; schedule <code>VEL_&lt;zona&gt;</code></td><td>m/s</td><td><code>config.py:214,234</code>, <code>processor.py:793</code>, <code>base.py:319-346</code></td><td>Ventilador de teto escolhido pelo PMV; o IDF lê a velocidade em <code>People</code></td></tr>
+<tr><td>Faixas de conforto</td><td><code>pmv_lowerbound/upperbound</code> (−0,5/0,5), <code>pmv_comfort_bound</code> (0,2), <code>adaptative_bound</code> (2,5)</td><td>–, °C</td><td><code>config.py:211-212,235,215</code></td><td>Decisões do controlador e <code>is_comfortable</code></td></tr>
+<tr><td>Setpoints do AC</td><td><code>temp_ac_min</code>, <code>temp_ac_max</code>; schedules <code>TEMP_HEAT_AC_</code>, <code>TEMP_COOL_AC_</code></td><td>°C</td><td><code>config.py:216-217</code>, <code>processor.py:716-717</code></td><td>Limites da busca de setpoint por PMV; no módulo <code>FIXED_AC_WITHOUT_FAN</code> viram fixos (<code>processor.py:654-663</code>)</td></tr>
+<tr><td>Abertura de janela</td><td><code>temp_open_window_bound</code> (°C de folga)</td><td>°C</td><td><code>config.py:233</code>, <code>base.py:161-165</code></td><td>Janela só abre se externa ≥ interna − folga e ≤ máximo adaptativo</td></tr>
+<tr><td>CO₂</td><td><code>co2_limit</code>; CO₂ externo fixo em 400 (<code>Outdoor CO2 Schedule</code>); taxa de geração por pessoa no <code>People</code></td><td>ppm</td><td><code>config.py:213</code>, <code>processor.py:705</code>, <code>SALA_PTHP.idf:38-40,974</code></td><td>Aciona o DOAS</td></tr>
+<tr><td>Ocupação e cargas internas</td><td><code>People</code> (nº de pessoas, fração radiante, MRT <code>ZoneAveraged</code>, modelos <code>Fanger</code> e <code>AdaptiveASH55</code>), <code>Lights</code> (W/m²), <code>ElectricEquipment</code> (W, W/m²), schedule <code>OCUPACAO</code></td><td>pessoas, W/m²</td><td><code>SALA_PTHP.idf:963-984,989-1018,373-391</code>; FAURB: <code>:7861,8022,8172</code></td><td>Ganhos internos; os dois modelos de conforto do EnergyPlus vêm do <code>People</code></td></tr>
+<tr><td>Envoltória</td><td>Materiais (condutividade, densidade, calor específico, absortâncias), construções, vidros, sombreamento, <code>Building</code> (terreno, distribuição solar)</td><td>W/m·K etc.</td><td><code>SALA_PTHP.idf:26-34,478-500,586-625,943</code></td><td>Só no IDF; o Ambiens não altera. O assistente lê U, SHGC, WWR do relatório (<code>tools.py:547-586</code>)</td></tr>
+<tr><td>Ventilação natural</td><td><code>AirflowNetwork</code> (aberturas, coeficientes de fresta, schedule <code>JANELA_&lt;zona&gt;</code> como disponibilidade)</td><td>kg/s·m</td><td><code>SALA_PTHP.idf:1023-1137</code>, <code>processor.py:166-168</code></td><td>Janela aberta/fechada pelo controlador</td></tr>
+<tr><td>HVAC</td><td><code>HVACTemplate:Zone:PTHP</code> (COP 3,24, vazões, aquecimento suplementar elétrico), <code>HVACTemplate:Thermostat</code>, <code>HVACTemplate:System:DedicatedOutdoorAir</code> (DOAS)</td><td>W/W, m³/s</td><td><code>SALA_PTHP.idf:1146-1260</code></td><td>Disponibilidade do AC = <code>AC_&lt;zona&gt;</code>; do DOAS = <code>DOAS_STATUS_&lt;zona&gt;</code></td></tr>
+<tr><td>Período e passo</td><td><code>RunPeriod</code>, <code>Timestep</code> (6/h); 2 dias de aquecimento descartados</td><td>–</td><td><code>SALA_PTHP.idf:44,119</code>, <code>processor.py:480-510</code>, <code>excel.py:13,79</code></td><td>Carimbo de datas e recorte</td></tr>
+</table></div>
+<p class="meta">Parâmetros fixos no código, sem campo de configuração: janela de inverno meses 6–9 (<code>base.py:98</code>), faixa 25,0–27,2 °C para janela com ventilador (<code>complete.py:47</code>), curvas <code>get_temp_max_op</code>/<code>get_vel_adap</code> (<code>base.py:562-567</code>), tempo máximo de AC ligado de 12 timesteps (<code>base.py:59</code>). Divergência de padrões: <code>config.py</code> traz <code>co2_limit=1000</code> e <code>temp_ac_min=16</code> (linhas 213 e 216), enquanto <code>docs/CLI.md</code> e <code>examples/config.json</code> usam 900 e 18.</p>
+
+<h3>2.2 Saídas pedidas ao EnergyPlus (<code>Output:Variable</code>, frequência <code>Timestep</code>)</h3>
+<p>O processador acrescenta a lista abaixo a todo IDF (<code>processor.py:819-881</code>) e ainda uma <code>System Node Mass Flow Rate</code> do DOAS por zona (<code>:883-891</code>). O pós-processamento lê <strong>todas</strong> as variáveis do <code>.eso</code> que casam com o nome da zona (<code>excel.py:94-107</code>) e escreve uma planilha por zona.</p>
+<div class="wrap"><table>
+<tr><th>Variável EnergyPlus</th><th>Unid.</th><th>Linha</th><th>Consumida por</th></tr>
+<tr><td><code>People Occupant Count</code></td><td>–</td><td>820</td><td>controlador, estatísticas, recortes (<code>periods.py:216</code>)</td></tr>
+<tr><td><code>Site Outdoor Air Drybulb Temperature</code></td><td>°C</td><td>821</td><td>controlador, gráficos, planilha</td></tr>
+<tr><td><code>Zone Operative Temperature</code>, <code>Zone Air Temperature</code>, <code>Zone Air Relative Humidity</code></td><td>°C, %</td><td>823-825</td><td>controlador, estatísticas, séries (<code>series.py:24,43,45</code>)</td></tr>
+<tr><td><code>Zone Thermal Comfort Fanger Model PMV</code>, <code>… Clothing Value</code></td><td>–, clo</td><td>827-828</td><td>estatísticas, séries</td></tr>
+<tr><td><code>Zone Air CO2 Concentration</code></td><td>ppm</td><td>829</td><td>controlador, estatísticas</td></tr>
+<tr><td><code>Schedule Value</code> (todos os schedules de controle)</td><td>–</td><td>830</td><td>estatísticas, séries, assistente</td></tr>
+<tr><td><code>Zone Packaged Terminal Heat Pump Total Heating/Cooling Energy</code></td><td>J</td><td>831-832</td><td>% do tempo com AC aquecendo/resfriando (<code>stats.py:115-117</code>)</td></tr>
+<tr><td><code>… Heat Pump Electricity Energy</code>, <code>Cooling/Heating Coil Electricity Energy</code>, <code>Electric Equipment Electricity Energy</code>, <code>Zone Electric Equipment Electricity Energy</code>, <code>Zone Lights Electricity Energy</code></td><td>J</td><td>835-842</td><td>kWh por uso final (<code>excel.py:45-66</code>, <code>stats.py:134-159</code>)</td></tr>
+<tr><td><code>Zone Predicted Sensible Load to Heating/Cooling Setpoint Heat Transfer Rate</code>, <code>Heating Coil Heating Rate</code>, <code>Cooling Coil Total Cooling Rate</code>, <code>Zone Thermostat Heating/Cooling Setpoint Temperature</code></td><td>W, °C</td><td>846-851</td><td>assistente (<code>tools.py:646-693</code>)</td></tr>
+<tr><td><code>Zone Air Heat Balance …</code> (7 componentes), <code>Zone Windows Total Heat Gain/Loss Energy</code></td><td>W, J</td><td>852-860</td><td>assistente (<code>balanco_termico</code>, <code>tools.py:588-644</code>)</td></tr>
+<tr><td><code>System Node Mass Flow Rate</code> (entrada de ar externo do DOAS)</td><td>kg/s</td><td>883-891</td><td>série <code>vazao_doas</code> (<code>series.py:53</code>)</td></tr>
+</table></div>
+<p>Além disso, o IDF manda gerar os relatórios tabulares (<code>Output:Table:SummaryReports AllSummary</code>, <code>SALA_PTHP.idf:1276</code>) e o assistente lê do <code>eplustbl.csv</code> (<code>results/tabular.py</code>): <em>Zone Summary</em>, <em>Envelope Summary</em>, <em>Equipment Summary</em>, <em>HVAC Sizing Summary</em>, <em>Sensible Heat Gain Summary</em> e <em>System Summary → Time Setpoint Not Met</em> (<code>tools.py:536-663</code>).</p>
+
+<h3>2.3 Métricas calculadas pelo Ambiens (<code>ESTATISTICAS.xlsx</code>)</h3>
+<p>Todas por zona e <strong>sobre as horas ocupadas</strong> (<code>stats.py:98</code>); a zona nunca ocupada gera erro (<code>stats.py:109</code>).</p>
+<div class="wrap"><table>
+<tr><th>Métrica</th><th>Definição</th><th>Linha</th></tr>
+<tr><td><code>Desconforto (%)</code></td><td>Fração ocupada com <code>EM_CONFORTO == 0</code></td><td><code>stats.py:125</code></td></tr>
+<tr><td><code>PMV médio</code>, <code>PMV fora da faixa (%)</code></td><td>Média do PMV; fração com |PMV| &gt; 0,5 (fixo)</td><td><code>stats.py:163-164</code></td></tr>
+<tr><td><code>Fora da banda adaptativa (%)</code></td><td>Operativa abaixo de <code>ADAP_MIN</code> ou acima de <code>ADAP_MAX</code></td><td><code>stats.py:166-168</code></td></tr>
+<tr><td><code>Aquecimento (%)</code>, <code>Resfriamento (%)</code>, <code>Ar condicionado ligado (%)</code></td><td>Fração ocupada com energia térmica da PTHP ≠ 0</td><td><code>stats.py:115-117</code></td></tr>
+<tr><td><code>Ventilador ligado (%)</code>, <code>Janela aberta (%)</code>, <code>DOAS ligado (%)</code> e combinações</td><td>Fração ocupada com o estado ligado</td><td><code>stats.py:118-124</code></td></tr>
+<tr><td><code>CO2 máximo (ppm)</code></td><td>Máximo do ano (inclui horas vazias)</td><td><code>stats.py:126</code></td></tr>
+<tr><td><code>Aquecimento (kWh)</code>, <code>Resfriamento (kWh)</code> (inclui ventilador), <code>Ventilador (kWh)</code>, <code>Energia total (kWh)</code></td><td>Soma de J ÷ 3,6·10⁶; total = PTHP + equipamentos + iluminação</td><td><code>stats.py:142-159</code></td></tr>
+<tr><td><code>Timesteps simulados</code></td><td>Denuncia execuções de períodos diferentes</td><td><code>stats.py:132</code></td></tr>
+<tr><td>Recortes sazonais</td><td>Verão 23/12–24/03, inverno 22/06–23/09, semanas típicas (30/01–06/02, 31/07–07/08), só horas ocupadas</td><td><code>periods.py:11-16</code></td></tr>
+</table></div>
+<p><strong>Modelos de conforto, em duas camadas.</strong> (1) O EnergyPlus calcula PMV de Fanger e temperatura neutra adaptativa ASHRAE 55 por objeto <code>People</code> (<code>Fanger</code> + <code>AdaptiveASH55</code>). (2) O controlador recalcula o PMV por conta própria com <code>ladybug_comfort</code> e <code>pythermalcomfort</code> (<code>base.py:1-39</code>) para testar combinações de clo, velocidade e setpoint dentro do timestep. <code>is_comfortable</code> (<code>base.py:426-433</code>) mistura os dois: janela aberta e sem ventilador → adaptativo; ventilador com janela aberta → <code>temp_op ≤ temp_op_max(vel)</code>; janela fechada → PMV dentro de ±(0,5 + 0,2).</p>
+
+<h3>2.4 Usado de fato × só suportado</h3>
+<div class="wrap"><table>
+<tr><th>Situação</th><th>Itens</th></tr>
+<tr><td><span class="tag">usado</span></td><td>Tudo na tabela do resumo; mais os sinais de diagnóstico do assistente (2.2) e o <code>MOTIVO_&lt;zona&gt;</code>, soma de bits do porquê de cada decisão (<code>control/motivos.py:14-33</code>).</td></tr>
+<tr><td><span class="tag mid">pedido ao EnergyPlus, sem métrica</span></td><td><code>Zone Infiltration Air Change Rate</code> (<code>processor.py:843</code>; no FAURB é <code>hourly</code>, <code>:10493-10496</code>): vai para a planilha da zona, mas não está em <code>series.COLUMNS</code> nem nas estatísticas. <code>People Air Relative Humidity</code> e <code>Output:Meter InteriorEquipment:Electricity:Zone:*</code> existem no IDF de exemplo (<code>FAURB_PTHP_ENTORNO.idf:10453-10456,10578</code>) e nenhum código os consome (<code>Output:Meter</code> não aparece em <code>confortimetro/</code>).</td></tr>
+<tr><td><span class="tag mid">gerado pelo EnergyPlus, não lido</span></td><td>Relatórios do <code>eplustbl.csv</code> como <em>Adaptive Comfort Summary</em> (horas fora de ASHRAE 55 90%/80%; as colunas CEN15251 saem vazias porque o <code>People</code> só declara <code>AdaptiveASH55</code>), <em>Annual Thermal Resilience Summary</em> (horas por faixa de índice de calor), <em>Standard 62.1 Summary</em>, <em>Energy Meters</em>, <em>Annual Building Utility Performance Summary</em> (usos finais). Visto em <code>outputs/final/COMPLETO_0,5/eplustbl.csv:717,2639,2382,2150,8</code>; nenhum é lido por <code>confortimetro/</code> (busca por esses títulos sem resultado).</td></tr>
+<tr><td><span class="tag no">sem efeito (erro de grafia)</span></td><td><code>Zone Mean Radiante Temperature</code> e <code>Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature</code> (<code>processor.py:822,826</code>; repetidas em <code>FAURB_PTHP_ENTORNO.idf:10533-10541</code>).</td></tr>
+<tr><td><span class="tag mid">suportado só como passagem</span></td><td>Módulo <code>ENERGYPLUS_ONLY</code>: nenhuma variável é acrescentada e não há planilhas nem estatísticas; ficam os <code>eplusout.*</code> (<code>simulation.py:321-327</code>, <code>docs/CLI.md</code> linha 144).</td></tr>
+</table></div>
+
+<h2 id="externo">3. Contexto externo: o que a prática considera principal</h2>
+<ul>
+  <li><strong>ASHRAE 55.</strong> Seis fatores combinados: temperatura do ar, temperatura radiante, velocidade do ar, umidade, metabolismo (met) e vestimenta (clo); métodos PMV/PPD e adaptativo para ambientes naturalmente ventilados com controle do usuário (<a href="https://www.simscale.com/blog/what-is-ashrae-55-thermal-comfort/">SimScale</a>, <a href="https://blog.ansi.org/ansi/ansi-ashrae-55-2023-thermal-environmental-conditions/">ANSI</a>).</li>
+  <li><strong>ISO 7730.</strong> PMV e PPD mais critérios de desconforto local: corrente de ar, diferença vertical de temperatura, assimetria radiante e temperatura do piso (<a href="https://www.iso.org/standard/85803.html">ISO 7730:2025</a>). Segundo resumos de busca, a categoria A é PMV ±0,2 / PPD &lt; 6% e a B é ±0,5 / PPD &lt; 10% (<a href="https://standards.iteh.ai/catalog/standards/iso/e7c7450f-822f-4537-976a-721f6450fc2f/iso-7730-2005">iTeh</a>); <em>não conferi na norma</em>.</li>
+  <li><strong>EN 16798-1:2019.</strong> Categorias I–IV (PMV) e I–III (adaptativo); limites de operativa em função da temperatura externa média móvel, válidos para 10–30 °C (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7503112/">PMC</a>); inclui qualidade do ar, iluminação e acústica (<a href="https://standards.iteh.ai/catalog/standards/cen/b4f68755-2204-4796-854a-56643dfcfe89/en-16798-1-2019">iTeh</a>, <a href="https://www.rehva.eu/rehva-journal/chapter/indoor-environmental-input-parameters-for-the-design-and-assessment-of-energy-performance-of-buildings">REHVA</a>). Para CO₂ acima do exterior, resumos de busca citam 550 / 800 / 1350 ppm (categoria I / II / III-IV); <em>valores de fonte secundária, conferir na norma</em>.</li>
+  <li><strong>ABNT NBR 15575 (edificações habitacionais).</strong> Por simulação, os indicadores são <strong>PHFT</strong> (percentual de horas de ocupação em faixa de temperatura operativa), <strong>TOmáx/TOmín</strong> anuais e <strong>CgTT</strong> (carga térmica total, só para níveis intermediário e superior); entram ocupação e janelas operáveis, com e sem ventilação natural (<a href="https://cte.com.br/blog/sustentabilidade/abnt-nbr-15-575-traz-novidades-para-avaliacao-termica-entenda-as-mudancas/">CTE</a>, <a href="https://labeee.ufsc.br/pt-br/node/820">LabEEE/UFSC</a>). <strong>Ressalva:</strong> a norma é de habitação; salas de aula e ateliês não são seu escopo.</li>
+  <li><strong>INI-C / PBE Edifica (sucessora do RTQ-C).</strong> Classifica edificações comerciais, de serviços e públicas pela <strong>redução do consumo de energia primária</strong> frente a uma edificação de referência (classe D), com envoltória obrigatória e, opcionalmente, ar-condicionado, iluminação e aquecimento de água; métodos simplificado e de simulação; para ambientes naturalmente ventilados usa horas excedentes por calor e graus-dia de resfriamento (CDD18) (<a href="https://pbeedifica.com.br/inic">PBE Edifica</a>, <a href="https://www.pbeedifica.com.br/node/578">aprovação da INI-C</a>). Não li os manuais para os critérios numéricos.</li>
+</ul>
+
+<h2 id="lacunas">4. Lacunas e se vale cobrir</h2>
+<div class="wrap"><table>
+<tr><th>Variável / indicador</th><th>Prática</th><th>No Ambiens</th><th>Vale cobrir?</th></tr>
+<tr><td>PPD e categorias de conforto (A/B/C, I–IV)</td><td>ISO 7730, EN 16798-1</td><td>Só PMV e uma faixa única ±0,5</td><td><span class="tag">sim, barato</span> PPD sai do PMV já gravado; categorias são limiares extras em <code>stats.py</code></td></tr>
+<tr><td>Graus-hora / severidade do desconforto</td><td>Indicador usual de conforto e de resiliência térmica</td><td>Só % de tempo, sem intensidade</td><td><span class="tag">sim, barato</span> operativa e banda já estão na planilha</td></tr>
+<tr><td>PHFT, TOmáx, TOmín</td><td>NBR 15575</td><td>Operativa existe; nenhuma dessas métricas</td><td><span class="tag mid">talvez</span> fácil de derivar, mas a norma é residencial; útil como referência cruzada</td></tr>
+<tr><td>CO₂ acima do exterior e taxa de ventilação (L/s·pessoa)</td><td>EN 16798-1, ASHRAE 62.1</td><td>Limite absoluto (<code>co2_limit</code>), exterior fixo em 400 (<code>processor.py:705</code>); vazão do DOAS só como série</td><td><span class="tag mid">sim para CO₂ relativo</span>; vazão por pessoa depende da pergunta</td></tr>
+<tr><td>Adaptativo EN 16798-1 / CEN 15251 (média móvel)</td><td>EN 16798-1</td><td>Só o ASHRAE 55 (90%/80%)</td><td><span class="tag mid">talvez</span> o EnergyPlus calcula se o <code>People</code> declarar <code>AdaptiveCEN15251</code> (conferir no IDD 9.4); ler o <em>Adaptive Comfort Summary</em> já existente</td></tr>
+<tr><td>Efeito de resfriamento por velocidade do ar (SET/ASHRAE 55)</td><td>ASHRAE 55</td><td>Velocidade entra no PMV; sem modelo próprio de ventilador de teto</td><td><span class="tag mid">talvez</span> relevante porque o ventilador é central ao controle</td></tr>
+<tr><td>Desconforto local (corrente de ar, ΔT vertical, assimetria radiante, piso)</td><td>ISO 7730</td><td>Não coberto</td><td><span class="tag no">não agora</span> exige variáveis por ponto, fora do modelo de zona única</td></tr>
+<tr><td>Umidade como limite de conforto (horas fora da faixa)</td><td>ASHRAE 55, ISO 7730</td><td>UR entra só como insumo do PMV</td><td><span class="tag mid">talvez</span></td></tr>
+<tr><td>Energia primária, edificação de referência, uso final com iluminação separada</td><td>INI-C</td><td>kWh elétricos por zona; sem fator de energia primária nem modelo de referência</td><td><span class="tag no">só se houver meta de etiqueta</span> exige segundo modelo e regras da INI-C</td></tr>
+<tr><td>Radiação solar, vento e UR externos, carga de pico</td><td>Prática geral de simulação</td><td>Só bulbo seco externo; picos só via relatório de dimensionamento</td><td><span class="tag mid">talvez</span> ajuda a explicar causas, não a medir conforto</td></tr>
+</table></div>
+
+<h2 id="achados">5. Achados incidentais</h2>
+<ul>
+  <li><strong>Grafia nas <code>Output:Variable</code>.</strong> <code>processor.py:822</code> e <code>:826</code> pedem <code>Radiante</code> e <code>Adaptative</code>. O <code>eplusout.err</code> de <code>outputs/final/COMPLETO_0,5</code> lista os dois na “Simulation Error Summary” (linhas 102-103). O controlador pede as variáveis certas por API (<code>base.py:453,468</code>) e lança <code>RuntimeError</code> se faltarem (<code>base.py:555-559</code>); um IDF de usuário sem essas duas saídas quebraria no primeiro timestep, porque o processador não as supre. Os exemplos escapam porque já trazem os nomes corretos (<code>FAURB_PTHP_ENTORNO.idf:10433-10436,10458-10461</code>).</li>
+  <li><strong>Faixa de PMV fixa em 0,5</strong> em <code>stats.py:164</code>, enquanto o controlador usa <code>pmv_lowerbound/upperbound</code>. Com faixa alterada, a estatística e a decisão passam a medir coisas diferentes.</li>
+  <li><strong>Padrões divergentes</strong> entre <code>config.py:213,216</code> (1000 ppm, 16 °C) e <code>docs/CLI.md</code>/<code>examples/config.json</code> (900 ppm, 18 °C).</li>
+  <li><strong>Localização do exemplo SALA.</strong> <code>SALA_PTHP.idf:52-53</code> traz latitude e longitude positivas (31,46 e 52,2), que no EnergyPlus significam hemisfério norte e leste; Pelotas é sul e oeste. O FAURB usa −31,52/−52,21 (<code>:34-35</code>). Afeta a geometria solar só desse exemplo.</li>
+  <li><strong>“Desconforto (%)” não é uma métrica normativa.</strong> Mistura adaptativo e PMV conforme o estado da janela (<code>base.py:426-433</code>); não é comparável diretamente a PMV/PPD ISO 7730 nem a horas fora do adaptativo.</li>
+</ul>
+
+<h2 id="perguntas">6. Perguntas para o dono</h2>
+<ol>
+  <li>O objetivo é pesquisa de conforto (sem norma específica) ou gerar números para uma etiqueta PBE Edifica / laudo? Isso decide se energia primária e edificação de referência entram.</li>
+  <li>Quer que o “Desconforto (%)” continue híbrido ou que as estatísticas separem PMV, adaptativo ASHRAE 55 e (talvez) EN 16798-1?</li>
+  <li>PPD, categorias e graus-hora entram nas <code>ESTATISTICAS.xlsx</code> (e no banco <code>simulacoes.db</code>) como colunas novas?</li>
+  <li>Corrijo a grafia das duas <code>Output:Variable</code> e fixo a faixa de PMV a partir da configuração? São mudanças pequenas, mas alteram código de produto, por isso ficaram fora desta pesquisa.</li>
+  <li>Há interesse em edificações habitacionais (NBR 15575)? Os IDFs atuais são salas de aula e ateliês.</li>
+</ol>
+
+<p class="meta">Método: leitura de <code>confortimetro/</code>, <code>docs/CLI.md</code>, <code>examples/</code> e de uma execução real em <code>outputs/final/COMPLETO_0,5</code> (somente leitura). Nenhuma simulação foi rodada. Fontes externas consultadas por busca; onde um número vem de resumo e não da norma, está marcado.</p>
+
+</main>
+</body>
+</html>
