@@ -1,0 +1,15 @@
+### 2026-10-03T07:20:50Z (evidence)
+launch: klimaa-rev-core tentativa 1 (claude) → terminou
+log: /home/glbessa/Projetos/zeroumlabs/agents/state/logs/klimaa-rev-core.1.log
+
+```
+Permission deny rule (/home/glbessa/.claude-glbessa/settings.json): Bash(git *push* :**) has a :* that is not at the end, so it is matched as a * wildcard (the : is literal), not as the trailing :* prefix syntax. It already matches as a * wildcard; moving :* to the end would make it a literal prefix and change which commands match.
+Corrigi o aviso de tipografia do `docs/revisao-core.html`: os tamanhos de fonte estavam próximos demais e os níveis de título mal se distinguiam.
+
+- **Título:** passou a 28 px (era 24 px).
+- **Seções:** passaram a 20 px (eram 18,4 px).
+- **Tabela e código:** a tabela ficou em 13 px e o código passou a seguir o tamanho do texto ao redor.
+
+O texto e os achados não mudaram. Emendei o commit, que agora é `60b59ea`, ainda sem push. Ele continua tocando só `docs/revisao-core.html` (141 linhas).
+```
+
