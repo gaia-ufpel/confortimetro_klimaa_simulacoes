@@ -3,10 +3,13 @@ id: 0002-klimaa-revisao-do-core-em-busca
 title: 'klimaa revisão do core em busca de lógicas quebradas'
 repo: 'gaia-ufpel/confortimetro_klimaa_simulacoes'
 type: diagnostico
-agent: ''
+agent: 'claude'
 priority: alta
 created: 2026-10-03T06:31:07Z
-updated: 2026-10-03T06:31:47Z
+updated: 2026-10-03T07:02:09Z
+briefing_hash: ca29d7c4a8131dccfab584241c58a52834f5360e41d9cbd34b44a0417356d0b5
+approved: '2026-10-03T06:31:49Z'
+panel: 'klimaa-rev-core'
 ---
 
 ## Request
@@ -27,3 +30,7 @@ Devolva: comandos rodados + saída + lista de achados por severidade.
 ## History
 
 - 2026-10-03T06:31:07Z — todo (created)
+
+- 2026-10-03T06:31:49Z — briefing aprovado pelo dono (sha256 ca29d7c4a813)
+
+- 2026-10-03T07:02:09Z — doing
