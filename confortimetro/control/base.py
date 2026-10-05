@@ -93,7 +93,9 @@ class Conditioner:
         self.ac_on_counter: dict[str, int] = {room : 0 for room in self.configs.rooms}
         self.ac_on_max_timesteps: int = ac_on_max_timesteps
         
-        self.janela_sem_pessoas_bloqueada = False
+        # Trava por sala: uma sala que esfriou não pode segurar a purga de CO2
+        # das outras, nem a ordem das salas mudar o resultado.
+        self.janela_sem_pessoas_bloqueada: dict[str, bool] = {room: False for room in self.configs.rooms}
 
         self.periodo_inverno = range(6, 10)
 
@@ -196,7 +198,7 @@ class Conditioner:
         """Janela na sala vazia: abre para eliminar CO2, mas trava depois de
         esfriar demais e só destrava quando a operativa volta à neutra."""
         if temp_op <= temp_min_adaptativo:
-            self.janela_sem_pessoas_bloqueada = True
+            self.janela_sem_pessoas_bloqueada[room] = True
 
         if not (tdb < temp_max_adaptativo
                 and self.ep_api.exchange.month(state) not in self.periodo_inverno
@@ -204,14 +206,14 @@ class Conditioner:
                 and temp_op > temp_min_adaptativo):
             return 0
 
-        if not self.janela_sem_pessoas_bloqueada:
+        if not self.janela_sem_pessoas_bloqueada[room]:
             return 1
         if temp_op >= temp_neutra_adaptativo:
-            self.janela_sem_pessoas_bloqueada = False
+            self.janela_sem_pessoas_bloqueada[room] = False
             return 1
         return 0
 
-    def window_without_people_motivo(self, state, tdb, temp_ar, temp_op,
+    def window_without_people_motivo(self, state, room, tdb, temp_ar, temp_op,
                                      temp_neutra_adaptativo, temp_max_adaptativo,
                                      status_janela) -> Motivo:
         """Porquê de window_without_people, lido *depois* dela (usa a trava já
@@ -227,7 +229,7 @@ class Conditioner:
             motivo |= Motivo.VAZIA_JANELA_INVERNO
         # A trava só segura a janela enquanto a operativa não volta à neutra
         # (temp_op <= mínimo também cai aqui: é o que acabou de travar).
-        if self.janela_sem_pessoas_bloqueada and temp_op < temp_neutra_adaptativo:
+        if self.janela_sem_pessoas_bloqueada[room] and temp_op < temp_neutra_adaptativo:
             motivo |= Motivo.VAZIA_JANELA_TRAVADA_FRIO
         return motivo
 
