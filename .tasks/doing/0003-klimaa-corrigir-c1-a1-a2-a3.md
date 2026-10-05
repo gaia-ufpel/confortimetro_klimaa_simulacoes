@@ -6,7 +6,7 @@ type: codigo
 agent: 'claude'
 priority: alta
 created: 2026-10-05T20:58:16Z
-updated: 2026-10-05T21:37:04Z
+updated: 2026-10-05T21:37:05Z
 briefing_hash: 4c904b48501f2919838eb9902be5b8c7eadf79cb866a1f395018894360111d12
 approved: '2026-10-05T20:58:16Z'
 panel: 'klimaa-fix-core'

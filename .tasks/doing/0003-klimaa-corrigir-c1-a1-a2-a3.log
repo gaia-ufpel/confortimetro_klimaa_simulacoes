@@ -45,3 +45,6 @@ $ git diff --stat origin/main...HEAD
 Alguns conectores MCP (ClickUp, Excalidraw, Google Drive, Localo, Nekt, Notion, TripVote) precisam ser autorizados nas configurações de conectores do claude.ai; nenhum deles foi necessário aqui.
 ```
 
+### 2026-10-05T21:37:05Z (generated: ver-klimaa-fix-core)
+gate
+
