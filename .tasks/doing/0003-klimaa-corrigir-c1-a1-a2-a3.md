@@ -6,7 +6,7 @@ type: codigo
 agent: 'merge-task'
 priority: alta
 created: 2026-10-05T20:58:16Z
-updated: 2026-10-05T21:37:07Z
+updated: 2026-10-05T21:37:18Z
 briefing_hash: 4c904b48501f2919838eb9902be5b8c7eadf79cb866a1f395018894360111d12
 approved: '2026-10-05T20:58:16Z'
 panel: 'ver-klimaa-fix-core'

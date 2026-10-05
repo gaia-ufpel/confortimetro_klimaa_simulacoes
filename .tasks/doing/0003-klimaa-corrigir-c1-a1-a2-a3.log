@@ -48,3 +48,11 @@ Alguns conectores MCP (ClickUp, Excalidraw, Google Drive, Localo, Nekt, Notion, 
 ### 2026-10-05T21:37:05Z (generated: ver-klimaa-fix-core)
 gate
 
+### 2026-10-05T21:37:18Z (evidence)
+launch: ver-klimaa-fix-core tentativa 1 (merge-task) → falhou — rc=3
+log: /home/glbessa/Projetos/zeroumlabs/agents/state/logs/ver-klimaa-fix-core.1.log
+
+```
+repo sem `verificacao` no projects.tsv
+```
+
