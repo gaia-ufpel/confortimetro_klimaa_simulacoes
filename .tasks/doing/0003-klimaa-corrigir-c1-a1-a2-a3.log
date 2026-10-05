@@ -56,3 +56,6 @@ log: /home/glbessa/Projetos/zeroumlabs/agents/state/logs/ver-klimaa-fix-core.1.l
 repo sem `verificacao` no projects.tsv
 ```
 
+### 2026-10-05T21:41:00Z (evidence)
+merge-task: fix/core-revisao mergeada na main pelo PR #16 (main local não avançou para origin/main)
+
