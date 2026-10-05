@@ -12,9 +12,12 @@ import os
 import numpy
 import pandas
 
+from confortimetro.control.base import _pmv
+
 CACHE_DIRECTORY = '.series_cache'
 # Sobe quando `COLUMNS` ganha apelidos: o pickle antigo não os tem.
-CACHE_VERSION = 4
+# 5: `pmv` passou a ser o PMV do controlador; o Fanger virou `pmv_fanger`.
+CACHE_VERSION = 5
 
 # Nomes das colunas do <ZONA>.xlsx, com a zona interpolada.
 COLUMNS = {
@@ -22,7 +25,9 @@ COLUMNS = {
     'temp_externa': 'Site Outdoor Air Drybulb Temperature',
     'ocupacao': 'PEOPLE_{room}:People Occupant Count',
     'temp_operativa': '{room}:Zone Operative Temperature',
-    'pmv': 'PEOPLE_{room}:Zone Thermal Comfort Fanger Model PMV',
+    # Fanger do EnergyPlus: velocidade do VEL_ sem efeito de resfriamento nem
+    # velocidade relativa. Só para consulta; o `pmv` é calculado (`controller_pmv`).
+    'pmv_fanger': 'PEOPLE_{room}:Zone Thermal Comfort Fanger Model PMV',
     'clo': 'PEOPLE_{room}:Zone Thermal Comfort Clothing Value',
     'adap_min': 'ADAP_MIN_{room}:Schedule Value',
     'adap_max': 'ADAP_MAX_{room}:Schedule Value',
@@ -74,9 +79,46 @@ COLUMNS = {
 }
 
 
+# Apelidos calculados em `load_zone_series`, que não vêm da planilha.
+COMPUTED = ('pmv',)
+
+# Entradas do PMV do controlador, na ordem de `control.base._pmv` (met e wme à parte).
+PMV_INPUTS = ('temp_ar', 'temp_radiante', 'velocidade_ar', 'umidade', 'clo_controle')
+
+
 def column(name, room):
     """Nome real da coluna a partir do apelido e da zona."""
     return COLUMNS[name].format(room=room)
+
+
+def comfort_params(run_path):
+    """`(met, wme)` com que o controlador da execução rodou; `met` None se a
+    configuração não o registra."""
+    from .compare import read_config  # compare importa este módulo
+
+    config = read_config(run_path)
+    met = config.get('_met', config.get('met'))
+    return (float(met) if met not in (None, '') else None,
+            float(config.get('wme') or 0.0))
+
+
+def controller_pmv(df, met, wme=0.0):
+    """PMV de cada linha ocupada com a função do controlador (`_pmv`: ASHRAE 55
+    com velocidade relativa e clo dinâmico), a partir das séries apelidadas
+    `PMV_INPUTS`; NaN nas linhas vazias, sem entrada ou sem `met`.
+
+    Recalcula com os valores do fim do timestep, e não lê o `PMV_<ZONA>`: o
+    controlador grava o do início do timestep, antes da própria ação.
+    """
+    values = numpy.full(len(df), numpy.nan)
+    if met is None or any(name not in df for name in PMV_INPUTS):
+        return pandas.Series(values, index=df.index)
+    mask = ((df['ocupacao'] > 0) & df[list(PMV_INPUTS)].notna().all(axis=1)).to_numpy()
+    # ponytail: laço Python; com ventilador (> 0,1 m/s) cada ponto roda o SET
+    # (~11 ms) e uma zona anual leva ~15 s. Paralelizar por zona se pesar.
+    values[mask] = [_pmv(ta, tr, vel, rh, met, clo, wme)
+                    for ta, tr, vel, rh, clo in df.loc[mask, list(PMV_INPUTS)].itertuples(index=False)]
+    return pandas.Series(values, index=df.index)
 
 
 def _cache_path(run_path, room):
@@ -86,8 +128,8 @@ def _cache_path(run_path, room):
 def load_zone_series(run_path, room, refresh=False):
     """Série temporal de uma zona, com apelidos de coluna já aplicados.
 
-    As colunas ganham os nomes curtos de `COLUMNS` (`pmv`, `temp_operativa`, …);
-    as demais são descartadas. Linhas fora do período simulado — as planilhas
+    As colunas ganham os nomes curtos de `COLUMNS` (`temp_operativa`, …);
+    as demais são descartadas, e `pmv` é o do controlador (`controller_pmv`). Linhas fora do período simulado — as planilhas
     antigas carimbam o ano inteiro e preenchem o resto com NaN — saem fora.
     """
     excel_path = os.path.join(run_path, f"{room}.xlsx")
@@ -120,6 +162,8 @@ def load_zone_series(run_path, room, refresh=False):
     if 'clo_controle' in df:
         if 'clo' not in df or (df.loc[df['ocupacao'] > 0, 'clo'] == 0).all():
             df['clo'] = df['clo_controle']
+
+    df['pmv'] = controller_pmv(df, *comfort_params(run_path))
 
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     df.to_pickle(cache_path)
