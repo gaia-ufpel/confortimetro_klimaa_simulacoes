@@ -13,3 +13,6 @@ Corrigi o aviso de tipografia do `docs/revisao-core.html`: os tamanhos de fonte 
 O texto e os achados não mudaram. Emendei o commit, que agora é `60b59ea`, ainda sem push. Ele continua tocando só `docs/revisao-core.html` (141 linhas).
 ```
 
+### 2026-10-05T20:55:45Z (evidence)
+merge-task: docs/revisao-core mergeada na main pelo PR #15 (main local não avançou para origin/main; worktree /mnt/sda1/gabriellb/Documentos/Faculdade/projetos/gaia/confortimetro_klimaa_simulacoes/.agents/worktrees/rev-core não removida (suja?); branch docs/revisao-core mantida)
+
