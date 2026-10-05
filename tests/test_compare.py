@@ -19,6 +19,7 @@ def _make_run(outputs, name, module_type, heating_kwh=10.0):
     (run_path / 'configs.json').write_text(json.dumps({
         'rooms': [ROOM], 'module_type': module_type,
         '_idf_path': '/tmp/modelo/FAURB.idf', 'epw_path': '/tmp/clima/Camaqua.epw',
+        '_met': 1.2, 'wme': 0.0,
     }), encoding='utf-8')
     df = _room_dataframe()
     for heating in (f"{ROOM} PTHP:Zone Packaged Terminal Heat Pump Electricity Energy",

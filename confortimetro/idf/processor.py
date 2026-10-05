@@ -618,7 +618,6 @@ class IDFProcessor:
         except Exception as e:
             self.logger.error(f"Failed to modify simulation name: {e}")
             raise
-            return idf
     
     def _modify_existing_schedules(self, idf: IDF) -> IDF:
         """
@@ -667,7 +666,7 @@ class IDFProcessor:
             
         except Exception as e:
             self.logger.error(f"Failed to modify existing schedules: {e}")
-            return idf
+            raise
     
     def _add_new_schedules(self, idf: IDF) -> IDF:
         """
@@ -740,7 +739,7 @@ class IDFProcessor:
             
         except Exception as e:
             self.logger.error(f"Failed to add new schedules: {e}")
-            return idf
+            raise
     
     def _ensure_schedule_type_limits(self, idf: IDF):
         """
@@ -802,7 +801,7 @@ class IDFProcessor:
             
         except Exception as e:
             self.logger.error(f"Failed to configure people objects: {e}")
-            return idf
+            raise
     
     def _add_output_variables(self, idf: IDF) -> IDF:
         """
@@ -895,7 +894,7 @@ class IDFProcessor:
             
         except Exception as e:
             self.logger.error(f"Failed to add output variables: {e}")
-            return idf
+            raise
     
     def validate_idf(self) -> List[str]:
         """

@@ -102,6 +102,7 @@ class SimulationConfigPanel(ttk.Frame):
         entry.grid(row=row + 1, column=column, padx=SPACE[1],
                    pady=(0, SPACE[2]), sticky="ew")
         entry.bind('<FocusOut>', self._on_config_changed)
+        entry.label = label  # nomeia o campo no erro de get_configuration
         return entry
 
     def _combo(self, parent, row: int, column: int, label: str, values,
@@ -212,32 +213,35 @@ class SimulationConfigPanel(ttk.Frame):
             self.callback.on_simulation_config_changed()
     
     def get_configuration(self) -> dict:
-        """Get current configuration as dictionary."""
-        try:
-            return {
-                'pmv_lowerbound': self.pmv_range.get()[0],
-                'pmv_upperbound': self.pmv_range.get()[1],
-                'max_vel': parse_num(self.vel_max_entry.get()),
-                'adaptative_bound': PORCENT2ADAPTATIVE.get(
-                    self.selected_adaptative.get(), DEFAULT_ADAPTATIVE),
-                'temp_ac_min': self.temp_ac_range.get()[0],
-                'temp_ac_max': self.temp_ac_range.get()[1],
-                'met': parse_num(self.met_entry.get()),
-                'wme': parse_num(self.wme_entry.get()),
-                'pmv_comfort_bound': parse_num(self.comfort_bound_entry.get()),
-                'co2_limit': parse_num(self.co2_limit_entry.get()),
-                'air_speed_delta': parse_num(self.air_speed_delta_entry.get()),
-                'temp_open_window_bound': parse_num(self.temp_open_window_bound_entry.get()),
-                'clo_min': self.clo_range.get()[0],
-                'clo_max': self.clo_range.get()[1],
-                'clo_delta': parse_num(self.clo_delta_entry.get()),
-                'clo_priority': bool(self.clo_priority_var.get()),
-                'rooms': self.rooms_select.get_values(),
-                'module_type': LABEL2MODULE.get(self.selected_module.get())
-            }
-        except (ValueError, KeyError):
-            # Return default values on error
-            return {}
+        """Configuração da tela; campo numérico inválido levanta `ValueError`
+        com o rótulo do campo (antes virava 0,0 ou `{}` em silêncio)."""
+        def num(entry):
+            try:
+                return parse_num(entry.get())
+            except ValueError:
+                raise ValueError(f"{entry.label}: “{entry.get()}” não é um número") from None
+
+        return {
+            'pmv_lowerbound': self.pmv_range.get()[0],
+            'pmv_upperbound': self.pmv_range.get()[1],
+            'max_vel': num(self.vel_max_entry),
+            'adaptative_bound': PORCENT2ADAPTATIVE.get(
+                self.selected_adaptative.get(), DEFAULT_ADAPTATIVE),
+            'temp_ac_min': self.temp_ac_range.get()[0],
+            'temp_ac_max': self.temp_ac_range.get()[1],
+            'met': num(self.met_entry),
+            'wme': num(self.wme_entry),
+            'pmv_comfort_bound': num(self.comfort_bound_entry),
+            'co2_limit': num(self.co2_limit_entry),
+            'air_speed_delta': num(self.air_speed_delta_entry),
+            'temp_open_window_bound': num(self.temp_open_window_bound_entry),
+            'clo_min': self.clo_range.get()[0],
+            'clo_max': self.clo_range.get()[1],
+            'clo_delta': num(self.clo_delta_entry),
+            'clo_priority': bool(self.clo_priority_var.get()),
+            'rooms': self.rooms_select.get_values(),
+            'module_type': LABEL2MODULE.get(self.selected_module.get())
+        }
     
     def set_configuration(self, config: dict):
         """Set configuration from dictionary."""

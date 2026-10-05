@@ -15,6 +15,7 @@ from google.genai import types  # noqa: E402
 from confortimetro.assistant import simulacao, store  # noqa: E402
 from confortimetro.assistant.client import Assistant, AssistantError, Cancelled  # noqa: E402
 from confortimetro.assistant.tools import MAX_ROWS, Toolbox  # noqa: E402
+from confortimetro.control.base import _pmv  # noqa: E402
 from confortimetro.results.compare import recompute_run  # noqa: E402
 from tests.test_compare import _make_run  # noqa: E402
 from tests.test_stats import ROOM  # noqa: E402
@@ -69,7 +70,8 @@ def test_serie_agregada_soma_energia_em_kwh(root):
         "agregacao": "dia"})
     (row,) = result["linhas"]
     assert row["data"] == "2015-01-01"
-    assert row["pmv_media"] == pytest.approx(0.1)
+    # PMV do controlador recalculado das séries (ar parado a 25 °C, 0,5 clo).
+    assert row["pmv_media"] == pytest.approx(_pmv(25.0, 25.0, 0.0, 50.0, 1.2, 0.5, 0.0), abs=1e-3)
     assert row["aquecimento_kwh"] == pytest.approx(10.0)  # 10 timesteps × 1 kWh
 
 

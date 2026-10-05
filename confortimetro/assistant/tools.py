@@ -36,7 +36,7 @@ OPERATORS = {
 }
 
 # A coluna de data não entra em agregação nem filtro.
-VARIABLES = [name for name in series.COLUMNS if name != "data"]
+VARIABLES = [name for name in (*series.COLUMNS, *series.COMPUTED) if name != "data"]
 
 FREQUENCIES = {"hora": "h", "dia": "D", "mes": "MS"}
 

@@ -58,6 +58,7 @@ TABLE_ROWS = (
     ('adap_min', 'Banda adapt. mín.', lambda v: f"{v:.1f} °C"),
     ('adap_max', 'Banda adapt. máx.', lambda v: f"{v:.1f} °C"),
     ('pmv', 'PMV', lambda v: f"{v:.2f}"),
+    ('pmv_fanger', 'PMV Fanger (EnergyPlus)', lambda v: f"{v:.2f}"),
     ('em_conforto', 'Conforto', _on_off('Em conforto', 'Fora de conforto')),
     ('ocupacao', 'Ocupação', lambda v: f"{v:.0f} pessoa(s)"),
     ('clo', 'Vestimenta', lambda v: f"{v:.2f} clo"),

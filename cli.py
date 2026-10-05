@@ -12,6 +12,7 @@ import logging
 import sys
 from queue import Queue
 
+from confortimetro.assistant import simulacao
 from confortimetro.simulation import Simulation
 from confortimetro.config import SimulationConfig
 
@@ -42,6 +43,11 @@ def apply_overrides(config: SimulationConfig, overrides):
             value = json.loads(raw)
         except json.JSONDecodeError:
             value = raw
+        current = getattr(config, key)
+        # `--set air_speed_delta=` chegava como "" e só quebrava no meio da validação.
+        if (isinstance(current, (int, float)) and not isinstance(current, bool)
+                and not isinstance(value, (int, float))):
+            raise SystemExit(f"--set {key}: {raw!r} não é um número")
         setattr(config, key, value)
     return config
 
@@ -55,6 +61,11 @@ def main(argv=None):
     if args.print_config:
         print(json.dumps(config.__dict__, indent=4, default=str))
         return 0
+
+    problems, _ = simulacao.validate(config)
+    if problems:
+        print("Configuração inválida:\n  " + "\n  ".join(problems), file=sys.stderr)
+        return 1
 
     q = Queue()
     simulation = Simulation(config)
