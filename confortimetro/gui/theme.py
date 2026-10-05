@@ -155,11 +155,19 @@ def fmt_num(value, empty: str = "") -> str:
         return str(value)
 
 
-def parse_num(text, default: float = 0.0) -> float:
-    """Lê o que o campo tem, aceitando vírgula ou ponto como decimal."""
+def parse_num(text, default: float = None) -> float:
+    """Lê o que o campo tem, aceitando vírgula ou ponto como decimal.
+
+    Texto que não é número (vazio, "1.2 m/s") levanta `ValueError`: virar 0,0
+    em silêncio deixava, por exemplo, air_speed_delta = 0 travar o controlador.
+    Só quem passa `default` (o `RangeField` enquanto o usuário digita) recebe
+    o padrão no lugar do erro.
+    """
     try:
         return float(str(text).strip().replace(",", "."))
     except (TypeError, ValueError):
+        if default is None:
+            raise ValueError(f"não é um número: {text!r}") from None
         return default
 
 
@@ -1045,6 +1053,13 @@ def demo():
     assert fmt_num("") == "" and fmt_num(None) == "" and fmt_num("abc") == "abc"
     assert fmt_num(1000) == "1000" and fmt_num(0.15) == "0,15"
     assert parse_num("0,15") == 0.15 and parse_num("", 7.0) == 7.0
+    for text in ("", "1.2 m/s"):
+        try:
+            parse_num(text)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"parse_num({text!r}) devia levantar ValueError")
 
     chips = ChipSelect(card.body)
     chips.pack(fill="x")

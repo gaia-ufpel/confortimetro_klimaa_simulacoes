@@ -14,6 +14,7 @@ from queue import Queue
 import copy
 from typing import Optional
 
+from confortimetro.assistant import simulacao
 from confortimetro.config import SimulationConfig
 from confortimetro.idf import (apply_equipment_fixes, plan_equipment_fixes,
                                 read_zone_names, unwired_equipment,
@@ -882,7 +883,11 @@ class MainWindow(tk.Tk):
         self._simulation_error = None
 
         # Save current configuration
-        self._update_config_from_ui()
+        try:
+            self._update_config_from_ui()
+        except ValueError as error:
+            self._reject_configuration([str(error)])
+            return
         
         # Validate configuration
         if not self._validate_configuration():
@@ -890,13 +895,27 @@ class MainWindow(tk.Tk):
 
         self.start_simulation(self.configs)
 
-    def start_simulation(self, config: SimulationConfig, origin: str = "editor") -> str:
+    def _reject_configuration(self, problems):
+        """Mostra por que a simulação não começou: log completo e um toast."""
+        for problem in problems:
+            self.results_panel.append_error(problem)
+        rest = f" (e mais {len(problems) - 1} no log)" if len(problems) > 1 else ""
+        toast(self, f"Configuração inválida: {problems[0]}{rest}", "error", timeout=8000)
+
+    def start_simulation(self, config: SimulationConfig, origin: str = "editor") -> Optional[str]:
         """Inicia `config` em segundo plano; devolve a pasta da execução.
 
         Caminho único do botão Executar e da proposta confirmada no
         assistente: pasta nova na raiz, linha "em simulação" na listagem, log
-        e a thread acompanhada por `_check_simulation_thread`.
+        e a thread acompanhada por `_check_simulation_thread`. Configuração
+        recusada por `simulacao.validate` não roda: devolve `None` e o motivo
+        vai para o log e um toast.
         """
+        problems, _ = simulacao.validate(config)
+        if problems:
+            self._reject_configuration(problems)
+            return None
+
         self._simulation_error = None
         # Cada rodada escreve numa subpasta nova da raiz configurada; nunca
         # por cima da anterior.
@@ -944,7 +963,10 @@ class MainWindow(tk.Tk):
         config.runs_root_path = self._outputs_root()
         self.results_panel.append_info("Simulação proposta pelo assistente e "
                                        "confirmada pelo usuário.")
-        return self.start_simulation(config, origin="assistant"), None
+        path = self.start_simulation(config, origin="assistant")
+        if path is None:
+            return None, "Configuração recusada na validação; veja o log da execução."
+        return path, None
     
     def on_stop_simulation(self):
         """Handle stop simulation request."""
