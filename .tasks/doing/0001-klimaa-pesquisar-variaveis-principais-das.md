@@ -6,7 +6,7 @@ type: pesquisa
 agent: 'sonnet'
 priority: media
 created: 2026-10-03T06:19:45Z
-updated: 2026-10-03T06:26:15Z
+updated: 2026-10-05T20:52:55Z
 briefing_hash: b13f74f3a80d58536e53d05ddd5b87d2664b30f10a146848259ba88f0edda94e
 approved: '2026-10-03T06:19:46Z'
 panel: 'pesq-variaveis-klimaa'
