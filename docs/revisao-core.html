@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Revisão do core — lógica quebrada e resultado errado silencioso</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 70rem; margin: 2rem auto; padding: 0 1rem; color: #1f2a22; }
+  h1 { font-size: 1.75rem; margin-bottom: .2rem; }
+  h2 { font-size: 1.25rem; margin-top: 2rem; border-bottom: 1px solid #d5d8cf; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #d5d8cf; padding: .35rem .5rem; vertical-align: top; text-align: left; }
+  th { background: #eef1ea; }
+  code { font-size: .9em; background: #f2f4ef; padding: 0 .2rem; }
+  .crit { background: #fbe9e7; } .alto { background: #fff4e0; } .medio { background: #fffbe9; }
+  .meta { color: #586157; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>Revisão do core — lógica quebrada e resultado errado silencioso</h1>
+<p class="meta">Branch <code>docs/revisao-core</code> a partir de <code>main</code> (738f0f4) · 03/10/2026 · somente leitura no código.
+Provas rodadas com mocks do <code>ep_api</code> e com a execução local <code>~/.local/share/ConfortimetroKlimaa/execucoes/20260928_1938</code>
+(módulo COMPLETE, zona SALA_AULA, 52.560 timesteps), sem rodar o EnergyPlus.</p>
+
+<h2>Decisões e achados críticos (leia primeiro)</h2>
+<ol>
+  <li><strong>Crítico: o PMV das estatísticas não é o PMV que o controlador usa.</strong> <code>PMV médio</code>, <code>PMV fora da faixa (%)</code>,
+    a distribuição e o carpete de PMV leem <code>PEOPLE_&lt;ZONA&gt;:Zone Thermal Comfort Fanger Model PMV</code> (Fanger do EnergyPlus,
+    velocidade bruta, sem efeito de resfriamento/SET). O controlador decide com o PMV da ASHRAE 55 (ladybug <code>predicted_mean_vote_no_set</code>,
+    com <code>v_relative</code> e <code>clo_dynamic</code>). Na execução real, nos 1.044 timesteps ocupados com ventilador o PMV do EnergyPlus fica
+    em média <strong>+0,36</strong> acima do PMV do controle: <strong>87,2 %</strong> desses timesteps saem fora de ±0,5 pelas estatísticas,
+    contra <strong>0,1 %</strong> pelo controle. Recalculando os dois modelos sobre os mesmos dados do fim do timestep, Fanger − CE = +0,31 em média
+    (a defasagem de timestep explica só ~0,05). Toda comparação de PMV entre estratégias com e sem ventilador fica enviesada contra o ventilador.</li>
+  <li><strong>Alto: a trava de janela da sala vazia é uma só para todas as salas.</strong> Uma sala que esfriou trava a purga de CO₂ das outras;
+    a ordem de processamento das salas muda o resultado.</li>
+  <li><strong>Alto: o processamento do IDF engole falhas.</strong> Quatro das cinco etapas do <code>IDFProcessor</code> registram o erro e seguem;
+    a simulação roda com um IDF processado pela metade (por exemplo, <code>People</code> sem o CLO/velocidade/met do controlador).</li>
+  <li><strong>Alto: a GUI transforma campo inválido em 0,0 e não valida.</strong> <code>air_speed_delta = 0</code> deixa o controlador em laço infinito;
+    <code>met = 0</code>, <code>co2_limit = 0</code> e <code>max_vel = 0</code> rodam sem aviso. A validação completa existe só no assistente.</li>
+  <li><strong>Alto (metodológico, confirmar a intenção): o ramo janela + ventilador usa 25 °C fixo</strong> como base do limite com ar em movimento,
+    e não o limite superior do adaptativo. Em 17,1 % dos timesteps ocupados reais o limite adaptativo já passa de 27,2 °C e o ramo nunca é alcançado.</li>
+</ol>
+<p>Já conhecidos (não repetidos aqui): nomes errados de <code>Output:Variable</code> (<code>Radiante</code>, <code>Adaptative</code>) em
+<code>confortimetro/idf/processor.py:819-861</code> e o limite de PMV fixo em 0,5 em <code>confortimetro/results/stats.py:164</code> (o mesmo ±0,5 fixo aparece
+no padrão de <code>charts.distribuicao_pmv</code>, <code>charts.py:231</code>).</p>
+<p>Reprodutibilidade: o core não usa aleatoriedade (nenhum <code>random</code>/seed fora da GUI); com o mesmo IDF, EPW e configuração o resultado é determinístico.
+A suíte existente passa: <code>173 passed, 1 skipped</code>.</p>
+
+<h2>Achados por severidade</h2>
+<table>
+<tr><th>#</th><th>Sev.</th><th>Arquivo:linha</th><th>O que está errado</th><th>Cenário com número errado</th><th>Correção sugerida</th><th>Prova</th></tr>
+
+<tr class="crit"><td>C1</td><td>Crítico</td>
+<td><code>results/stats.py:31,161-164</code>, <code>results/series.py:25</code>, <code>results/charts.py:231-247,285</code>; controlador em <code>control/base.py:19-29,423-424</code></td>
+<td>As estatísticas e os gráficos usam o Fanger do EnergyPlus (velocidade do schedule <code>VEL_</code> sem CE/SET, sem velocidade relativa); o controlador usa o PMV corrigido pela ASHRAE 55.</td>
+<td>Na execução 20260928_1938/SALA_AULA, com o ventilador ligado: 87,2 % fora de ±0,5 nas estatísticas contra 0,1 % no controle; no geral, 20,9 % de “PMV fora da faixa” contra 4,2 % de “Desconforto”.</td>
+<td>Calcular o PMV das estatísticas com a mesma função <code>_pmv</code> a partir das séries (ar, radiante, UR, <code>VEL_</code>, <code>CLO_</code>), ou usar <code>PMV_&lt;ZONA&gt;</code>, e rotular a coluna do Fanger como tal.</td>
+<td>script <code>/tmp/rev_dados.py</code> [3] e <code>/tmp/rev_pmv.py</code> (200 timesteps: EP 0,74 × Fanger recalculado 0,70 × CE 0,39 × controle 0,38)</td></tr>
+
+<tr class="alto"><td>A1</td><td>Alto</td>
+<td><code>control/base.py:96,198-212,230</code></td>
+<td><code>janela_sem_pessoas_bloqueada</code> é um <code>bool</code> do condicionador, não um por sala.</td>
+<td>Sala A vazia esfria até o mínimo adaptativo e trava; no mesmo timestep a sala B vazia (operativa 23 °C, mínimo 21,5, neutra 24) devolve janela 0. Sozinha devolveria 1. Uma sala que volta à neutra destrava as outras.</td>
+<td><code>self.janela_sem_pessoas_bloqueada = {room: False for room in rooms}</code> e indexar por <code>room</code>.</td>
+<td><code>/tmp/rev_mock.py</code> [A]: <code>0 (com A travada) vs 1 (B sozinha)</code></td></tr>
+
+<tr class="alto"><td>A2</td><td>Alto</td>
+<td><code>idf/processor.py:668-670, 741-743, 803-805, 896-898</code> (e <code>620-621</code>, <code>return</code> morto depois de <code>raise</code>)</td>
+<td><code>_modify_existing_schedules</code>, <code>_add_new_schedules</code>, <code>_configure_people_objects</code> e <code>_add_output_variables</code> fazem <code>except: log; return idf</code>; <code>process_idf</code> devolve <code>True</code>.</td>
+<td>Uma falha no laço de <code>People</code> deixa o met, o CLO e a velocidade originais do modelo no cálculo do EnergyPlus enquanto o controlador escreve em schedules que ninguém lê. A execução aparece como concluída.</td>
+<td>Trocar <code>return idf</code> por <code>raise</code> nos quatro <code>except</code>.</td>
+<td><code>/tmp/rev_mock.py</code> [C]: as 4 etapas engolem a exceção</td></tr>
+
+<tr class="alto"><td>A3</td><td>Alto</td>
+<td><code>gui/theme.py:158-163</code>, <code>gui/components/simulation_config_panel.py:214-240</code>, <code>gui/main_window.py:667-710</code>; laço em <code>control/base.py:330-344</code></td>
+<td><code>parse_num</code> devolve 0,0 para texto inválido (<code>""</code>, <code>"1.2 m/s"</code>). A GUI não chama <code>assistant.simulacao.validate</code>, que barraria isso.</td>
+<td><code>air_speed_delta</code> em branco: com PMV &gt; limite, <code>vel = round(vel + 0)</code> nunca sai de 0 e a simulação fica presa. Com <code>co2_limit</code> em branco, o DOAS fica sempre ligado; com <code>met</code> em branco, o ganho por pessoa é 0 W.</td>
+<td>Chamar <code>validate()</code> em <code>start_simulation</code> e na CLI; <code>parse_num</code> deve levantar erro em vez de devolver 0.</td>
+<td><code>/tmp/rev_mock.py</code> [B]: 100.000 avaliações de PMV com <code>vel=0</code></td></tr>
+
+<tr class="alto"><td>A4</td><td>Alto (metodológico)</td>
+<td><code>control/base.py:562-567</code>, <code>control/complete.py:47-60</code></td>
+<td>O limite com ventilador é <code>25 + ΔT(v)</code> (ΔT = 1,2 / 1,8 / 2,2 °C a 0,6 / 0,9 / 1,2 m/s). A ASHRAE 55 soma ΔT ao limite superior do adaptativo. O ramo só entra com operativa entre 25 e 27,2 °C <em>e</em> acima do máximo adaptativo.</td>
+<td>Com o máximo adaptativo em 27,6 °C (o p100 real) e operativa em 28 °C, a janela fecha e o AC liga, mesmo que a 1,2 m/s o limite fosse 29,8 °C. Isso acontece em 17,1 % dos timesteps ocupados reais. Com o máximo em 23,9 °C e operativa em 24,5 °C, nem janela nem ventilador.</td>
+<td>Usar <code>temp_max_adaptativo + ΔT(v)</code> no ramo e em <code>is_comfortable</code>, ou documentar a escolha do 25 °C.</td>
+<td><code>/tmp/rev_mock.py</code> [D]; <code>/tmp/rev_dados.py</code> [2]</td></tr>
+
+<tr class="medio"><td>M1</td><td>Médio</td>
+<td><code>idf/processor.py:504</code>, <code>results/excel.py:80-81</code></td>
+<td>Com <code>RunPeriod</code> sem ano, o pós-processamento carimba 2015 (01/01 numa quinta). O EnergyPlus começa no <code>Day of Week for Start Day</code> do IDF.</td>
+<td><code>outputs/FAURB_50_23</code>: o <code>eplusout.eso</code> marca 01/01 como <em>Sunday</em>, mas a planilha diz quinta. Toda análise por dia da semana (e por feriado) nas planilhas e no <code>_SPLIT</code> sai deslocada em 3 dias. O exemplo <code>examples/idf/SALA/SALA_PTHP.idf</code> tem o ano em branco.</td>
+<td>Ler o <code>DayType</code> do ESO, ou escolher um ano cujo 01/01 caia no dia do IDF.</td>
+<td><code>awk</code> no <code>eplusout.eso</code>: linha 290 <code>2,1, 1, 1, 0, 1, 0.00,10.00,Sunday</code></td></tr>
+
+<tr class="medio"><td>M2</td><td>Médio</td>
+<td><code>results/excel.py:11-13,79</code>; <code>control/base.py:117-121</code></td>
+<td><code>WARMUP_DAYS = 2</code> são, na verdade, os dois <code>SizingPeriod:DesignDay</code> (o EnergyPlus não grava o aquecimento no ESO). O controlador também roda nos design days, e o estado dele (trava, <code>ac_on_counter</code>, atuadores) passa para 1º de janeiro. Durante o aquecimento do RunPeriod os atuadores ficam congelados no último valor do design day.</td>
+<td>Um IDF com 1 ou 3 design days, ou sem <code>Run Simulation for Sizing Periods</code>, falha na checagem de comprimento (alto, mas confuso). As condições iniciais de 1º de janeiro dependem do design day de verão (plausível, não medido).</td>
+<td>Separar as linhas pelo ambiente <code>RUN PERIOD</code> do ESO e zerar o estado no <code>callback_begin_new_environment</code>.</td>
+<td>ESO de <code>FAURB_50_23</code>: ambientes <code>CAMAQUA_INVERNO</code> e <code>CAMAQUA_VERAO</code> = 288 linhas</td></tr>
+
+<tr class="medio"><td>M3</td><td>Médio (plausível)</td>
+<td><code>control/base.py:141-147</code>, <code>results/stats.py:165-168</code></td>
+<td>Com a média móvel externa fora de 10–33,5 °C, o EnergyPlus devolve −1 na temperatura adaptativa (pelo <code>ThermalComfort.cc</code>; não verificado nesta máquina). O código usa o valor sem checar.</td>
+<td>Banda de [−3,5; 1,5] °C: a janela nunca abre por adaptativo e “Fora da banda adaptativa” vira 100 % nesses timesteps (climas do sul no inverno). A execução real tem mínimo de 21,3 °C e não foi afetada.</td>
+<td>Tratar <code>temp_neutra &lt; 0</code> como “adaptativo não se aplica” no controle e nas estatísticas.</td>
+<td>—</td></tr>
+
+<tr class="medio"><td>M4</td><td>Médio</td>
+<td><code>idf/processor.py:654-663</code>, <code>config.py:216-217</code>, <code>docs/CLI.md:124</code></td>
+<td>No <code>FIXED_AC_WITHOUT_FAN</code>, <code>temp_ac_max</code>/<code>temp_ac_min</code> viram setpoint fixo. Nos outros módulos, o mesmo campo é o limite da busca. O padrão é 30/16 °C, e a doc diz 18/30.</td>
+<td>Uma linha de base “AC fixo” com os padrões resfria só acima de 30 °C, o que dá energia baixa e desconforto alto, e a comparação com o COMPLETE fica distorcida.</td>
+<td>Campos próprios de setpoint fixo e doc alinhada ao código.</td>
+<td>leitura de código</td></tr>
+
+<tr class="medio"><td>M5</td><td>Médio</td>
+<td><code>results/stats.py:142-159</code>, <code>results/charts.py:103-125</code></td>
+<td><code>Resfriamento (kWh)</code> inclui o ventilador de teto, que também sai em <code>Ventilador (kWh)</code>. O ventilador interno da PTHP não entra nem em aquecimento nem em resfriamento. O gráfico “Consumo anual por execução” mostra aquecimento + resfriamento como se fosse o total.</td>
+<td>SALA_AULA: barra de 579 kWh contra <code>Energia total</code> de 5.489 kWh. PTHP 580,3 kWh contra aquecimento + resfriamento (AC) de 574,2 kWh. Quem soma as colunas conta o ventilador duas vezes.</td>
+<td>Colunas sem sobreposição (AC, ventilador de teto, ventilador PTHP) e título “Climatização” no gráfico.</td>
+<td><code>/tmp/rev_dados.py</code> [6]</td></tr>
+
+<tr><td>B1</td><td>Baixo</td><td><code>control/complete.py:47-60</code>, <code>control/base.py:426-433</code></td>
+<td>Conforto só com CLO + janela aberta no ramo 25–27,2 °C dá <code>em_conforto = 0</code> com o PMV dentro da faixa.</td>
+<td>Latente: 0 de 12.111 timesteps com <code>CONFORTO_SO_COM_CLO</code> na execução real.</td><td>Nesse ramo, aceitar o critério de PMV.</td><td><code>/tmp/rev_mock.py</code> [E]</td></tr>
+
+<tr><td>B2</td><td>Baixo</td><td><code>control/base.py:98</code></td><td>Inverno fixo em junho a setembro (hemisfério sul).</td><td>EPW do hemisfério norte: a sala vazia purga CO₂ no inverno.</td><td>Derivar da latitude do EPW.</td><td>leitura</td></tr>
+
+<tr><td>B3</td><td>Baixo</td><td><code>config.py:218</code>, <code>idf/processor.py:650</code>, <code>control/base.py:424</code></td><td><code>wme</code> vai como fração (Work Efficiency) para o EnergyPlus e em met para o ladybug.</td><td>Diverge só com <code>wme &gt; 0</code> (o padrão é 0).</td><td>Converter: <code>wme_met = wme × met</code> no controlador.</td><td>leitura</td></tr>
+
+<tr><td>B4</td><td>Baixo</td><td><code>idf/processor.py:712</code></td><td><code>VEL_&lt;ZONA&gt;</code> é criado com limites “On/Off” (0–1, discreto) e recebe até 1,2 m/s.</td><td>Hoje o EMS sobrepõe o valor; quebraria se o schedule deixasse de ser atuado.</td><td>Usar “Any Number”.</td><td>leitura</td></tr>
+
+<tr><td>B5</td><td>Baixo</td><td><code>control/*</code> (callback em <code>simulation.py:207</code>)</td><td><code>PMV_</code> e <code>EM_CONFORTO_</code> usam a temperatura do ar do início do timestep, antes da ação.</td><td>Medido: diferença média de 0,05 no PMV contra o fim do timestep.</td><td>Documentar, ou avaliar o conforto no fim do timestep.</td><td><code>/tmp/rev_pmv.py</code></td></tr>
+</table>
+
+<h2>Como reproduzir</h2>
+<p>Os scripts de prova ficaram em <code>/tmp</code> e não foram versionados (nenhum teste falhando foi commitado):
+<code>rev_mock.py</code> (mocks do controlador e do processador), <code>rev_dados.py</code> e <code>rev_pmv.py</code> (leem o cache
+<code>.series_cache/SALA_AULA.v4.pkl</code> e o <code>ESTATISTICAS.xlsx</code> da execução 20260928_1938). Rodar com
+<code>.venv/bin/python /tmp/rev_*.py</code> a partir da raiz do repositório.</p>
+</body>
+</html>
