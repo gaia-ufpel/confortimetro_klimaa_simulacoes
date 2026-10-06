@@ -387,3 +387,12 @@ PENDENCIAS: nenhuma
 VEREDITO: APROVADO
 ```
 
+### 2026-10-06T18:15:29Z (review)
+rev-klimaa-drive-sync-fix2: APROVADO, pendências: nenhuma
+- confortimetro/drive/sync.py:451 [opcional] sync_all engole qualquer exceção do pull, inclusive DriveError de gravação do estado (save_state); falha final de gravação fica invisível nesse caminho
+- confortimetro/drive/sync.py:244 [opcional] estado ainda indexado por nome: recriar execução de mesmo nome (output_path explícito) ou duas pastas de saídas faz entry.clear() perder o run_id antigo e o pull seguinte baixa a antiga como 'nome (2)', contrariando 'apagar localmente não traz de volta'
+- confortimetro/drive/sync.py:217 [baixa] aviso de arquivo acima do teto é logado duas vezes por push e a cada abertura (run_files chamado por _changed_files em push_run e _push)
+- confortimetro/drive/sync.py:40 [baixa] in.idf fora da lista de permitidos: execuções antigas sem modelo.idf perdem as superfícies do assistente (tools._zone_surfaces) após o pull
+- confortimetro/drive/auth.py:120 [baixa] except AttributeError amplo pode reportar como timeout um AttributeError de outra causa
+- confortimetro/drive/sync.py:82 [baixa] mypy: Optional implícito em state: dict = None (também na linha 87)
+
