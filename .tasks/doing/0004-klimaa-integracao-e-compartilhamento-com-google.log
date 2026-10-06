@@ -396,3 +396,6 @@ rev-klimaa-drive-sync-fix2: APROVADO, pendências: nenhuma
 - confortimetro/drive/auth.py:120 [baixa] except AttributeError amplo pode reportar como timeout um AttributeError de outra causa
 - confortimetro/drive/sync.py:82 [baixa] mypy: Optional implícito em state: dict = None (também na linha 87)
 
+### 2026-10-06T18:15:31Z (generated: merge-klimaa-drive-sync-fix2)
+merge drive-sync:confortimetro:0004-klimaa-integracao-e-compartilhamento-com-google
+
