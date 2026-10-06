@@ -10,6 +10,7 @@ updated: 2026-10-06T18:24:52Z
 briefing_hash: 5bd65330732f84aa4d8a49d2ee2818d47186358ee2c49b03df560d739f6156fb
 approved: '2026-10-06T18:18:21Z'
 panel: 'ver-klimaa-drive-ajustes'
+next: 'APROVADO em ver-klimaa-drive-ajustes, PENDENCIAS: nenhuma: merge-klimaa-drive-ajustes na fila'
 ---
 
 ## Request
@@ -39,3 +40,5 @@ Pare e relate se: precisar de credencial real ou de decisão de produto não cob
 - 2026-10-06T18:18:23Z — doing
 
 - 2026-10-06T18:22:19Z — doing
+
+- 2026-10-06T18:24:52Z — doing
