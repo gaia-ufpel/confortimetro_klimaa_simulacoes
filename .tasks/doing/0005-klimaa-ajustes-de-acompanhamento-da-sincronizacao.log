@@ -61,3 +61,6 @@ tests/test_drive.py::test_backfill_e_idempotencia
 ### 2026-10-06T18:24:53Z (generated: merge-klimaa-drive-ajustes)
 merge drive-ajustes:confortimetro:0005-klimaa-ajustes-de-acompanhamento-da-sincronizacao
 
+### 2026-10-06T18:27:08Z (evidence)
+merge-task: drive-ajustes mergeada na main pelo PR #18 (main local não avançou para origin/main)
+
