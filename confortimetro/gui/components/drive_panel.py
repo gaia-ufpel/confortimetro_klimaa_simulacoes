@@ -46,9 +46,9 @@ def in_background(widget, work, done, tick=None):
 
 
 def _service():
-    service = auth.service()
+    service = sync.connected_service()
     if service is None:
-        raise auth.DriveError("Conecte o Google Drive em Configurações.")
+        raise auth.DriveError("Conecte (ou reconecte) o Google Drive em Configurações.")
     return service
 
 

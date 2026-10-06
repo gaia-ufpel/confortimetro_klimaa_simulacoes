@@ -54,22 +54,26 @@ class FakeDrive:
     def get(self, fields=None):
         return _Request(self, lambda: {"user": {"emailAddress": "dono@exemplo.com"}})
 
-    def add(self, name, parent, mime=None, content=b""):
+    def add(self, name, parent, mime=None, content=b"", app=None):
         self._next += 1
         item_id = f"id{self._next}"
         self.items[item_id] = {"id": item_id, "name": name, "parents": [parent],
                                "mimeType": mime or "application/octet-stream",
-                               "content": content, "size": str(len(content))}
+                               "content": content, "size": str(len(content)),
+                               "appProperties": dict(app or {})}
         return item_id
 
     def list(self, q, **_kwargs):
-        name = re.search(r"name='((?:[^'\\]|\\.)*)'", q)
+        name = re.search(r"\bname='((?:[^'\\]|\\.)*)'", q)
         parent = re.search(r"'([^']+)' in parents", q).group(1)
+        prop = re.search(r"appProperties has \{ key='([^']+)' and value='([^']+)' \}", q)
 
         def match(item):
             if parent not in item["parents"]:
                 return False
             if name and item["name"] != name.group(1):
+                return False
+            if prop and item["appProperties"].get(prop.group(1)) != prop.group(2):
                 return False
             if f"mimeType='{FOLDER}'" in q and item["mimeType"] != FOLDER:
                 return False
@@ -83,7 +87,8 @@ class FakeDrive:
     def create(self, body, media_body=None, fields=None):
         def action():
             content = media_body.getbytes(0, media_body.size()) if media_body else b""
-            item_id = self.add(body["name"], body["parents"][0], body.get("mimeType"), content)
+            item_id = self.add(body["name"], body["parents"][0], body.get("mimeType"), content,
+                               body.get("appProperties"))
             if media_body:
                 self.writes.append(("create", body["name"]))
             return {"id": item_id}
@@ -105,6 +110,12 @@ class FakeDrive:
         return {item["name"]: (self.tree(item["id"]) if item["mimeType"] == FOLDER
                                else item["content"])
                 for item in self.items.values() if parent in item["parents"]}
+
+    def run_ids(self):
+        """{nome da pasta: id da execução} das pastas de execução."""
+        return {item["name"]: item["appProperties"].get(sync.APP_KEY)
+                for item in self.items.values()
+                if item["mimeType"] == FOLDER and item["appProperties"]}
 
     def folder_id(self, name):
         return next(item["id"] for item in self.items.values()
@@ -197,12 +208,14 @@ def test_arquivo_alterado_reenvia_so_ele(drive, tmp_path):
 
 def test_pull_baixa_execucao_ausente(drive, tmp_path):
     root = drive.add("Ambiens", "root", FOLDER)
-    remote = drive.add("run_outra_maquina", root, FOLDER)
+    remote = drive.add("run_outra_maquina", root, FOLDER, app={sync.APP_KEY: "outra"})
     drive.add("configs.json", remote, content=b"{}")
     drive.add("SALA.xlsx", remote, content=b"de la")
-    # Pasta sem marcador de execução e nome perigoso: ignoradas.
-    drive.add("lixo", root, FOLDER)
-    drive.add("..", root, FOLDER)
+    # Pasta sem marcador de execução, nome perigoso e sem id: ignoradas.
+    drive.add("lixo", root, FOLDER, app={sync.APP_KEY: "lixo"})
+    drive.add("..", root, FOLDER, app={sync.APP_KEY: "perigo"})
+    sem_id = drive.add("sem_id", root, FOLDER)
+    drive.add("configs.json", sem_id, content=b"{}")
     outputs = tmp_path / "saidas"
     outputs.mkdir()
 
@@ -211,6 +224,7 @@ def test_pull_baixa_execucao_ausente(drive, tmp_path):
     assert result["pulled"] == ["run_outra_maquina"]
     local = outputs / "run_outra_maquina"
     assert (local / "SALA.xlsx").read_bytes() == b"de la"
+    assert (local / sync.ID_FILE).read_text() == "outra"
     assert sorted(os.listdir(outputs)) == ["run_outra_maquina"]
     # Baixada não volta a subir, e o pull seguinte não baixa de novo.
     drive.writes.clear()
@@ -307,3 +321,133 @@ def test_sem_cliente_desabilita_sem_quebrar(tmp_path, monkeypatch, capsys):
     import cli
     cli._push_to_drive(str(tmp_path))
     assert capsys.readouterr().out == ""
+
+
+def test_espelho_so_com_permitidos_e_teto_de_tamanho(drive, tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(sync, "MAX_FILE_BYTES", 50)
+    run = _run(tmp_path / "saidas", "run_a", {
+        "eplusout.err": b"e", "eplusout.csv": b"c", "eplusout.sql": b"s", "eplusout.mtr": b"m",
+        "eplustbl.csv": b"tabela", "eplustbl.htm": b"<html>", "grafico.png": b"png",
+        "modelo.idf": b"idf", "~$SALA.xlsx": b"trava", "GRANDE.xlsx": b"x" * 51})
+
+    with caplog.at_level("WARNING", logger=sync.logger.name):
+        assert sync.push_run(drive, str(run))
+
+    assert set(drive.tree()["Ambiens"]["run_a"]) == {
+        "configs.json", "SALA.xlsx", "ESTATISTICAS.xlsx", "eplustbl.csv", "eplustbl.htm",
+        "grafico.png", "modelo.idf"}
+    assert "GRANDE.xlsx" in caplog.text
+
+
+def test_push_sem_mudanca_nao_grava_estado(drive, tmp_path, monkeypatch):
+    run = _run(tmp_path / "saidas", "run_a")
+    assert sync.push_run(drive, str(run))
+    saves, changes = [], []
+    monkeypatch.setattr(sync, "save_state", lambda state: saves.append(dict(state)))
+
+    assert sync.push_run(drive, str(run), lambda: changes.append(True))
+    assert saves == [] and changes == []
+
+
+def test_fim_da_simulacao_envia_tambem_pendentes(drive, tmp_path):
+    outputs = tmp_path / "saidas"
+    old = _run(outputs, "run_a")
+    drive.fail = OSError("rede caiu")
+    assert sync.push_after_run(str(old)) == sync.PENDING
+
+    drive.fail = None
+    new = _run(outputs, "run_b")
+    assert sync.push_after_run(str(new)) == sync.SYNCED
+
+    assert sync.load_state()["pending"] == []
+    assert sync.run_status("run_a") == sync.SYNCED
+    assert set(drive.tree()["Ambiens"]) == {"run_a", "run_b"}
+
+
+def test_conta_sem_token_no_keyring_pede_reconexao(drive, tmp_path, monkeypatch):
+    run = _run(tmp_path / "saidas", "run_a")
+    monkeypatch.setattr(auth, "service", lambda: None)
+    monkeypatch.setattr(auth, "refresh_token", lambda: "")
+
+    assert sync.push_after_run(str(run)) == sync.PENDING
+    assert sync.load_state()["reconnect"] is True
+
+
+def test_envio_bem_sucedido_limpa_reconexao(drive, tmp_path):
+    run = _run(tmp_path / "saidas", "run_a")
+    drive.fail = HttpError(401)
+    assert not sync.push_run(drive, str(run))
+    assert sync.load_state()["reconnect"] is True
+
+    drive.fail = None
+    assert sync.push_run(drive, str(run))
+    assert sync.load_state()["reconnect"] is False
+
+
+def test_execucoes_homonimas_de_maquinas_diferentes_nao_colidem(drive, tmp_path):
+    root = drive.add("Ambiens", "root", FOLDER)
+    other = drive.add("run_a", root, FOLDER, app={sync.APP_KEY: "da-outra-maquina"})
+    drive.add("configs.json", other, content=b'{"outra": 1}')
+    drive.add("SALA.xlsx", other, content=b"planilha da outra")
+    outputs = tmp_path / "saidas"
+    mine = _run(outputs, "run_a")
+
+    result = sync.sync_all(drive, str(outputs))
+
+    # A minha foi para "run_a (2)"; a da outra máquina ficou intocada no
+    # Drive e desceu para "run_a (2)" local, sem sobrescrever a minha.
+    my_id = (mine / sync.ID_FILE).read_text()
+    assert drive.run_ids() == {"run_a": "da-outra-maquina", "run_a (2)": my_id}
+    assert drive.tree()["Ambiens"]["run_a"] == {"configs.json": b'{"outra": 1}',
+                                                "SALA.xlsx": b"planilha da outra"}
+    assert drive.tree()["Ambiens"]["run_a (2)"]["SALA.xlsx"] == b"planilha run_a"
+    assert result["pulled"] == ["run_a (2)"]
+    assert (mine / "SALA.xlsx").read_bytes() == b"planilha run_a"
+    assert (outputs / "run_a (2)" / "SALA.xlsx").read_bytes() == b"planilha da outra"
+
+    # Estado perdido: a pasta remota de mesmo id é adotada, sem duplicar nada.
+    os.remove(sync.state_path())
+    sync.save_state({"account": "dono@exemplo.com", "runs": {}, "pending": []})
+    drive.writes.clear()
+    count = len(drive.items)
+    assert sync.sync_all(drive, str(outputs))["pulled"] == []
+    assert drive.writes == [] and len(drive.items) == count
+
+
+def test_gravacao_do_estado_tenta_de_novo_e_falha_visivel(drive, tmp_path, monkeypatch):
+    from confortimetro.assistant import store
+
+    monkeypatch.setattr(store, "REPLACE_WAIT_S", 0)
+    real_replace, calls = os.replace, []
+
+    def flaky(source, target):
+        calls.append(target)
+        if len(calls) <= 2:
+            raise PermissionError("em uso")
+        real_replace(source, target)
+
+    monkeypatch.setattr(os, "replace", flaky)
+    sync.save_state({"account": "a", "runs": {}, "pending": []})
+    assert len(calls) == 3 and sync.load_state()["account"] == "a"
+
+    def locked(source, target):
+        raise PermissionError("em uso")
+
+    monkeypatch.setattr(os, "replace", locked)
+    run = _run(tmp_path / "saidas", "run_a")
+    with pytest.raises(auth.DriveError, match="estado do Drive"):
+        sync.push_after_run(str(run))
+
+
+def test_login_expirado_vira_drive_error(drive, monkeypatch):
+    from google_auth_oauthlib.flow import InstalledAppFlow
+
+    class Flow:
+        def run_local_server(self, **_kwargs):
+            raise AttributeError("'NoneType' object has no attribute 'replace'")
+
+    monkeypatch.setattr(auth, "_vault", lambda: object())
+    monkeypatch.setattr(InstalledAppFlow, "from_client_secrets_file",
+                        classmethod(lambda cls, *args, **kwargs: Flow()))
+    with pytest.raises(auth.DriveError, match="5 minutos"):
+        auth.connect()

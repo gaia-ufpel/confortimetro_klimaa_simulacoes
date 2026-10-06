@@ -15,7 +15,7 @@ import copy
 from typing import Optional
 
 from confortimetro.config import SimulationConfig
-from confortimetro.drive import auth as drive_auth, sync as drive_sync
+from confortimetro.drive import sync as drive_sync
 from confortimetro.idf import (apply_equipment_fixes, plan_equipment_fixes,
                                 read_zone_names, unwired_equipment,
                                 write_idf_fields)
@@ -815,6 +815,11 @@ class MainWindow(tk.Tk):
 
     def _drive_done(self, result, error):
         self.drive_settings.refresh()
+        if error:
+            toast(self, f"Google Drive: {error}", "error", timeout=10000)
+        elif drive_sync.is_connected() and drive_sync.load_state().get("reconnect"):
+            toast(self, "O acesso ao Google Drive expirou. Reconecte em Configurações.", "warn",
+                  timeout=10000)
         if result and result.get("pulled"):
             self.simulations_panel.refresh()
             toast(self, f"{len(result['pulled'])} execução(ões) baixada(s) do Google Drive.",
@@ -834,7 +839,7 @@ class MainWindow(tk.Tk):
         root = self._outputs_root()
 
         def work():
-            service = drive_auth.service()
+            service = drive_sync.connected_service()
             return drive_sync.sync_all(service, root, self._drive_changed) if service else None
 
         in_background(self, work, self._drive_done, tick=self._drive_tick)
@@ -843,7 +848,7 @@ class MainWindow(tk.Tk):
         """Envio automático da execução que acabou de terminar."""
         if drive_sync.is_connected():
             in_background(self, lambda: drive_sync.push_after_run(run_path, self._drive_changed),
-                          lambda _result, _error: self._drive_done(None, None),
+                          lambda _result, error: self._drive_done(None, error),
                           tick=self._drive_tick)
 
     def on_share_run(self, run: dict):

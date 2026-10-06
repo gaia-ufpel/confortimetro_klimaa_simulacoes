@@ -1,10 +1,13 @@
 """Espelho das execuções na pasta "Ambiens" do Google Drive, e compartilhamento.
 
-Cada execução vira uma subpasta com o nome da pasta local. O estado em
-`app_data_path()/drive.json` guarda execução → pasta e arquivo → (id, tamanho,
-mtime): reenviar só o que mudou é comparar a assinatura local com a gravada.
-Execução que falha (sem rede, erro da API) entra em `pending` e é tentada de
-novo na próxima abertura ou simulação; token revogado marca `reconnect`.
+Cada execução vira uma subpasta com o nome da pasta local e um id único
+(`.drive_id` na pasta local, `appProperties` na remota): só a pasta remota de
+mesmo id é a da execução, e um nome já usado por outra ganha sufixo
+("run_001 (2)"). O estado em `app_data_path()/drive.json` guarda execução →
+pasta e arquivo → (id, tamanho, mtime): reenviar só o que mudou é comparar a
+assinatura local com a gravada. Execução que falha (sem rede, erro da API)
+entra em `pending` e é tentada de novo na próxima abertura ou simulação; token
+revogado ou ausente marca `reconnect`.
 
 Tudo aqui faz rede e pode levar minutos: chame fora da thread da interface.
 As funções recebem o serviço do Drive pronto (`auth.service()`), o que deixa
@@ -12,10 +15,12 @@ os testes trocá-lo por um falso.
 """
 
 import json
+import logging
 import os
 import re
 import shutil
 import threading
+import uuid
 
 from ..assistant.store import _write_json
 from ..paths import app_data_path
@@ -28,11 +33,15 @@ FOLDER_URL = "https://drive.google.com/drive/folders/{}"
 # Mesmos marcadores de `compare.RUN_MARKERS`; repetidos para não importar o
 # pandas só para saber o nome de dois arquivos.
 RUN_MARKERS = ("configs.json", "parameters.txt")
-# Fora do espelho: o ESO e o MTR passam de centenas de MB e as planilhas já
-# trazem o que a listagem e a comparação leem; `in.idf`/`expanded.idf` são
-# derivados do `modelo.idf`, que vai junto.
-SKIPPED_FILES = {"in.idf", "expanded.idf", "mcp_status.tmp"}
-SKIPPED_SUFFIXES = (".eso", ".mtr", ".tmp")
+# Só o que a interface lê de uma execução vai para o Drive: configuração
+# (listagem, duplicar), planilhas (zonas, estatísticas, séries, comparação),
+# `modelo.idf` e `eplustbl.csv` (assistente), o relatório HTML e imagens.
+# O resto do EnergyPlus (`eplusout.eso/.err/.csv/.sql`…) chega a GB.
+MIRRORED_FILES = {"configs.json", "parameters.txt", "modelo.idf", "eplustbl.csv"}
+MIRRORED_SUFFIXES = (".xlsx", ".htm", ".html", ".png", ".jpg", ".jpeg", ".svg")
+MAX_FILE_BYTES = 50 * 1024 * 1024
+ID_FILE = ".drive_id"
+APP_KEY = "ambiens_run_id"
 EMAIL = re.compile(r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$")
 
 SYNCED, SENDING, PENDING, ERROR = "sincronizado", "enviando", "pendente", "erro"
@@ -41,6 +50,7 @@ SYNCED, SENDING, PENDING, ERROR = "sincronizado", "enviando", "pendente", "erro"
 # compartilhar); um envio longo faz o compartilhar esperar. Lock por execução
 # se isso incomodar.
 _LOCK = threading.RLock()
+logger = logging.getLogger(__name__)
 
 
 # --- Estado ----------------------------------------------------------------
@@ -61,7 +71,12 @@ def load_state() -> dict:
 
 
 def save_state(state: dict):
-    _write_json(state_path(), state)
+    """Grava o estado; falha (mesmo depois das novas tentativas) vira DriveError."""
+    try:
+        _write_json(state_path(), state)
+    except OSError as error:
+        raise auth.DriveError(f"Não foi possível gravar o estado do Drive "
+                              f"({state_path()}): {error}") from error
 
 
 def is_connected(state: dict = None) -> bool:
@@ -91,6 +106,22 @@ def connect() -> str:
         state["reconnect"] = False
         save_state(state)
     return email
+
+
+def connected_service():
+    """Serviço do Drive, ou `None`.
+
+    Conta no estado sem token no keyring (cofre limpo, outro usuário do
+    sistema) marca `reconnect`: o card de Configurações pede para conectar.
+    """
+    service = auth.service()
+    if service is None and is_connected() and not auth.refresh_token():
+        with _LOCK:
+            state = load_state()
+            if not state.get("reconnect"):
+                state["reconnect"] = True
+                save_state(state)
+    return service
 
 
 def disconnect():
@@ -166,15 +197,66 @@ def _safe_name(name: str) -> bool:
     return bool(name) and not name.startswith(".") and "/" not in name and "\\" not in name
 
 
+def _free_name(name: str, taken) -> str:
+    """`name`, ou "name (2)", "name (3)"… o primeiro fora de `taken`."""
+    candidate, number = name, 1
+    while candidate in taken:
+        number += 1
+        candidate = f"{name} ({number})"
+    return candidate
+
+
 def run_files(run_path: str) -> list:
-    """Arquivos do espelho: os do primeiro nível, menos os gigantes/derivados."""
+    """Arquivos do espelho: os permitidos do primeiro nível, até `MAX_FILE_BYTES`."""
     names = []
     for name in sorted(os.listdir(run_path)):
-        if (name.startswith(".") or name in SKIPPED_FILES or name.endswith(SKIPPED_SUFFIXES)
-                or not os.path.isfile(os.path.join(run_path, name))):
+        path = os.path.join(run_path, name)
+        if (name.startswith((".", "~$")) or not os.path.isfile(path)
+                or not (name in MIRRORED_FILES or name.lower().endswith(MIRRORED_SUFFIXES))):
+            continue
+        if os.path.getsize(path) > MAX_FILE_BYTES:
+            logger.warning("Drive: %s fica fora do envio (%d MB, limite de %d MB).", path,
+                           os.path.getsize(path) // 2**20, MAX_FILE_BYTES // 2**20)
             continue
         names.append(name)
     return names
+
+
+def _run_id(run_path: str, entry: dict) -> str:
+    """Id da execução, de `ID_FILE` na pasta (criado na primeira vez).
+
+    Id diferente do registrado é outra execução numa pasta de mesmo nome:
+    o registro anterior é descartado e ela ganha uma pasta remota própria.
+    """
+    path = os.path.join(run_path, ID_FILE)
+    try:
+        with open(path, encoding="utf-8") as id_file:
+            run_id = id_file.read().strip()
+    except OSError:
+        run_id = ""
+    if not run_id:
+        run_id = uuid.uuid4().hex
+        stat = os.stat(run_path)
+        with open(path, "w", encoding="utf-8") as id_file:
+            id_file.write(run_id)
+        # A listagem ordena pelo mtime da pasta; o id não é uma modificação.
+        os.utime(run_path, (stat.st_atime, stat.st_mtime))
+    if entry.get("run_id") != run_id:
+        entry.clear()
+        entry.update(run_id=run_id, files={})
+    return run_id
+
+
+def _changed_files(run_path: str, entry: dict) -> list:
+    """(nome, [tamanho, mtime]) dos arquivos diferentes do último envio."""
+    changed = []
+    for file_name in run_files(run_path):
+        path = os.path.join(run_path, file_name)
+        signature = [os.path.getsize(path), os.path.getmtime(path)]
+        known = entry["files"].get(file_name)
+        if not known or known[1:] != signature:
+            changed.append((file_name, signature))
+    return changed
 
 
 # --- Envio -----------------------------------------------------------------
@@ -187,13 +269,31 @@ def _notify(on_change):
             pass
 
 
+def _run_folder(service, state: dict, run_path: str, entry: dict):
+    """Pasta remota com o id da execução; sem ela, cria uma com nome livre.
+
+    Pasta de mesmo nome e outro id é de outra execução (outra máquina): fica
+    intocada, e esta vai para "nome (2)". (id, criada?).
+    """
+    root = _root(service, state)
+    folders = f"'{root}' in parents and mimeType='{FOLDER_MIME}' and trashed=false"
+    found = _list(service, folders + f" and appProperties has {{ key='{APP_KEY}' and "
+                                     f"value='{entry['run_id']}' }}")
+    if found:
+        return found[0]["id"], False
+    taken = {folder["name"] for folder in _list(service, folders)}
+    body = {"name": _free_name(os.path.basename(os.path.normpath(run_path)), taken),
+            "mimeType": FOLDER_MIME, "parents": [root],
+            "appProperties": {APP_KEY: entry["run_id"]}}
+    return service.files().create(body=body, fields="id").execute()["id"], True
+
+
 def _push(service, state: dict, run_path: str, entry: dict):
-    name = os.path.basename(os.path.normpath(run_path))
     if not entry.get("folder_id"):
-        entry["folder_id"], created = _folder(service, name, _root(service, state))
+        entry["folder_id"], created = _run_folder(service, state, run_path, entry)
         if not created:
-            # A pasta já existia (estado perdido, outra máquina): adota os
-            # arquivos de mesmo nome e tamanho em vez de duplicá-los.
+            # A pasta desta execução já existia (estado perdido): adota os
+            # arquivos de mesmo nome e tamanho em vez de reenviá-los.
             # ponytail: compara só o tamanho; mudança que não altera o tamanho
             # passa despercebida até o arquivo mudar de novo.
             for remote in _list(service, f"'{entry['folder_id']}' in parents and trashed=false",
@@ -208,12 +308,9 @@ def _push(service, state: dict, run_path: str, entry: dict):
 
     # ponytail: sem detecção de conflito — a última versão local vence e
     # sobrescreve a do Drive. Arquivo apagado localmente continua no Drive.
-    for file_name in run_files(run_path):
+    for file_name, signature in _changed_files(run_path, entry):
         path = os.path.join(run_path, file_name)
-        signature = [os.path.getsize(path), os.path.getmtime(path)]
         known = entry["files"].get(file_name)
-        if known and known[1:] == signature:
-            continue
         if known:
             service.files().update(fileId=known[0], media_body=_media(path),
                                    fields="id").execute()
@@ -234,32 +331,43 @@ def push_run(service, run_path: str, on_change=None) -> bool:
     with _LOCK:
         state = load_state()
         entry = state["runs"].setdefault(name, {"files": {}})
-        entry["status"] = SENDING
-        save_state(state)
-        _notify(on_change)
-        try:
-            try:
-                _push(service, state, run_path, entry)
-            except Exception as error:
-                if _status_code(error) != 404:
-                    raise
-                # Pasta ou arquivo apagado no Drive: recomeça do zero, uma vez.
-                state.pop("root_id", None)
-                entry["folder_id"], entry["files"] = None, {}
-                _push(service, state, run_path, entry)
-        except Exception as error:
-            if _is_auth_error(error):
-                state["reconnect"] = True
-            code = _status_code(error)
-            # 4xx que não é de autenticação nem limite não melhora sozinho.
-            permanent = code is not None and 400 <= code < 500 and code not in (401, 408, 429)
-            entry["status"] = ERROR if permanent else PENDING
-            entry["error"] = str(error)[:300]
-            if run_path not in state["pending"]:
-                state["pending"].append(run_path)
+        _run_id(run_path, entry)
+        send = not entry.get("folder_id") or bool(_changed_files(run_path, entry))
+        if not send and entry.get("status") == SYNCED and run_path not in state["pending"]:
+            return True  # nada mudou: nenhuma chamada, nenhuma gravação
+        if send:
+            entry["status"] = SENDING
             save_state(state)
             _notify(on_change)
-            return False
+            try:
+                try:
+                    _push(service, state, run_path, entry)
+                except Exception as error:
+                    if _status_code(error) != 404:
+                        raise
+                    # Pasta ou arquivo apagado no Drive: recomeça do zero, uma vez.
+                    state.pop("root_id", None)
+                    entry["folder_id"], entry["files"] = None, {}
+                    _push(service, state, run_path, entry)
+            except Exception as error:
+                if _is_auth_error(error):
+                    state["reconnect"] = True
+                code = _status_code(error)
+                # 4xx que não é de autenticação nem limite não melhora sozinho;
+                # nem o estado que não pôde ser gravado.
+                permanent = isinstance(error, auth.DriveError) or (
+                    code is not None and 400 <= code < 500 and code not in (401, 408, 429))
+                entry["status"] = ERROR if permanent else PENDING
+                entry["error"] = str(error)[:300]
+                if run_path not in state["pending"]:
+                    state["pending"].append(run_path)
+                save_state(state)
+                _notify(on_change)
+                if isinstance(error, auth.DriveError):
+                    raise
+                return False
+            # O Drive aceitou o envio: o token voltou a valer.
+            state["reconnect"] = False
         entry["status"] = SYNCED
         entry.pop("error", None)
         if run_path in state["pending"]:
@@ -278,32 +386,40 @@ def pull(service, outputs_root: str, on_change=None) -> list:
     pulled = []
     with _LOCK:
         state = load_state()
+        known = {entry.get("run_id") for entry in state["runs"].values()}
         root = _root(service, state)
         for folder in _list(service, f"'{root}' in parents and mimeType='{FOLDER_MIME}' "
-                                     "and trashed=false"):
-            name = folder["name"]
-            target = os.path.join(outputs_root, name)
-            if not _safe_name(name) or name in state["runs"] or os.path.exists(target):
+                                     "and trashed=false", "id,name,appProperties"):
+            run_id = (folder.get("appProperties") or {}).get(APP_KEY)
+            if not run_id or run_id in known or not _safe_name(folder["name"]):
                 continue
             files = [item for item in _list(
                 service, f"'{folder['id']}' in parents and mimeType!='{FOLDER_MIME}' "
                          "and trashed=false") if _safe_name(item["name"])]
             if not any(item["name"] in RUN_MARKERS for item in files):
                 continue
+            # Nome local de outra execução (ou de uma já conhecida e apagada):
+            # baixa ao lado, com sufixo, sem tocar na existente.
+            os.makedirs(outputs_root, exist_ok=True)
+            name = _free_name(folder["name"], set(os.listdir(outputs_root)) | set(state["runs"]))
+            target = os.path.join(outputs_root, name)
             # Baixa numa pasta oculta e só renomeia no fim: a listagem nunca vê
             # uma execução pela metade.
             partial = os.path.join(outputs_root, f".{name}.partial")
             shutil.rmtree(partial, ignore_errors=True)
             os.makedirs(partial)
-            entry = {"folder_id": folder["id"], "files": {}}
+            entry = {"run_id": run_id, "folder_id": folder["id"], "files": {}}
             for item in files:
                 path = os.path.join(partial, item["name"])
                 _download(service, item["id"], path)
                 entry["files"][item["name"]] = [item["id"], os.path.getsize(path),
                                                 os.path.getmtime(path)]
+            with open(os.path.join(partial, ID_FILE), "w", encoding="utf-8") as id_file:
+                id_file.write(run_id)
             os.replace(partial, target)
             entry["status"] = SYNCED
             state["runs"][name] = entry
+            known.add(run_id)
             save_state(state)
             pulled.append(name)
             _notify(on_change)
@@ -344,29 +460,36 @@ def sync_all(service, outputs_root: str, on_change=None) -> dict:
 
 
 def push_after_run(run_path: str, on_change=None):
-    """Envio automático ao fim de uma simulação (GUI e CLI).
+    """Envio automático ao fim de uma simulação (GUI e CLI), e das pendentes.
 
-    Sem conta conectada não faz nada e devolve `None`; senão, o status final.
-    Falha ao montar o serviço também vira pendente, para a próxima abertura.
+    Sem conta conectada não faz nada e devolve `None`; senão, o status final
+    da execução. Depois dela, na mesma thread, vão as execuções que ficaram em
+    `pending` (falhas anteriores). Falha ao montar o serviço também vira
+    pendente, para a próxima abertura.
     """
     if not is_connected():
         return None
+    run_path = os.path.abspath(run_path)
     try:
-        service = auth.service()
+        service = connected_service()
     except Exception:
         service = None
     if service is None:
         with _LOCK:
             state = load_state()
-            path = os.path.abspath(run_path)
-            if path not in state["pending"]:
-                state["pending"].append(path)
-            state["runs"].setdefault(os.path.basename(os.path.normpath(path)),
+            if run_path not in state["pending"]:
+                state["pending"].append(run_path)
+            state["runs"].setdefault(os.path.basename(os.path.normpath(run_path)),
                                      {"files": {}})["status"] = PENDING
             save_state(state)
         return PENDING
     push_run(service, run_path, on_change)
-    return run_status(os.path.basename(os.path.normpath(run_path)))
+    status = run_status(os.path.basename(os.path.normpath(run_path)))
+    if not load_state().get("reconnect"):
+        for path in load_state()["pending"]:
+            if path != run_path and os.path.isdir(path):
+                push_run(service, path, on_change)
+    return status
 
 
 # --- Compartilhamento ------------------------------------------------------

@@ -114,8 +114,14 @@ def connect():
     keyring = _vault()
     flow = InstalledAppFlow.from_client_secrets_file(path, SCOPES)
     # `prompt=consent` garante o refresh token mesmo numa segunda autorização.
-    creds = flow.run_local_server(port=0, open_browser=True, prompt="consent",
-                                  access_type="offline", timeout_seconds=LOGIN_TIMEOUT_S)
+    try:
+        creds = flow.run_local_server(port=0, open_browser=True, prompt="consent",
+                                      access_type="offline", timeout_seconds=LOGIN_TIMEOUT_S)
+    except AttributeError as error:
+        # Sem resposta do navegador no prazo, o google-auth-oauthlib levanta
+        # AttributeError (`WSGITimeoutError` nas versões novas, subclasse dele).
+        raise DriveError(f"O login não foi concluído no navegador em "
+                         f"{LOGIN_TIMEOUT_S // 60} minutos. Tente conectar de novo.") from error
     if not creds or not creds.refresh_token:
         raise DriveError("O Google não devolveu acesso permanente; tente conectar de novo.")
     keyring.set_password(KEYRING_SERVICE, KEYRING_USER, creds.refresh_token)
