@@ -28,3 +28,6 @@ Tive uma falha no meio: um teste novo meu usava o mesmo estado como se fosse "ou
 **Limite do item 3:** quando o pull falha com `DriveError`, a lista de execuções já baixadas naquela chamada não chega à GUI e o painel não atualiza sozinho. Os arquivos ficam no disco e aparecem no próximo refresh. Se quiser, devolvo um campo `error` no dict em vez de levantar a exceção, mas isso mexe na GUI.
 ```
 
+### 2026-10-06T18:22:18Z (generated: ver-klimaa-drive-ajustes)
+gate
+
