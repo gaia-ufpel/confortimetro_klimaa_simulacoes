@@ -268,3 +268,50 @@ Pronto quando:
 Devolva: comandos rodados + saída (pytest, import), lista de arquivos alterados e qualquer decisão que você tomou fora deste briefing.
 Pare e relate se: precisar de credencial real ou de decisão de produto não coberta.
 
+### 2026-10-06T18:08:53Z (evidence)
+launch: klimaa-drive-sync-fix2 tentativa 1 (claude) → terminou
+log: /home/glbessa/Projetos/zeroumlabs/agents/state/logs/klimaa-drive-sync-fix2.1.log
+
+```
+
+Resumo do commit: 7 arquivos, +372/−81 (`sync.py`, `auth.py`, `store.py`, `main_window.py`, `drive_panel.py`, `PROJETO.md`, `test_drive.py`).
+
+## Diff por achado
+
+1. **Pendentes ao fim da simulação:** depois de enviar a execução que terminou, `push_after_run` envia também as de `state['pending']`, na mesma thread, e pula essa etapa se `reconnect` estiver marcado. Docstring e PROJETO.md (linha "Envio") foram atualizados. Teste: `test_fim_da_simulacao_envia_tambem_pendentes`.
+
+2. **Lista de permitidos:** o espelho passou a enviar só o que o código lê de uma execução depois do pull. Conferi em `compare.read_run`/`read_config`, no `tabular` e em `tools._zone_surfaces` do assistente, e no "Duplicar" da GUI:
+   - `MIRRORED_FILES`: `configs.json`, `parameters.txt`, `modelo.idf`, `eplustbl.csv`;
+   - `MIRRORED_SUFFIXES`: `.xlsx`, `.htm`, `.html`, `.png`, `.jpg`, `.jpeg`, `.svg`;
+   - ficam de fora os ocultos e os `~$` (trava do Excel);
+   - `MAX_FILE_BYTES = 50 MB`: acima disso o arquivo é pulado com `logger.warning`.
+
+   Teste: `test_espelho_so_com_permitidos_e_teto_de_tamanho`. Ele confere que `eplusout.err/.csv/.sql/.mtr` não sobem e que o arquivo grande fica de fora.
+
+3. **"enviando" sem nada a enviar:** um novo `_changed_files()` diz se há arquivo para enviar. Sem pasta remota nova e sem arquivo alterado, a execução já sincronizada não muda de status nem grava o estado. Teste: `test_push_sem_mudanca_nao_grava_estado` (0 gravações, 0 avisos de mudança).
+
+4. **Conta sem token no keyring:** o novo `sync.connected_service()` marca `reconnect` quando há conta no estado mas não há token. Ele é usado em `push_after_run`, em `MainWindow.drive_sync` e em `drive_panel._service`. O card de Configurações já mostrava a mensagem de reconexão; `_drive_done` também mostra um aviso "Reconecte em Configurações". Teste: `test_conta_sem_token_no_keyring_pede_reconexao`.
+
+5. **`reconnect` nunca limpo:** um envio aceito pelo Drive em `push_run` agora grava `reconnect=False`. O login já limpava. Teste: `test_envio_bem_sucedido_limpa_reconexao`.
+
+6. **Execuções com o mesmo nome:**
+   - Cada execução ganha um uuid. Ele fica no arquivo `.drive_id` dentro da pasta local, em `entry['run_id']` no estado e em `appProperties.ambiens_run_id` na pasta remota.
+   - `_run_folder` só adota a pasta remota com o mesmo id. Se o nome já estiver ocupado por outra execução, cria `nome (2)`.
+   - O pull ignora ids que esta máquina já conhece e baixa para `nome (2)` quando o nome local está ocupado.
+   - Teste: `test_execucoes_homonimas_de_maquinas_diferentes_nao_colidem`. Ele também cobre a perda do estado: a pasta é readotada pelo id, sem duplicar nem reenviar.
+
+7. **`os.replace` no Windows:** a nova tentativa ficou em `store._write_json`, a função compartilhada (5 tentativas, 0,1 s entre elas), então o assistente também ganha a correção. `sync.save_state` converte a falha final em `DriveError`, que `push_run` propaga em vez de engolir. Na GUI, o erro aparece num aviso (antes `_drive_push` descartava o erro); no CLI sai `Google Drive: falhou (...)`. Teste: `test_gravacao_do_estado_tenta_de_novo_e_falha_visivel`.
+
+8. **Login expirado:** `auth.connect` captura `AttributeError`, o que cobre também o `WSGITimeoutError` das versões novas, e devolve `DriveError("O login não foi concluído no navegador em 5 minutos. Tente conectar de novo.")`. Teste: `test_login_expirado_vira_drive_error`.
+
+## Decisões que tomei sozinho
+
+- **Id gravado dentro da pasta da execução:** guardar o id só no `drive.json` não bastava, porque desconectar apaga esse arquivo e, ao reconectar, todas as execuções seriam duplicadas no Drive. Por isso o id fica em `.drive_id` na pasta local, e o mtime da pasta é restaurado para não mudar a ordem da listagem.
+- **Pasta local recriada com o mesmo nome:** se a pasta não tem `.drive_id` ou tem um id diferente do estado, ela é tratada como outra execução e ganha pasta remota própria.
+- **Pastas remotas sem id:** as criadas pela versão anterior desta branch não têm `appProperties`. O pull as ignora e o envio não as adota. Como essa versão nunca foi publicada, isso não deve afetar ninguém.
+- **Aviso de reconexão repetido:** enquanto `reconnect` estiver marcado, o aviso aparece a cada sync (na abertura do app e após cada simulação). Pode incomodar.
+- **Sem teste de GUI para os avisos novos:** os testes ficaram todos em `tests/test_drive.py`, como pedido.
+
+Não precisei de credencial real nem de decisão de produto fora do que foi pedido.
+```
+
