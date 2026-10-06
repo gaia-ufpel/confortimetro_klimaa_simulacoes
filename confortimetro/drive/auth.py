@@ -120,6 +120,8 @@ def connect():
     except AttributeError as error:
         # Sem resposta do navegador no prazo, o google-auth-oauthlib levanta
         # AttributeError (`WSGITimeoutError` nas versões novas, subclasse dele).
+        if "replace" not in str(error) and type(error).__name__ != "WSGITimeoutError":
+            raise  # outro AttributeError é bug, não prazo esgotado
         raise DriveError(f"O login não foi concluído no navegador em "
                          f"{LOGIN_TIMEOUT_S // 60} minutos. Tente conectar de novo.") from error
     if not creds or not creds.refresh_token:

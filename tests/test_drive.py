@@ -7,6 +7,7 @@ Nada aqui faz rede: `FakeDrive` imita a parte da API v3 que `drive.sync` usa
 import json
 import os
 import re
+import shutil
 
 import pytest
 
@@ -147,6 +148,7 @@ def drive(tmp_path, monkeypatch):
     client.write_text(json.dumps({"installed": {"client_id": "x", "client_secret": "y"}}))
     monkeypatch.setenv(auth.CLIENT_VARIABLE, str(client))
     fake = FakeDrive()
+    monkeypatch.setattr(sync, "_WARNED_OVERSIZE", set())
     monkeypatch.setattr(auth, "service", lambda: fake)
     monkeypatch.setattr(sync, "_download", lambda service, file_id, path: open(
         path, "wb").write(service.items[file_id]["content"]))
@@ -162,9 +164,9 @@ def _run(root, name, extra=None):
     (path / "configs.json").write_text('{"rooms": ["SALA"]}')
     (path / "SALA.xlsx").write_bytes(b"planilha " + name.encode())
     (path / "ESTATISTICAS.xlsx").write_bytes(b"stats")
-    # Fora do espelho: ESO gigante, IDFs derivados e caches ocultos.
+    # Fora do espelho: ESO gigante, IDF expandido e caches ocultos.
     (path / "eplusout.eso").write_bytes(b"x" * 100)
-    (path / "in.idf").write_text("derivado")
+    (path / "expanded.idf").write_text("derivado")
     (path / ".series_cache").mkdir()
     for file_name, content in (extra or {}).items():
         (path / file_name).write_bytes(content)
@@ -451,3 +453,66 @@ def test_login_expirado_vira_drive_error(drive, monkeypatch):
                         classmethod(lambda cls, *args, **kwargs: Flow()))
     with pytest.raises(auth.DriveError, match="5 minutos"):
         auth.connect()
+
+
+def test_in_idf_sobe_e_desce_para_execucao_sem_modelo(drive, tmp_path):
+    antiga = _run(tmp_path / "saidas", "run_a", {"in.idf": b"BuildingSurface:Detailed,"})
+    assert sync.push_run(drive, str(antiga))
+    assert drive.tree()["Ambiens"]["run_a"]["in.idf"] == b"BuildingSurface:Detailed,"
+    assert "expanded.idf" not in drive.tree()["Ambiens"]["run_a"]
+
+    # Outra máquina: estado vazio, não conhece o id.
+    sync.save_state({"account": "dono@exemplo.com", "runs": {}, "pending": []})
+    outra = tmp_path / "outra_maquina"
+    assert sync.sync_all(drive, str(outra), None)["pulled"] == ["run_a"]
+    assert (outra / "run_a" / "in.idf").read_bytes() == b"BuildingSurface:Detailed,"
+
+
+def test_recriar_execucao_apagada_nao_volta_pelo_pull(drive, tmp_path):
+    outputs = tmp_path / "saidas"
+    run = _run(outputs, "run_a")
+    assert sync.sync_all(drive, str(outputs))["pushed"] == 1
+    old_id = (run / sync.ID_FILE).read_text()
+
+    # Mesma pasta com o mesmo id: o run_id é preservado e nada baixa.
+    assert sync.sync_all(drive, str(outputs))["pulled"] == []
+    assert sync.load_state()["runs"]["run_a"]["run_id"] == old_id
+
+    # Apagada e recriada com o mesmo nome: id novo, o antigo não vira "run_a (2)".
+    shutil.rmtree(run)
+    _run(outputs, "run_a")
+    result = sync.sync_all(drive, str(outputs))
+
+    assert result["pulled"] == []
+    assert sorted(os.listdir(outputs)) == ["run_a"]
+    assert old_id in sync.load_state()["retired"]
+    assert sync.load_state()["runs"]["run_a"]["run_id"] != old_id
+
+    # Apagada sem recriar: também não volta.
+    shutil.rmtree(outputs / "run_a")
+    assert sync.sync_all(drive, str(outputs))["pulled"] == []
+    assert os.listdir(outputs) == []
+
+
+def test_pull_nao_engole_falha_de_gravacao_do_estado(drive, tmp_path, monkeypatch):
+    root = drive.add("Ambiens", "root", FOLDER)
+    remote = drive.add("run_x", root, FOLDER, app={sync.APP_KEY: "id-x"})
+    drive.add("configs.json", remote, content=b"{}")
+    outputs = tmp_path / "saidas"
+    outputs.mkdir()
+
+    def broken(_state):
+        raise auth.DriveError("Não foi possível gravar o estado do Drive")
+
+    monkeypatch.setattr(sync, "save_state", broken)
+    with pytest.raises(auth.DriveError, match="estado do Drive"):
+        sync.sync_all(drive, str(outputs))
+
+
+def test_aviso_de_arquivo_grande_uma_vez_por_sessao(drive, tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(sync, "MAX_FILE_BYTES", 50)
+    run = _run(tmp_path / "saidas", "run_a", {"GRANDE.xlsx": b"x" * 51})
+    with caplog.at_level("WARNING", logger=sync.logger.name):
+        sync.run_files(str(run))
+        sync.run_files(str(run))
+    assert caplog.text.count("GRANDE.xlsx") == 1

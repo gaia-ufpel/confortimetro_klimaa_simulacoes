@@ -21,6 +21,7 @@ import re
 import shutil
 import threading
 import uuid
+from typing import Optional
 
 from ..assistant.store import _write_json
 from ..paths import app_data_path
@@ -35,9 +36,10 @@ FOLDER_URL = "https://drive.google.com/drive/folders/{}"
 RUN_MARKERS = ("configs.json", "parameters.txt")
 # Só o que a interface lê de uma execução vai para o Drive: configuração
 # (listagem, duplicar), planilhas (zonas, estatísticas, séries, comparação),
-# `modelo.idf` e `eplustbl.csv` (assistente), o relatório HTML e imagens.
-# O resto do EnergyPlus (`eplusout.eso/.err/.csv/.sql`…) chega a GB.
-MIRRORED_FILES = {"configs.json", "parameters.txt", "modelo.idf", "eplustbl.csv"}
+# `modelo.idf`, `in.idf` (execuções antigas sem `modelo.idf`) e `eplustbl.csv`
+# (assistente), o relatório HTML e imagens. O resto do EnergyPlus
+# (`eplusout.eso/.err/.csv/.sql`…) chega a GB.
+MIRRORED_FILES = {"configs.json", "parameters.txt", "modelo.idf", "in.idf", "eplustbl.csv"}
 MIRRORED_SUFFIXES = (".xlsx", ".htm", ".html", ".png", ".jpg", ".jpeg", ".svg")
 MAX_FILE_BYTES = 50 * 1024 * 1024
 ID_FILE = ".drive_id"
@@ -51,6 +53,7 @@ SYNCED, SENDING, PENDING, ERROR = "sincronizado", "enviando", "pendente", "erro"
 # se isso incomodar.
 _LOCK = threading.RLock()
 logger = logging.getLogger(__name__)
+_WARNED_OVERSIZE = set()  # arquivos acima do teto já avisados nesta sessão
 
 
 # --- Estado ----------------------------------------------------------------
@@ -79,12 +82,12 @@ def save_state(state: dict):
                               f"({state_path()}): {error}") from error
 
 
-def is_connected(state: dict = None) -> bool:
+def is_connected(state: Optional[dict] = None) -> bool:
     """Há cliente OAuth e uma conta conectada (o token mora no keyring)."""
     return bool(auth.client_path() and (state or load_state()).get("account"))
 
 
-def run_status(name: str, state: dict = None):
+def run_status(name: str, state: Optional[dict] = None):
     """sincronizado / enviando / pendente / erro, ou `None` se nunca enviada."""
     entry = (state or load_state())["runs"].get(name)
     return entry.get("status") if entry else None
@@ -215,18 +218,22 @@ def run_files(run_path: str) -> list:
                 or not (name in MIRRORED_FILES or name.lower().endswith(MIRRORED_SUFFIXES))):
             continue
         if os.path.getsize(path) > MAX_FILE_BYTES:
-            logger.warning("Drive: %s fica fora do envio (%d MB, limite de %d MB).", path,
-                           os.path.getsize(path) // 2**20, MAX_FILE_BYTES // 2**20)
+            if path not in _WARNED_OVERSIZE:
+                _WARNED_OVERSIZE.add(path)
+                logger.warning("Drive: %s fica fora do envio (%d MB, limite de %d MB).", path,
+                               os.path.getsize(path) // 2**20, MAX_FILE_BYTES // 2**20)
             continue
         names.append(name)
     return names
 
 
-def _run_id(run_path: str, entry: dict) -> str:
+def _run_id(run_path: str, entry: dict, state: dict) -> str:
     """Id da execução, de `ID_FILE` na pasta (criado na primeira vez).
 
     Id diferente do registrado é outra execução numa pasta de mesmo nome:
     o registro anterior é descartado e ela ganha uma pasta remota própria.
+    O id descartado vai para `state["retired"]`: o `pull` não o baixa de
+    volta como "nome (2)".
     """
     path = os.path.join(run_path, ID_FILE)
     try:
@@ -242,6 +249,8 @@ def _run_id(run_path: str, entry: dict) -> str:
         # A listagem ordena pelo mtime da pasta; o id não é uma modificação.
         os.utime(run_path, (stat.st_atime, stat.st_mtime))
     if entry.get("run_id") != run_id:
+        if entry.get("run_id") and entry["run_id"] not in state.setdefault("retired", []):
+            state["retired"].append(entry["run_id"])
         entry.clear()
         entry.update(run_id=run_id, files={})
     return run_id
@@ -331,7 +340,7 @@ def push_run(service, run_path: str, on_change=None) -> bool:
     with _LOCK:
         state = load_state()
         entry = state["runs"].setdefault(name, {"files": {}})
-        _run_id(run_path, entry)
+        _run_id(run_path, entry, state)
         send = not entry.get("folder_id") or bool(_changed_files(run_path, entry))
         if not send and entry.get("status") == SYNCED and run_path not in state["pending"]:
             return True  # nada mudou: nenhuma chamada, nenhuma gravação
@@ -387,6 +396,7 @@ def pull(service, outputs_root: str, on_change=None) -> list:
     with _LOCK:
         state = load_state()
         known = {entry.get("run_id") for entry in state["runs"].values()}
+        known.update(state.get("retired", []))
         root = _root(service, state)
         for folder in _list(service, f"'{root}' in parents and mimeType='{FOLDER_MIME}' "
                                      "and trashed=false", "id,name,appProperties"):
@@ -450,6 +460,8 @@ def sync_all(service, outputs_root: str, on_change=None) -> dict:
             return {"pushed": len(paths) - len(failed), "failed": failed, "pulled": []}
         try:
             pulled = pull(service, outputs_root, on_change)
+        except auth.DriveError:
+            raise  # estado não gravado: erro visível, como no envio
         except Exception as error:
             if _is_auth_error(error):
                 state = load_state()
