@@ -3,13 +3,13 @@ id: 0005-klimaa-ajustes-de-acompanhamento-da-sincronizacao
 title: 'klimaa: ajustes de acompanhamento da sincronização com o Drive'
 repo: 'gaia-ufpel/confortimetro_klimaa_simulacoes'
 type: codigo
-agent: 'sonnet'
+agent: 'merge-task'
 priority: baixa
 created: 2026-10-06T18:18:20Z
-updated: 2026-10-06T18:22:18Z
+updated: 2026-10-06T18:22:19Z
 briefing_hash: 5bd65330732f84aa4d8a49d2ee2818d47186358ee2c49b03df560d739f6156fb
 approved: '2026-10-06T18:18:21Z'
-panel: 'klimaa-drive-ajustes'
+panel: 'ver-klimaa-drive-ajustes'
 ---
 
 ## Request
@@ -37,3 +37,5 @@ Pare e relate se: precisar de credencial real ou de decisão de produto não cob
 - 2026-10-06T18:18:21Z — briefing aprovado pelo dono (sha256 5bd65330732f)
 
 - 2026-10-06T18:18:23Z — doing
+
+- 2026-10-06T18:22:19Z — doing
