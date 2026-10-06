@@ -340,3 +340,50 @@ Rode você mesmo typecheck, testes dos arquivos/pacotes tocados e build; mostre 
 Classifique cada achado como bloqueante (quebra requisito, bug, segurança, regra do repo) ou opcional; REPROVADO só com ao menos 1 bloqueante.
 Devolva: achados arquivo:linha com severidade, comandos rodados + saída e, ao final, um bloco ```json com {"status":"PRONTO","veredito":"APROVADO|REPROVADO","pendencias":"nenhuma|<lista curta>","achados":[{"arquivo":"x.ts","linha":12,"severidade":"bloqueante|opcional|alta|media|baixa","texto":"..."}],"comandos":[{"cmd":"...","rc":0,"resumo":"..."}]} (o launch lê esse bloco primeiro) e, nas DUAS últimas linhas, exatamente `PENDENCIAS: nenhuma` (ou `PENDENCIAS: <lista curta>`) e depois `VEREDITO: APROVADO` ou `VEREDITO: REPROVADO`, iguais ao JSON. Pendência = achado ALTA/MÉDIA não corrigido, algo que depende do dono (dado, credencial, decisão de produto, texto a preencher) ou passo manual antes/depois do deploy; baixas/opcionais não contam.
 
+### 2026-10-06T18:15:28Z (evidence)
+launch: rev-klimaa-drive-sync-fix2 tentativa 1 (claude) → terminou
+log: /home/glbessa/Projetos/zeroumlabs/agents/state/logs/rev-klimaa-drive-sync-fix2.1.log
+
+```
+      "texto": "mypy: Optional implícito em state: dict = None (também na linha 87)"
+    }
+  ],
+  "comandos": [
+    {
+      "cmd": "xvfb-run -a .venv/bin/python -m pytest tests -q",
+      "rc": 0,
+      "resumo": "192 passed, 1 skipped"
+    },
+    {
+      "cmd": "env -u AMBIENS_GOOGLE_CLIENT python -c 'import confortimetro.gui.main_window'",
+      "rc": 0,
+      "resumo": "importa sem cliente OAuth"
+    },
+    {
+      "cmd": "python -c WSGITimeoutError.__mro__",
+      "rc": 0,
+      "resumo": "subclasse de AttributeError (google-auth-oauthlib 1.5.0)"
+    },
+    {
+      "cmd": "python -m compileall -q confortimetro/drive confortimetro/assistant/store.py confortimetro/gui cli.py",
+      "rc": 0,
+      "resumo": "ok"
+    },
+    {
+      "cmd": "python -m mypy --ignore-missing-imports --follow-imports=silent confortimetro/drive confortimetro/assistant/store.py",
+      "rc": 1,
+      "resumo": "4 erros de Optional implícito; projeto sem mypy configurado"
+    },
+    {
+      "cmd": "git diff origin/main...HEAD --check",
+      "rc": 2,
+      "resumo": "só linha em branco no fim de .tasks/done/*.log"
+    }
+  ],
+  "proximo": "Merge da branch drive-sync a critério do orquestrador; opcionais podem ir para tarefa futura."
+}
+```
+PENDENCIAS: nenhuma
+VEREDITO: APROVADO
+```
+
