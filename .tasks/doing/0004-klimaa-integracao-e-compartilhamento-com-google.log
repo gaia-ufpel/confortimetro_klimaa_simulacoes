@@ -174,3 +174,14 @@ PENDENCIAS: push_after_run não retoma execuções pendentes (sync.py:346); dono
 VEREDITO: REPROVADO
 ```
 
+### 2026-10-06T17:56:45Z (review)
+rev-klimaa-drive-sync: REPROVADO, pendências: push_after_run não retoma execuções pendentes (sync.py:346); dono precisa criar o cliente OAuth no GCP e o secret GOOGLE_OAUTH_CLIENT
+- confortimetro/drive/sync.py:346 [bloqueante] push_after_run envia só a execução atual e ignora state['pending']; requisito 6 ('tenta de novo na próxima abertura/execução'), a docstring sync.py:6-7 e PROJETO.md afirmam nova tentativa na simulação seguinte, mas ela só ocorre na abertura (sync_all). Reproduzido: run_a fica pendente após a 2ª execução sincronizar.
+- confortimetro/drive/sync.py:34 [opcional] Espelho envia eplusout.csv/.err/.sql; execuções antigas têm eplusout.err de 1,5 GB e csv de 134 MB, e o backfill pode esgotar a cota do Drive. Usar lista de permitidos ou teto de tamanho.
+- confortimetro/drive/sync.py:236 [opcional] push_run marca 'enviando' e grava o estado 2x para toda execução a cada abertura, mesmo sem mudança; a coluna Drive pisca em todas.
+- confortimetro/drive/sync.py:358 [opcional] Conta no estado sem token no keyring: execução fica pendente para sempre e reconnect não é marcado; a UI não pede reconexão.
+- confortimetro/drive/sync.py:251 [opcional] reconnect=True nunca é limpo por um push bem-sucedido posterior.
+- confortimetro/drive/sync.py:192 [opcional] Estado indexado pelo nome da pasta: execuções homônimas em máquinas diferentes (ex.: run_001 da CLI) adotam a pasta remota uma da outra e sobrescrevem arquivos.
+- confortimetro/drive/sync.py:63 [opcional] No Windows, os.replace do _write_json pode dar PermissionError se a UI estiver lendo drive.json; fora do try de push_run o erro é engolido em _drive_done.
+- confortimetro/drive/auth.py:113 [opcional] Login que passa do timeout de 300 s tende a gerar AttributeError cru no toast; traduzir para DriveError.
+
