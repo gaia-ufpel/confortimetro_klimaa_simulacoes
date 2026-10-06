@@ -1,0 +1,61 @@
+### 2026-10-05T21:37:04Z (evidence)
+launch: klimaa-fix-core tentativa 1 (claude) → terminou
+log: /home/glbessa/Projetos/zeroumlabs/agents/state/logs/klimaa-fix-core.1.log
+
+```
+| RECEPCAO | −0,077 → −0,126 | 26,9 % → 22,0 % | 7,0 % |
+| SEC_LINSE | −0,124 → −0,164 | 26,3 % → 23,1 % | 9,3 % |
+| LINSE | 0,043 → −0,016 | 17,8 % → 10,2 % | 1,3 % |
+
+## Pontos de atenção
+
+- **Custo de tempo:** gerar as estatísticas das 7 zonas levou **1.048 s**. Com o ventilador acima de 0,1 m/s, cada ponto roda o SET (cerca de 11 ms). Isso deixa a etapa de estatísticas e o "Regerar estatísticas" bem mais lentos. Marquei o ponto com um comentário `ponytail` no código; paralelizar por zona seria o próximo passo, se pesar.
+- **Execuções antigas:** um `ESTATISTICAS.xlsx` já gerado não é marcado como desatualizado. As comparações vão misturar o Fanger antigo com o PMV novo até cada execução passar por "Regerar estatísticas". Marcar isso exigiria mudar o formato do arquivo, que estava fora do permitido.
+- **PMV vazio:** sem as séries de entrada ou sem `met` na configuração, o PMV das estatísticas fica em branco, sem voltar para o Fanger. Nas séries, as linhas desocupadas também ficam sem PMV, então o carpete e a série temporal mostram só as horas ocupadas.
+- **Validação parcial:** `--print-config` e `mcp_runner` não passam pelo `validate`, porque não faziam parte do pedido.
+- **Comando em segundo plano:** o recálculo da referência passou do limite de 600 s e foi movido automaticamente para segundo plano. Esperei o resultado em primeiro plano antes de encerrar.
+
+```
+$ git diff --stat origin/main...HEAD
+ AGENTS.md                                          |  5 +-
+ cli.py                                             | 11 +++
+ confortimetro/assistant/tools.py                   |  2 +-
+ confortimetro/control/base.py                      | 14 ++--
+ confortimetro/control/complete.py                  |  2 +-
+ confortimetro/control/fixed_ac_without_fan.py      |  2 +-
+ confortimetro/control/without_fan.py               |  2 +-
+ .../gui/components/simulation_config_panel.py      | 56 +++++++-------
+ confortimetro/gui/components/timeseries_panel.py   |  1 +
+ confortimetro/gui/main_window.py                   | 30 +++++++-
+ confortimetro/gui/theme.py                         | 19 ++++-
+ confortimetro/idf/processor.py                     |  9 +--
+ confortimetro/results/series.py                    | 52 ++++++++++++-
+ confortimetro/results/stats.py                     | 16 +++-
+ docs/CLI.md                                        |  2 +-
+ tests/test_assistant.py                            |  4 +-
+ tests/test_compare.py                              |  1 +
+ tests/test_idf_processor.py                        | 42 +++++++++++
+ tests/test_motivos.py                              | 22 +++++-
+ tests/test_series.py                               | 11 +++
+ tests/test_stats.py                                | 56 ++++++++++++++
+ tests/test_validacao_config.py                     | 87 ++++++++++++++++++++++
+ 22 files changed, 385 insertions(+), 61 deletions(-)
+```
+
+Alguns conectores MCP (ClickUp, Excalidraw, Google Drive, Localo, Nekt, Notion, TripVote) precisam ser autorizados nas configurações de conectores do claude.ai; nenhum deles foi necessário aqui.
+```
+
+### 2026-10-05T21:37:05Z (generated: ver-klimaa-fix-core)
+gate
+
+### 2026-10-05T21:37:18Z (evidence)
+launch: ver-klimaa-fix-core tentativa 1 (merge-task) → falhou — rc=3
+log: /home/glbessa/Projetos/zeroumlabs/agents/state/logs/ver-klimaa-fix-core.1.log
+
+```
+repo sem `verificacao` no projects.tsv
+```
+
+### 2026-10-05T21:41:00Z (evidence)
+merge-task: fix/core-revisao mergeada na main pelo PR #16 (main local não avançou para origin/main)
+

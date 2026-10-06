@@ -11,3 +11,6 @@ Emendei o commit, que continua único e sem push: `4f1c5f7` (o hash mudou, antes
 O status do checkout principal continua idêntico ao do início. Sobrou na worktree só o `.impeccable/` não versionado, criado pelo hook e fora do commit.
 ```
 
+### 2026-10-05T20:52:55Z (evidence)
+merge-task: docs/variaveis-simulacao mergeada na main pelo PR #14 (main local não avançou para origin/main; worktree /mnt/sda1/gabriellb/Documentos/Faculdade/projetos/gaia/confortimetro_klimaa_simulacoes/.agents/worktrees/pesq-variaveis não removida (suja?); branch docs/variaveis-simulacao mantida)
+

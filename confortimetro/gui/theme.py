@@ -87,6 +87,11 @@ ICONS = {
     "zap": 57780,
     "flame": 57554,
     "snowflake": 57701,
+    "share": 57686,
+    "cloud": 57480,
+    "link": 57602,
+    "unlink": 57756,
+    "mail": 57615,
 }
 
 _ICON_CACHE: dict = {}

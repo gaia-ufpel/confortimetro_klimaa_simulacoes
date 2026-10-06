@@ -82,7 +82,23 @@ def main(argv=None):
                 print(message)
 
     print(f"Resultados em: {config.output_path}")
+    _push_to_drive(config.output_path)
     return 0
+
+
+def _push_to_drive(run_path):
+    """Envia a execução ao Google Drive se a conta já foi conectada pela GUI.
+
+    Sem conta não faz nada; falha nunca muda o código de saída — a execução
+    fica pendente e a próxima abertura do app tenta de novo.
+    """
+    try:
+        from confortimetro.drive.sync import push_after_run
+        status = push_after_run(run_path)
+    except Exception as error:
+        status = f"falhou ({error})"
+    if status:
+        print(f"Google Drive: {status}")
 
 
 if __name__ == "__main__":
