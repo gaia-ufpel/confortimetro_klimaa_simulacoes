@@ -35,3 +35,50 @@ Pronto quando:
 Devolva: comandos rodados + saída (pytest, import), lista de arquivos alterados e qualquer decisão que você tomou fora deste briefing.
 Parada: se precisar de credencial real ou de decisão de produto não coberta, pare e relate.
 
+### 2026-10-06T17:47:46Z (evidence)
+launch: klimaa-drive-sync tentativa 1 (claude) → terminou
+log: /home/glbessa/Projetos/zeroumlabs/agents/state/logs/klimaa-drive-sync.1.log
+
+```
+Também conferi a interface com `xvfb-run`, sem cliente: o card "Google Drive" aparece em Configurações com o aviso "Indisponível: o cliente OAuth… (veja docs/DRIVE.md)", a coluna `drive` entra na listagem e o card cabe numa tela de 1366x768.
+
+Um aviso novo aparece nos testes: o `google.api_core` diz que vai deixar de suportar o Python 3.10, que o `.venv` usa. Não quebra nada hoje. O build do Windows já usa 3.11.
+
+## Arquivos
+
+- **Novos:**
+  - `confortimetro/drive/__init__.py`
+  - `confortimetro/drive/auth.py`
+  - `confortimetro/drive/sync.py`
+  - `confortimetro/gui/components/drive_panel.py`
+  - `docs/DRIVE.md`
+  - `tests/test_drive.py`
+- **Alterados:**
+  - `cli.py`
+  - `confortimetro/gui/main_window.py`
+  - `confortimetro/gui/components/simulations_panel.py`
+  - `confortimetro/gui/components/__init__.py`
+  - `confortimetro/gui/theme.py` (ícones share, cloud, link, unlink, mail)
+  - `requirements.txt`, `constraints.txt`, `.gitignore`, `pyproject.toml`
+  - `packaging/confortimetro.spec`
+  - `.github/workflows/windows-build.yml`
+  - `docs/PROJETO.md`
+  - `tests/test_gui_pages.py`
+
+## Decisões fora do briefing
+
+1. **Arquivos que não sobem:** `*.eso`, `*.mtr`, `in.idf`, `expanded.idf`, arquivos e pastas ocultos (como `.series_cache`) e subpastas; só o primeiro nível da execução é espelhado. O `.eso` sozinho tem cerca de 200 MB por execução, e as planilhas `.xlsx` já trazem tudo o que a listagem e a comparação leem. A consequência é que uma execução baixada em outra máquina não pode ter o pós-processamento refeito a partir do `.eso`.
+2. **Pull:** baixa só as execuções que esta máquina nunca enviou nem baixou. Assim, apagar uma execução localmente não faz ela voltar na próxima abertura.
+3. **Estado perdido ou nova conexão:** se a pasta da execução já existe no Drive, o app aproveita os arquivos de mesmo nome e tamanho em vez de duplicá-los (`ponytail:` no código). Se uma pasta foi apagada no Drive (erro 404), ele recria uma vez.
+4. **Sem cofre de senhas no sistema, conectar falha com mensagem.** O assistente nesse caso guarda a chave em arquivo; o Drive não, porque o briefing proíbe token em arquivo.
+5. **CLI:** o envio roda em primeiro plano depois de "Resultados em:" e imprime `Google Drive: <status>`. Uma linha em segundo plano morreria quando o processo encerra. Como o MCP roda o CLI, a execução disparada pelo MCP só aparece como concluída depois do envio. Não criei o subcomando de status (era opcional).
+6. **Workflow do Windows:** adicionei um passo opcional que grava o JSON a partir do secret `GOOGLE_OAUTH_CLIENT` antes do PyInstaller. Sem o secret, o build passa e o Drive fica desabilitado nesse instalador. O pacote leva só o documento de descoberta do `drive.v3`, não os de todas as APIs do Google.
+7. **Threads:** a primeira versão chamava o Tk direto da thread de fundo e travou no teste. Troquei pelo padrão do assistente: a thread põe o resultado numa fila e a janela consulta a cada 100 ms. Um único lock serializa toda operação com o Drive (`ponytail:`), então um envio longo faz o "Compartilhar" esperar.
+8. **Botões:** "Compartilhar" fica na barra de ações da listagem, habilitado com uma execução concluída selecionada. "Conectar / Desconectar" fica num card novo em Configurações.
+
+## Para o dono
+
+- Criar o cliente OAuth seguindo `docs/DRIVE.md` e publicar o app em Produção, senão o refresh token expira em 7 dias.
+- Criar o secret `GOOGLE_OAUTH_CLIENT` no GitHub para que o instalador do Windows inclua o cliente.
+```
+
