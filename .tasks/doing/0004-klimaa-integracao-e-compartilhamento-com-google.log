@@ -127,3 +127,50 @@ Rode você mesmo typecheck, testes dos arquivos/pacotes tocados e build; mostre 
 Classifique cada achado como bloqueante (quebra requisito, bug, segurança, regra do repo) ou opcional; REPROVADO só com ao menos 1 bloqueante.
 Devolva: achados arquivo:linha com severidade, comandos rodados + saída e, ao final, um bloco ```json com {"status":"PRONTO","veredito":"APROVADO|REPROVADO","pendencias":"nenhuma|<lista curta>","achados":[{"arquivo":"x.ts","linha":12,"severidade":"bloqueante|opcional|alta|media|baixa","texto":"..."}],"comandos":[{"cmd":"...","rc":0,"resumo":"..."}]} (o launch lê esse bloco primeiro) e, nas DUAS últimas linhas, exatamente `PENDENCIAS: nenhuma` (ou `PENDENCIAS: <lista curta>`) e depois `VEREDITO: APROVADO` ou `VEREDITO: REPROVADO`, iguais ao JSON. Pendência = achado ALTA/MÉDIA não corrigido, algo que depende do dono (dado, credencial, decisão de produto, texto a preencher) ou passo manual antes/depois do deploy; baixas/opcionais não contam.
 
+### 2026-10-06T17:56:43Z (evidence)
+launch: rev-klimaa-drive-sync tentativa 1 (claude) → terminou
+log: /home/glbessa/Projetos/zeroumlabs/agents/state/logs/rev-klimaa-drive-sync.1.log
+
+```
+      "texto": "Login que passa do timeout de 300 s tende a gerar AttributeError cru no toast; traduzir para DriveError."
+    }
+  ],
+  "comandos": [
+    {
+      "cmd": ".venv/bin/python -m compileall -q main.py cli.py confortimetro tests",
+      "rc": 0,
+      "resumo": "ok"
+    },
+    {
+      "cmd": "env -u AMBIENS_GOOGLE_CLIENT .venv/bin/python -c 'import confortimetro.gui.main_window'",
+      "rc": 0,
+      "resumo": "import ok; googleapiclient/google_auth_oauthlib não carregados"
+    },
+    {
+      "cmd": ".venv/bin/python -m pip check",
+      "rc": 0,
+      "resumo": "No broken requirements found"
+    },
+    {
+      "cmd": ".venv/bin/python -m pytest tests -q",
+      "rc": 0,
+      "resumo": "184 passed, 1 skipped em 190 s"
+    },
+    {
+      "cmd": ".venv/bin/python -m pytest tests/test_drive.py tests/test_gui_pages.py -q -rs -k 'drive or compartilhar'",
+      "rc": 0,
+      "resumo": "11 passed"
+    },
+    {
+      "cmd": "python -I check_pending.py (FakeDrive)",
+      "rc": 0,
+      "resumo": "confirma que a pendente não é reenviada na execução seguinte"
+    }
+  ],
+  "proximo": "Implementador: em push_after_run, depois do push, reenviar os caminhos de state['pending'] que existem e adicionar um teste para isso. Os opcionais ficam a critério."
+}
+```
+PENDENCIAS: push_after_run não retoma execuções pendentes (sync.py:346); dono precisa criar o cliente OAuth no GCP e o secret GOOGLE_OAUTH_CLIENT
+VEREDITO: REPROVADO
+```
+
