@@ -1,0 +1,30 @@
+### 2026-10-06T18:22:18Z (evidence)
+launch: klimaa-drive-ajustes tentativa 1 (sonnet) → terminou
+log: /home/glbessa/Projetos/zeroumlabs/agents/state/logs/klimaa-drive-ajustes.1.log
+
+```
+Permission deny rule (/home/glbessa/.claude-glbessa/settings.json): Bash(git *push* :**) has a :* that is not at the end, so it is matched as a * wildcard (the : is literal), not as the trailing :* prefix syntax. It already matches as a * wildcard; moving :* to the end would make it a literal prefix and change which commands match.
+Os seis itens estão feitos e commitados na `drive-ajustes` (`bfd8a6a`), sem merge nem push. A suíte inteira passou: `.venv/bin/python -m pytest tests -q` deu `206 passed, 1 skipped, 98 warnings in 115.02s`.
+
+Tive uma falha no meio: um teste novo meu usava o mesmo estado como se fosse "outra máquina". Corrigi o teste e rodei a suíte de novo. Não confirmei que os testes 2 e 3 falham sem a correção.
+
+**Diff por item**
+1. **`in.idf` no espelho:** `sync.py` agora lista `in.idf` em `MIRRORED_FILES`, e o teto de tamanho continua valendo. Atualizei o comentário e o helper `_run` dos testes, que usava `in.idf` como exemplo de arquivo excluído e passou a usar `expanded.idf`.
+2. **`run_id` ao recriar execução:**
+   - **O que já existia:** o `.drive_id` já guarda o id na pasta da execução, então mantive esse arquivo em vez de criar `.ambiens-drive.json`. A pasta que ainda tem o mesmo id continua com o mesmo `run_id`.
+   - **O que faltava:** pasta apagada e recriada com o mesmo nome ganha id novo e o antigo se perdia, então o `pull` baixava a pasta antiga como `nome (2)`.
+   - **A correção:** `_run_id(run_path, entry, state)` guarda o id descartado em `state["retired"]`, e o `pull` o trata como conhecido.
+3. **`sync_all` e `DriveError` no pull:** `sync_all` agora relança `DriveError` do pull (por exemplo, falha ao gravar o estado). A GUI já mostra esse erro em toast, como faz com o push.
+4. **Aviso de arquivo grande:** `run_files` registra o aviso uma vez por arquivo por sessão, usando `_WARNED_OVERSIZE`.
+5. **`auth.connect`:** o `except AttributeError` só converte para `DriveError` quando é o caso do timeout (mensagem com `replace` ou `WSGITimeoutError`). Qualquer outro `AttributeError` sobe como estava.
+6. **`Optional`:** `is_connected` e `run_status` usam `Optional[dict]`.
+
+**Testes novos em `tests/test_drive.py`**
+- `test_in_idf_sobe_e_desce_para_execucao_sem_modelo` cobre o item 1.
+- `test_recriar_execucao_apagada_nao_volta_pelo_pull` cobre o item 2.
+- `test_pull_nao_engole_falha_de_gravacao_do_estado` cobre o item 3.
+- `test_aviso_de_arquivo_grande_uma_vez_por_sessao` cobre o item 4.
+
+**Limite do item 3:** quando o pull falha com `DriveError`, a lista de execuções já baixadas naquela chamada não chega à GUI e o painel não atualiza sozinho. Os arquivos ficam no disco e aparecem no próximo refresh. Se quiser, devolvo um campo `error` no dict em vez de levantar a exceção, mas isso mexe na GUI.
+```
+
