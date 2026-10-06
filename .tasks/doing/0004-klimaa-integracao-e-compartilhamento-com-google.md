@@ -6,10 +6,10 @@ type: codigo
 agent: 'claude'
 priority: media
 created: 2026-10-06T17:23:10Z
-updated: 2026-10-06T17:57:28Z
-briefing_hash: 9c919aef5290510ac0134b07649aaffcd7039cc2bd78dc9f974ea9c3abe9f6ac
-approved: '2026-10-06T17:23:32Z'
-panel: 'klimaa-drive-sync-fix1'
+updated: 2026-10-06T17:57:33Z
+briefing_hash: aec10db8ab8ae45ccc2beb7b3fcbff737424bf75ed24452ebc2e929fdb70638a
+approved: '2026-10-06T17:57:29Z'
+panel: 'klimaa-drive-sync-fix2'
 next: 'orquestrador: agente parado com launch --parar'
 ---
 
@@ -51,3 +51,7 @@ Pare e relate se: precisar de credencial real ou de decisão de produto não cob
 - 2026-10-06T17:56:48Z — doing
 
 - 2026-10-06T17:57:06Z — blocked
+
+- 2026-10-06T17:57:29Z — briefing aprovado pelo dono (sha256 aec10db8ab8a)
+
+- 2026-10-06T17:57:33Z — doing
