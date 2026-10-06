@@ -6,11 +6,11 @@ type: codigo
 agent: 'merge-task'
 priority: media
 created: 2026-10-06T17:23:10Z
-updated: 2026-10-06T18:17:47Z
+updated: 2026-10-06T18:17:48Z
 briefing_hash: aec10db8ab8ae45ccc2beb7b3fcbff737424bf75ed24452ebc2e929fdb70638a
 approved: '2026-10-06T17:57:29Z'
 panel: 'merge-klimaa-drive-sync-fix2'
-next: 'APROVADO em rev-klimaa-drive-sync-fix2, PENDENCIAS: nenhuma: merge-klimaa-drive-sync-fix2 na fila'
+next: 'drive-sync mergeada na main pelo PR #17 (main local não avançou para origin/main)'
 ---
 
 ## Request
@@ -61,3 +61,5 @@ Pare e relate se: precisar de credencial real ou de decisão de produto não cob
 - 2026-10-06T18:15:30Z — doing
 
 - 2026-10-06T18:15:32Z — doing
+
+- 2026-10-06T18:17:48Z — done
