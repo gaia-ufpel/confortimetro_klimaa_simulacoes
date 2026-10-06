@@ -399,3 +399,6 @@ rev-klimaa-drive-sync-fix2: APROVADO, pendências: nenhuma
 ### 2026-10-06T18:15:31Z (generated: merge-klimaa-drive-sync-fix2)
 merge drive-sync:confortimetro:0004-klimaa-integracao-e-compartilhamento-com-google
 
+### 2026-10-06T18:17:47Z (evidence)
+merge-task: drive-sync mergeada na main pelo PR #17 (main local não avançou para origin/main)
+
