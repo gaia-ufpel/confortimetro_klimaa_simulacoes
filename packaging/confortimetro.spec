@@ -7,7 +7,7 @@
 
 import os
 
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_data_files
 
 # Caminhos no spec são resolvidos em relação ao próprio arquivo, não ao
 # diretório de onde o pyinstaller foi chamado.
@@ -28,6 +28,23 @@ datas = [
 ]
 binaries = []
 hiddenimports = []
+
+# Cliente OAuth do Google Drive: fora do git, entra no bundle só se o CI (ou
+# quem empacota) o tiver posto em confortimetro/drive/. Sem ele a seção do
+# Drive aparece desabilitada (docs/DRIVE.md).
+CLIENT_SECRET = os.path.join(ROOT, "confortimetro", "drive", "client_secret.json")
+if os.path.isfile(CLIENT_SECRET):
+    datas.append((CLIENT_SECRET, "confortimetro/drive"))
+
+# Só o documento de descoberta do Drive v3: o googleapiclient traz o de todas
+# as APIs do Google (dezenas de MB) e monta o serviço a partir dele, sem rede.
+datas += collect_data_files("googleapiclient",
+                            includes=["discovery_cache/documents/drive.v3.json"])
+# Importados dentro das funções (confortimetro/drive/auth.py); o analisador
+# estático não os vê.
+hiddenimports += ["googleapiclient.discovery", "googleapiclient.http",
+                  "google_auth_oauthlib.flow", "google_auth_httplib2", "httplib2",
+                  "google.oauth2.credentials"]
 
 # Pacotes com dados/tabelas próprios que o analisador estático não enxerga.
 # esoreader é um módulo solto (não pacote); o PyInstaller o pega sozinho.

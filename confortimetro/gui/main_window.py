@@ -15,6 +15,7 @@ import copy
 from typing import Optional
 
 from confortimetro.config import SimulationConfig
+from confortimetro.drive import auth as drive_auth, sync as drive_sync
 from confortimetro.idf import (apply_equipment_fixes, plan_equipment_fixes,
                                 read_zone_names, unwired_equipment,
                                 write_idf_fields)
@@ -33,7 +34,10 @@ from .components import (
     TimeSeriesPanel,
     AssistantPanel,
     AssistantSettings,
+    DriveSettings,
+    open_share_dialog,
 )
+from .components.drive_panel import in_background
 from .theme import (
     COLORS,
     FONTS,
@@ -64,12 +68,16 @@ class MainWindow(tk.Tk):
         # A listagem só é relida quando alguma execução termina.
         self._runs_dirty = False
         self._detail_run: Optional[dict] = None
+        # A thread do Drive marca aqui que algum status mudou.
+        self._drive_change = threading.Event()
         # `after` da transição de página em andamento, se houver.
         
         self._setup_window()
         apply_theme(self)
         self._build_ui()
         self._load_configuration()
+        # Backfill, pendentes e pull do Drive, depois que a janela aparece.
+        self.after(1500, self.drive_sync)
     
     def _setup_window(self):
         """Setup the main window properties."""
@@ -433,6 +441,11 @@ class MainWindow(tk.Tk):
         assistant_card.pack(fill="x", pady=(SPACE[3], 0))
         self.assistant_settings = AssistantSettings(assistant_card.body)
         self.assistant_settings.pack(fill="x")
+
+        drive_card = Card(page, "Google Drive")
+        drive_card.pack(fill="x", pady=(SPACE[3], 0))
+        self.drive_settings = DriveSettings(drive_card.body, on_connected=self.drive_sync)
+        self.drive_settings.pack(fill="x")
         return page
 
     def _build_assistant_page(self):
@@ -781,12 +794,64 @@ class MainWindow(tk.Tk):
             # A disparada pelo assistente não tira o usuário da conversa.
             from_assistant = getattr(self, "_running_origin", None) == "assistant"
             self._running_origin = None
+            if finished_path and not interrupted and not has_error:
+                self._drive_push(finished_path)
             if finished_path and not interrupted and not has_error and not from_assistant:
                 run = next((r for r in self.simulations_panel._runs
                             if r['path'] == finished_path), None)
                 if run is not None:
                     self.on_open_run_details(run)
     
+    # ------------------------------------------------------------ Google Drive
+
+    def _drive_changed(self):
+        """Chamado da thread do Drive: só marca; quem toca no Tk é `_drive_tick`."""
+        self._drive_change.set()
+
+    def _drive_tick(self):
+        if self._drive_change.is_set():
+            self._drive_change.clear()
+            self.simulations_panel.update_drive_status()
+
+    def _drive_done(self, result, error):
+        self.drive_settings.refresh()
+        if result and result.get("pulled"):
+            self.simulations_panel.refresh()
+            toast(self, f"{len(result['pulled'])} execução(ões) baixada(s) do Google Drive.",
+                  "info")
+        else:
+            self.simulations_panel.update_drive_status()
+
+    def drive_sync(self):
+        """Envia o que falta (backfill e pendentes) e baixa as de outras máquinas.
+
+        Na abertura e logo depois de conectar; sem conta, não faz nada.
+        """
+        self.drive_settings.refresh()
+        self.simulations_panel.update_drive_status()
+        if not drive_sync.is_connected():
+            return
+        root = self._outputs_root()
+
+        def work():
+            service = drive_auth.service()
+            return drive_sync.sync_all(service, root, self._drive_changed) if service else None
+
+        in_background(self, work, self._drive_done, tick=self._drive_tick)
+
+    def _drive_push(self, run_path: str):
+        """Envio automático da execução que acabou de terminar."""
+        if drive_sync.is_connected():
+            in_background(self, lambda: drive_sync.push_after_run(run_path, self._drive_changed),
+                          lambda _result, _error: self._drive_done(None, None),
+                          tick=self._drive_tick)
+
+    def on_share_run(self, run: dict):
+        if not drive_sync.is_connected():
+            toast(self, "Conecte o Google Drive em Configurações para compartilhar.", "warn")
+            return
+        open_share_dialog(self, run['path'])
+
     # Callback implementations for PathConfigPanel
     def on_idf_path_changed(self, path: str):
         """Handle IDF path change."""

@@ -589,3 +589,48 @@ def test_assistente_propoe_simulacao_e_so_roda_com_confirmacao(window, tmp_path,
         time.sleep(0.02)
     assert not window.simulations_panel._running
     assert window._current_page == "assistant"
+
+
+def test_drive_sem_cliente_fica_desabilitado(window, tmp_path, monkeypatch):
+    from confortimetro.drive import auth
+
+    monkeypatch.delenv(auth.CLIENT_VARIABLE, raising=False)
+    monkeypatch.setattr(auth, "CLIENT_FILE", str(tmp_path / "nao_existe.json"))
+    window.drive_settings.refresh()
+    window.drive_sync()  # sem cliente não faz nada
+
+    assert window.drive_settings.connect_button._state == "disabled"
+    assert "docs/DRIVE.md" in window.drive_settings.status_var.get()
+    window.on_share_run({'run': 'x', 'path': str(tmp_path)})  # só avisa
+
+
+def test_compartilhar_copia_link(window, tmp_path, monkeypatch):
+    import json
+    import time
+
+    from test_drive import FakeDrive, _run
+
+    from confortimetro.drive import auth, sync
+    from confortimetro.gui.components import open_share_dialog
+
+    client = tmp_path / "client_secret.json"
+    client.write_text(json.dumps({"installed": {"client_id": "x"}}))
+    monkeypatch.setenv(auth.CLIENT_VARIABLE, str(client))
+    fake = FakeDrive()
+    monkeypatch.setattr(auth, "service", lambda: fake)
+    sync.save_state({"account": "dono@exemplo.com", "runs": {}, "pending": []})
+    run = _run(tmp_path / "saidas", "run_a")
+
+    dialog = open_share_dialog(window, str(run))
+    assert dialog.unshare_button._state == "disabled"
+    dialog.copy_button._command()
+    deadline = time.time() + 30
+    while "Link copiado" not in dialog.status.get() and time.time() < deadline:
+        window.update()
+        time.sleep(0.05)
+
+    assert "Link copiado" in dialog.status.get(), dialog.status.get()
+    folder = fake.folder_id("run_a")
+    assert window.clipboard_get() == f"https://drive.google.com/drive/folders/{folder}"
+    assert dialog.unshare_button._state == "normal"
+    dialog.destroy()

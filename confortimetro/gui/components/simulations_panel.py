@@ -9,6 +9,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, ttk
 
+from confortimetro.drive import sync as drive_sync
 from confortimetro.results import database
 from confortimetro.results.compare import export_runs_zip, list_runs, recompute_runs
 
@@ -23,7 +24,15 @@ _LIST_COLUMNS = [
     ("rooms", "Zonas", 55),
     ("status", "Estatísticas", 115),
     ("modificado", "Modificado", 115),
+    ("drive", "Drive", 95),
 ]
+
+_DRIVE_TEXT = {
+    drive_sync.SYNCED: "sincronizado",
+    drive_sync.SENDING: "enviando…",
+    drive_sync.PENDING: "pendente",
+    drive_sync.ERROR: "erro",
+}
 
 _STATUS_TEXT = {
     'pronta': 'pronta',
@@ -148,6 +157,11 @@ class SimulationsPanel(ttk.Frame):
             tooltip="Assistente de análise", command=self._ask_assistant)
         self.btn_assistant.pack(side="left", padx=(SPACE[2], 0))
 
+        self.btn_share = RoundedButton(
+            self.actions_bar, text="", variant="ghost", icon="share",
+            tooltip="Compartilhar pelo Google Drive", command=self._share)
+        self.btn_share.pack(side="left", padx=(SPACE[2], 0))
+
         # Indicadores Chave de Desempenho (KPI Cards)
         self.kpi_frame = ttk.Frame(detail_card.body, style="Surface.TFrame")
         self.kpi_frame.pack(fill="x", pady=(0, SPACE[3]))
@@ -237,6 +251,7 @@ class SimulationsPanel(ttk.Frame):
 
         self.tree.delete(*self.tree.get_children())
         self._summary_cache.clear()
+        drive_state = drive_sync.load_state()
         for run in rows:
             running = run['path'] in self._running
             status = 'em simulação' if running else run['status']
@@ -247,7 +262,8 @@ class SimulationsPanel(ttk.Frame):
                 values=(run['run'], run['module_type'] or "—", run['idf'] or "—",
                         run['epw'] or "—", len(run['rooms_disponiveis']),
                         _STATUS_TEXT.get(status, status),
-                        run['modificado'].strftime("%d/%m/%Y %H:%M")),
+                        run['modificado'].strftime("%d/%m/%Y %H:%M"),
+                        self._drive_text(run, drive_state)),
                 tags=tags)
 
         ready = sum(1 for run in self._runs if run['status'] == 'pronta')
@@ -256,6 +272,20 @@ class SimulationsPanel(ttk.Frame):
         if ingested:
             message += f". {ingested} ingeridas no banco agora"
         self._set_status(message)
+
+    @staticmethod
+    def _drive_text(run: dict, state: dict) -> str:
+        if not drive_sync.is_connected(state):
+            return "—"
+        return _DRIVE_TEXT.get(drive_sync.run_status(run['run'], state), "—")
+
+    def update_drive_status(self):
+        """Só a coluna Drive: o envio muda o status sem precisar reler a pasta."""
+        state = drive_sync.load_state()
+        runs = {run['path']: run for run in self._runs}
+        for item in self.tree.get_children():
+            if item in runs and item not in self._running:
+                self.tree.set(item, "drive", self._drive_text(runs[item], state))
 
     def set_running(self, path: str, config=None):
         """Marca uma execução como em andamento e a mostra já na listagem."""
@@ -303,6 +333,7 @@ class SimulationsPanel(ttk.Frame):
         can_operate = item_state if not is_running_selected else "disabled"
         self.btn_duplicate.configure(state=can_operate)
         self.btn_export.configure(state=can_operate)
+        self.btn_share.configure(state=can_operate if selected_count == 1 else "disabled")
         self.btn_recompute.configure(state=can_operate)
 
         if is_running_selected and selected_count == 1:
@@ -514,6 +545,11 @@ class SimulationsPanel(ttk.Frame):
         run = self._selected_run()
         if run and self.callback:
             self.callback.on_duplicate_run(run)
+
+    def _share(self):
+        run = self._selected_run()
+        if run and self.callback:
+            self.callback.on_share_run(run)
 
     def _compare(self):
         """Manda as execuções escolhidas para a página de comparação."""

@@ -5,6 +5,7 @@ controle, saídas, interfaces e manutenção. Complementos:
 
 - [`CLI.md`](CLI.md) — execução headless, flags e diagnóstico operacional.
 - [`WINDOWS.md`](WINDOWS.md) — instalação e execução no Windows.
+- [`DRIVE.md`](DRIVE.md) — criar o cliente OAuth do Google Drive no GCP.
 
 ## 1. Visão geral
 
@@ -61,6 +62,7 @@ Fluxograma do condicionador:
 | `confortimetro/results/` | Pós-processamento: `excel.py` (ESO → planilha), `stats.py`, `periods.py` (recortes sazonais), `plots.py`. |
 | `confortimetro/module_type.py` | Enum `ModuleType`. |
 | `confortimetro/assistant/` | Assistente de análise (PRD 003): `tools.py` (ferramentas só de leitura sobre `results/`), `client.py` (laço de function calling com o Gemini), `store.py` (configurações, chave no keyring e conversas em `app_data_path()/assistente/`). |
+| `confortimetro/drive/` | Google Drive (seção 8): `auth.py` (cliente OAuth, refresh token no keyring, serviço) e `sync.py` (espelho das execuções, pull e compartilhamento). |
 | `confortimetro/gui/` | Janela e painéis Tkinter (caminhos, parâmetros, controles, resultados). |
 | `examples/` | `config.json`, IDFs (`idf/`) e EPWs (`epw/`) de referência. |
 | `bin/` | `install.sh`/`install.bat`, `executar.bat`. |
@@ -255,6 +257,32 @@ consome uma `Queue` para o log. O botão **Parar** chama `Simulation.stop()`,
 que pede o encerramento à API do EnergyPlus (`request_stop`); o encerramento
 não é imediato.
 
+### Google Drive
+
+Sincronização transparente: o usuário conecta a conta uma vez em
+**Configurações → Google Drive** e, daí em diante, as execuções sobem
+sozinhas. Sem cliente OAuth (ver [`DRIVE.md`](DRIVE.md)) o card aparece
+desabilitado e nada mais muda.
+
+| Item | Como funciona |
+|---|---|
+| Escopo | Só `drive.file`: o app enxerga apenas o que ele criou. |
+| Login | `InstalledAppFlow.run_local_server` (loopback) abre o navegador; o refresh token vai para o keyring (`ConfortimetroKlimaa` / `google-drive`), nunca para arquivo ou log. Sem cofre de senhas, conectar falha com mensagem. |
+| Cliente | `AMBIENS_GOOGLE_CLIENT` (caminho do JSON) ou `confortimetro/drive/client_secret.json`, fora do git. |
+| Estrutura | Pasta `Ambiens` na raiz do Drive, uma subpasta por execução com o nome da pasta local, espelhando os arquivos do primeiro nível. Ficam de fora `*.eso`, `*.mtr`, `in.idf`, `expanded.idf` e ocultos (`.series_cache`): o ESO passa de centenas de MB e as planilhas já têm o que a listagem e a comparação leem. |
+| Estado | `app_data_path()/drive.json`: conta, id da pasta raiz e, por execução, id da pasta, `arquivo → [id, tamanho, mtime]`, status e se o link está público; `pending` lista as execuções a reenviar; `reconnect` marca token revogado. Gravado atômico (`store._write_json`). |
+| Envio | Ao fim de cada simulação concluída (GUI e CLI, inclusive a disparada pelo MCP, que roda o CLI) em segundo plano na GUI; só reenvia arquivo com tamanho ou mtime diferente do registrado. Na conexão e a cada abertura do app, `sync_all` envia todas as execuções da pasta de saídas (backfill) e as pendentes. |
+| Pull | Na abertura e após conectar: subpastas de `Ambiens` que esta máquina nunca viu (nem enviou nem baixou) e que têm `configs.json`/`parameters.txt` são baixadas para a pasta de saídas, numa pasta oculta renomeada no fim. Apagar uma execução localmente não a traz de volta. |
+| Falhas | Sem rede ou erro da API: a execução fica `pendente` e volta na próxima abertura/execução. 401/`invalid_grant`: `reconnect`, e o card pede para conectar de novo. Conflito não é tratado: a última versão local vence. |
+| Status | Coluna **Drive** da listagem: sincronizado, enviando…, pendente, erro (ou — sem conta). |
+| Compartilhar | Botão de compartilhar da listagem abre um diálogo: **Copiar link** cria a permissão `anyone/reader` na pasta da execução e copia o link (o diálogo avisa que qualquer pessoa com ele vê os arquivos); **Parar de compartilhar link** remove essa permissão; e-mails viram permissões `user/reader` com aviso do Google. |
+| CLI/MCP | Sem login pela linha de comando: o CLI só envia ao final se a conta já foi conectada pela GUI e imprime `Google Drive: <status>`. Falha não muda o código de saída. |
+
+As bibliotecas do Google são importadas dentro das funções: abrir a janela não
+as carrega. Toda chamada ao Drive roda fora da thread do Tk
+(`drive_panel.in_background`, fila + `after`, como no assistente) e um único
+lock serializa as operações.
+
 ## 9. Testes
 
 ```bash
@@ -267,6 +295,7 @@ não é imediato.
 | `tests/test_clo_priority.py` | Escolha do clo com PMV mais próximo de zero e validação de `clo_delta`/`clo_min`. |
 | `tests/test_pmv_fast.py` | Equivalência e cache do PMV rápido. |
 | `tests/test_error_reporting.py` | Erros que devem abortar (handlers faltando, exceção no callback, ESO truncado). |
+| `tests/test_drive.py` | Drive falso: backfill e idempotência, reenvio só do arquivo alterado, pull de execução ausente, falha de rede pendente e retomada, 401 pedindo reconexão, compartilhar/convidar e ausência de cliente. |
 | `tests/test_assistant.py` | Ferramentas do assistente, laço de function calling com Gemini falso, resumo do histórico e chave/conversas em disco. |
 
 ## 10. Armadilhas conhecidas
