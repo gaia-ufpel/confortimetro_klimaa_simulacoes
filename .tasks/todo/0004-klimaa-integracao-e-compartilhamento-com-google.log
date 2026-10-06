@@ -1,21 +1,4 @@
----
-id: 0004-klimaa-integracao-e-compartilhamento-com-google
-title: 'klimaa: integração e compartilhamento com Google Drive'
-repo: 'gaia-ufpel/confortimetro_klimaa_simulacoes'
-type: codigo
-agent: ''
-priority: media
-created: 2026-10-06T17:23:10Z
-updated: 2026-10-06T17:23:30Z
-briefing_hash: a80dbbd2bfe3c339cf71ff49e8428fa886aa631844d5f9a5360b3b76286f4b95
-approved: '2026-10-06T17:23:14Z'
----
-
-## Request
-
-## Briefing
-
-### 2026-10-06T17:23:30Z
+### 2026-10-06T17:23:12Z (previous briefing)
 Tarefa: integração e compartilhamento com Google Drive no Ambiens (confortimetro_klimaa_simulacoes).
 
 Diretório: worktree /mnt/sda1/gabriellb/Documentos/Faculdade/projetos/gaia/confortimetro_klimaa_simulacoes/.agents/worktrees/drive-sync (branch drive-sync). Trabalhe só aqui. Leia AGENTS.md/CLAUDE.md e docs/PROJETO.md do repo antes.
@@ -50,10 +33,5 @@ Pronto quando:
 - `python -c "import confortimetro.gui.main_window"` importa sem cliente OAuth presente.
 - Commits na branch drive-sync com mensagem clara. Não faça merge nem push.
 Devolva: comandos rodados + saída (pytest, import), lista de arquivos alterados e qualquer decisão que você tomou fora deste briefing.
-Pare e relate se: precisar de credencial real ou de decisão de produto não coberta.
+Parada: se precisar de credencial real ou de decisão de produto não coberta, pare e relate.
 
-## History
-
-- 2026-10-06T17:23:10Z — todo (created)
-
-- 2026-10-06T17:23:14Z — briefing aprovado pelo dono (sha256 a80dbbd2bfe3)
