@@ -5,7 +5,10 @@ import pytest
 import cli
 from confortimetro.config import SimulationConfig
 from confortimetro.gui.theme import parse_num
-from tests.test_gui_pages import window  # noqa: F401  (fixture)
+from tests import test_gui_pages
+
+# Fixture da janela; atribuída (não importada) para o ruff não ver redefinição.
+window = test_gui_pages.window
 
 
 def _config(tmp_path, **over):
