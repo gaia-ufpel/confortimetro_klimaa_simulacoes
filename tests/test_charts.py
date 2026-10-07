@@ -61,7 +61,8 @@ def test_delta_exige_referencia_valida(duas_execucoes):
 
 def test_faixa_do_pmv_e_rotulos_usam_configuracao_e_idf(duas_execucoes):
     df, runs = duas_execucoes
-    import json, os
+    import json
+    import os
     with open(os.path.join(runs[0][1], 'configs.json'), encoding='utf-8') as f:
         config = json.load(f)
     config.update(pmv_lowerbound=-0.8, pmv_upperbound=0.8, _idf_path='/x/PREDIO_A.idf')
