@@ -240,6 +240,14 @@ a.destroy()"
   `RangeField`, e as salas um `ChipSelect` — os atributos `*_min_entry` /
   `*_max_entry` seguem existindo, apontando para os campos das pontas.
 
+## Servidor remoto
+
+`confortimetro/remote/` — `server.py` (Starlette: fila, runner, espelho, tokens)
+e `client.py` (`RemoteSimulation` com a interface da `Simulation`, `sync`). A
+GUI troca a classe em `_run_simulation_thread` quando `client.enabled()`; o
+resto do app lê o espelho local e não sabe que rodou longe. Detalhes e
+limites em [`docs/SERVIDOR.md`](docs/SERVIDOR.md).
+
 ## Verificação
 
 Servidor MCP local via stdio: `python -m confortimetro.mcp_server`; instalação,
