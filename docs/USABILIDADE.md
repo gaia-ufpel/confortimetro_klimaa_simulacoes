@@ -30,7 +30,8 @@ a interface real em paralelo.
 - **Simulações:** as anuais foram canceladas após 2 a 4 min. Ricardo concluiu
   3 simulações de 1 semana para usar a comparação; Fernanda copiou 4 execuções
   existentes (2 no formato antigo) para ver resultados.
-- **Severidade:** crítico, alto, médio, baixo — consolidados aqui em P0, P1 e P2.
+- **Severidade:** crítico, alto, médio, baixo — consolidados aqui em P0, P1 e P2
+  e agrupados pela tela onde aparecem.
 
 Limitações:
 
@@ -40,7 +41,7 @@ Limitações:
   funcionaram; esses pontos ficaram sem avaliação conclusiva.
 - Só Linux. O Windows, plataforma do usuário final, não foi testado.
 - As instâncias paralelas compartilharam `examples/config.json`, o que misturou
-  execuções entre agentes (virou achado, ver P1).
+  execuções entre agentes (virou achado, ver Execução).
 
 ## Personas
 
@@ -52,99 +53,179 @@ Limitações:
 | Fernanda, 38 | Consultora de eficiência energética, notebook Windows | Layout em tela pequena, resultados apresentáveis a cliente | 1280×720, 100% e 125% | 3 de 5; Configurações inacessível |
 | Marcos, 45 | Técnico do laboratório; baixa visão, tendinite, deuteranopia | Só teclado, foco, contraste, dependência de cor | 1600×900 | 1 de 5, e com mouse |
 
-## P0 — corrigir primeiro
+## Achados por tela
 
-Resultado errado, perda de controle sobre a simulação ou bloqueio de um grupo
-inteiro de usuários.
+Cada achado leva a prioridade entre colchetes e as personas que o viram.
+**P0** = resultado errado, perda de controle ou bloqueio de um grupo de
+usuários; **P1** = alto; **P2** = médio ou baixo. Os nomes de tela seguem o
+título exibido no app (`_page_nav` em `confortimetro/gui/main_window.py`).
 
-| # | Problema | Evidência | Personas | Onde |
-|---|---|---|---|---|
-| 1 | "PMV fora da faixa (%)" usa ±0,5 fixo e ignora `pmv_lowerbound`/`pmv_upperbound` | Execução configurada para ±0,7 reporta o percentual com ±0,5; a faixa sombreada do gráfico "Distribuição do PMV" também | Ricardo | `confortimetro/results/stats.py:174` (`pmv.abs() > 0.5`) |
-| 2 | Fechar a janela durante a simulação some com a interface, mas o processo continua | `main.py` seguiu com ~40% de CPU e `eplusout.eso` crescendo, sem janela | Lucas | `MainWindow` não trata `WM_DELETE_WINDOW` |
-| 3 | Período editado no formulário é ignorado sem aviso | Fim em 31/01 rodou o ano inteiro; `in.idf` ficou 01/01–31/12; só vale após "Salvar como novo IDF". A configuração duplicada voltou a 31/12 | Ricardo, Marcos | Aba Período |
-| 4 | Valores inválidos de PMV, clo e AC são trocados em silêncio | Vazio vira −3, "abc" vira 2, 5 vira 3, mínimo maior que máximo é invertido; a simulação roda com valores que o usuário não escolheu | Lucas | Abas Conforto e Equipamentos |
-| 5 | Arquivo que não é IDF é aceito como IDF | `.epw` e `.txt` mostram "✓ Arquivo encontrado"; o app oferece incluir equipamentos e grava `..._INMET_equipamentos.epw` com objetos de IDF colados; o erro final fala em "zonas inexistentes" | Lucas | Seletor de IDF |
-| 6 | Nenhum botão responde a Enter ou Espaço, e o foco neles é invisível | Nova execução, Validar e executar, Parar, Salvar, Carregar, Procurar e Voltar só funcionam com mouse | Marcos | `RoundedButton` em `confortimetro/gui/theme.py:568`; corrigir o componente resolve todos |
+| Tela | P0 | P1 | P2 |
+|---|---|---|---|
+| Janela e abertura | — | 2 | — |
+| Boas-vindas (onboarding) | — | — | 3 |
+| Execuções | — | 4 | 4 |
+| Execução (editor) | 4 | 12 | 4 |
+| Detalhes da execução | — | 3 | 2 |
+| Comparação de resultados | — | 2 | 2 |
+| Configurações | — | 1 | 1 |
+| Assistente de análise | — | 1 | — |
+| Transversal (todas as telas) | 2 | 1 | 6 |
 
-## P1 — alto
+### Janela e abertura
 
-### Execução e progresso
+- **[P1]** Abertura leva 45–50 s sem janela nem aviso de carregamento.
+  *Juliana.*
+- **[P1]** Janela abre com 1200×900 fixo em y = −90: barra de título e
+  rodapé/log cortados em 768 e 720 px. *Todas.*
 
-- Barra de progresso de 2 px, sem porcentagem, data simulada ou tempo restante;
-  o log fica parado em "Executando simulação EnergyPlus…" por minutos e a barra
-  em ~1%. Anual ≈ 100 min, e a tela não avisa. *Juliana, Ricardo, Lucas, Fernanda.*
-- "Parar simulação" interrompe sem confirmação; no duplo clique em Executar, o
-  segundo clique cai em Parar. *Lucas, Juliana, Fernanda.*
-- Execução interrompida aparece como "modelo.idf / 0 zonas / sem planilhas" e
-  conta como erro, não como "interrompida". *Juliana, Lucas, Ricardo.*
-- Abertura leva 45–50 s sem janela nem aviso de carregamento. *Juliana.*
+### Boas-vindas (onboarding)
 
-### Layout e tela pequena
+- **[P2]** Último botão diz "Abrir o editor", o texto fala em "Nova execução".
+  *Juliana.*
+- **[P2]** "Tudo pronto" aparece ao lado de "Baixar o EnergyPlus". *Juliana.*
+- **[P2]** Rodando do repositório, sem `AMBIENS_ONBOARDING=1`, não há onboarding
+  e a tela inicial fica vazia. *Juliana.*
 
-- Janela abre com 1200×900 fixo em y = −90: barra de título e rodapé/log
-  cortados em 768 e 720 px. *Todas.*
-- Com o log aberto em 1366×768, os campos Met, Wme e Clo ficam escondidos, sem
+### Execuções
+
+- **[P1]** Concluídas, todas as execuções aparecem como "modelo.idf"; o IDF de
+  origem some. Execuções não têm nome. *Ricardo.*
+- **[P1]** Execução interrompida aparece como "0 zonas / sem planilhas" e conta
+  como erro, não como "interrompida". *Juliana, Lucas, Ricardo.*
+- **[P1]** Abaixo de ~700 px de altura, "Comparar selecionadas" e "Regerar
+  estatísticas" somem. *Fernanda.*
+- **[P1]** Lista não seleciona com setas, Enter não abre detalhe. *Marcos.*
+- **[P2]** "0 execuções" com uma linha na tabela; "1 execuções". *Juliana.*
+- **[P2]** Módulo em inglês ("COMPLETE") enquanto o editor diz "Completo".
+  *Juliana.*
+- **[P2]** Cards cortados ("SCONFORTO TÉRMI"). *Fernanda.*
+- **[P2]** Linha selecionada com contraste de 1,18:1. *Marcos.*
+
+### Execução (editor)
+
+Inclui as abas Arquivos, Período, Conforto, Equipamentos, Ocupação e Zonas, o
+log e a barra de progresso.
+
+**Arquivos**
+
+- **[P0]** Arquivo que não é IDF é aceito: `.epw` e `.txt` mostram "✓ Arquivo
+  encontrado"; o app oferece incluir equipamentos e grava
+  `..._INMET_equipamentos.epw` com objetos de IDF colados; o erro final fala em
+  "zonas inexistentes". *Lucas.*
+- **[P1]** "Salvar" grava `examples/config.json` sem perguntar, ignorando
+  `AMBIENS_DATA_DIR`; instâncias paralelas passaram a listar execuções alheias.
+  *Marcos, Lucas.*
+- **[P1]** "Salvar como novo IDF" grava `<nome>_editado.idf` em `examples/`, sem
+  diálogo, sobrescrevendo o anterior. *Ricardo.*
+- **[P2]** Diálogo de arquivo abre na raiz do repositório (`.git`, `.venv`,
+  `node_modules`). *Juliana.*
+
+**Período**
+
+- **[P0]** Período editado é ignorado sem aviso: fim em 31/01 rodou o ano
+  inteiro; `in.idf` ficou 01/01–31/12; só vale após "Salvar como novo IDF". A
+  configuração duplicada voltou a 31/12. *Ricardo, Marcos.*
+- **[P1]** "Editar IDF" só pula para esta aba; a interface não mostra o que o
+  Ambiens altera no IDF (clo 0,7 → 0,5, setpoints do AC, nome do RunPeriod, +28
+  Output:Variable). *Ricardo.*
+
+**Conforto, Equipamentos e Ocupação**
+
+- **[P0]** Valores inválidos de PMV, clo e AC são trocados em silêncio: vazio
+  vira −3, "abc" vira 2, 5 vira 3, mínimo maior que máximo é invertido. *Lucas.*
+- **[P1]** Nenhum campo tem ajuda: "Banda de conforto" vs "Faixa de PMV", Wme,
+  "Variação do Clo", "Margem do adaptativo 90 %", "Valor do método". Rótulos
+  truncados. *Juliana, Ricardo, Lucas.*
+- **[P1]** Com o log aberto em 1366×768, Met, Wme e Clo ficam escondidos, sem
   rolagem. *Lucas.*
-- A 125% com 640 px de altura, as seções "Vestimenta" e "Janela" ficam com
+- **[P1]** A 125% com 640 px de altura, "Vestimenta" e "Janela" ficam com
   altura zero. *Fernanda.*
-- Página Configurações não rola: cards "Servidor de simulações" e "Google
-  Drive" ficam fora da tela em 720p, e o toast "Compartilhar" manda o usuário
-  para lá. *Fernanda.*
-- Abaixo de ~700 px de altura, "Comparar selecionadas" e "Regerar estatísticas"
-  somem. Diálogos de equipamento são maiores que a tela. *Fernanda, Lucas.*
+- **[P1]** Diálogos de equipamento maiores que a tela. *Lucas.*
+- **[P2]** Mensagens de erro com nomes internos (`met`, `clo_min`). *Lucas.*
 
-### Estado gravado no repositório
+**Zonas**
 
-- "Salvar" grava `examples/config.json` sem perguntar, ignorando
-  `AMBIENS_DATA_DIR`; o arquivo leva o caminho da pasta de dados, e outra
-  instância passou a listar as execuções alheias. *Marcos, Lucas.*
-- "Salvar como novo IDF" grava `<nome>_editado.idf` em `examples/`, sem diálogo,
-  sobrescrevendo o anterior. *Ricardo.*
+- **[P1]** O seletor de módulo, a escolha mais importante, fica nesta última
+  aba, com opções cortadas e sem descrição. *Juliana, Ricardo.*
+- **[P1]** Salas não são removíveis por teclado. *Marcos.*
 
-### Transparência e rastreabilidade
+**Execução, progresso e log**
 
-- A interface não mostra o que o Ambiens altera no IDF: Schedule:Constant de
-  clo (0,7 → 0,5), setpoints do AC, nome do RunPeriod e +28 Output:Variable. O
-  botão "Editar IDF" só pula para a aba Período. *Ricardo.*
-- Concluídas, todas as execuções aparecem como "modelo.idf"; o IDF de origem
-  some da lista e do detalhe. Execuções não têm nome (gráficos mostram só
-  "1824/1833"). *Ricardo.*
+- **[P0]** Fechar a janela durante a simulação some com a interface, mas o
+  processo continua (~40% de CPU, `eplusout.eso` crescendo). `MainWindow` não
+  trata `WM_DELETE_WINDOW`. *Lucas.*
+- **[P1]** Barra de progresso de 2 px, sem porcentagem, data simulada ou tempo
+  restante; log parado em "Executando simulação EnergyPlus…" e barra em ~1%.
+  Anual ≈ 100 min, sem aviso. *Juliana, Ricardo, Lucas, Fernanda.*
+- **[P1]** "Parar simulação" interrompe sem confirmação; no duplo clique em
+  Executar, o segundo clique cai em Parar. *Lucas, Juliana, Fernanda.*
+- **[P1]** Os 45 warnings do EnergyPlus não aparecem. *Ricardo.*
+- **[P2]** Rodapé manda clicar em "Ver detalhes", mas o botão é "Ver em
+  andamento". *Juliana.*
+- **[P2]** Filtro do log em inglês ("all"); aviso do log com contraste de
+  4,38:1. *Juliana, Marcos.*
 
-### Parâmetros e orientação
+### Detalhes da execução
 
-- Nenhum campo de Conforto, Equipamentos e Ocupação tem ajuda: "Banda de
-  conforto" vs "Faixa de PMV", Wme, "Variação do Clo", "Margem do adaptativo
-  90 %" (que vira "2.5 °C" no detalhe), "Valor do método". Rótulos truncados.
-  *Juliana, Ricardo, Lucas.*
-- O seletor de módulo, a escolha mais importante, fica na última aba (Zonas),
-  com opções cortadas e sem descrição. *Juliana, Ricardo.*
-- O app não diz onde ficam as planilhas nem o formato; o caminho não aparece no
-  detalhe; os 6 ícones de ação não têm rótulo. *Juliana.*
+- **[P1]** Não diz onde ficam as planilhas nem o formato; o caminho da pasta
+  não aparece; os 6 ícones de ação não têm rótulo. *Juliana.*
+- **[P1]** Regerar estatísticas leva 10–20 min sem progresso; Exportar ZIP fica
+  inerte enquanto isso; falha vira `KeyError`/`ValueError` cru num toast de
+  10 s; o resfriamento mudou de 96,87 para 143,52 kWh sem aviso. *Fernanda,
+  Lucas.*
+- **[P1]** Tabela da série temporal soma temperaturas ("941917,3 °C"); XLSX
+  exportado traz frações cruas na aba "Sheet1"; não há horas em conforto, só %
+  e timesteps. *Fernanda.*
+- **[P2]** "Período: consulte o IDF"; "Margem 90 %" do formulário vira
+  "2.5 °C" aqui. *Juliana, Ricardo.*
+- **[P2]** Três métricas de desconforto diferentes, sem explicação. *Fernanda.*
 
-### Resultados
+O defeito do limiar de PMV aparece aqui e na comparação; está em Transversal.
 
-- Comparação mostra "Energia anual" e "kWh/ano" para simulação de 1 semana.
+### Comparação de resultados
+
+- **[P1]** "Energia anual" e "kWh/ano" para simulação de 1 semana. *Ricardo.*
+- **[P1]** "Energia × desconforto" diz "%" mas mostra fração (0,0375); eixo Y
+  entre "%" e "fração". *Ricardo, Fernanda.*
+- **[P2]** Gráficos identificam execuções só pelo número ("1824/1833").
   *Ricardo.*
-- Gráfico "Energia × desconforto" diz "%" mas mostra fração (0,0375).
-  *Ricardo, Fernanda.*
-- Tabela da série temporal soma temperaturas ("941917,3 °C"). *Fernanda.*
-- XLSX exportado traz frações cruas na aba "Sheet1". Não há horas em conforto,
-  só % e timesteps. *Fernanda.*
-- Regerar estatísticas leva 10–20 min sem progresso; Exportar ZIP fica inerte
-  enquanto isso; falha vira `KeyError`/`ValueError` cru num toast de 10 s; o
-  resfriamento mudou de 96,87 para 143,52 kWh sem aviso. *Fernanda, Lucas.*
-- O assistente recomenda "regerar estatísticas" numa execução interrompida, o
-  que termina em `ValueError`. *Lucas.*
+- **[P2]** Paleta com três verdes; barra de diferença só em vermelho e verde
+  (visto no código). *Marcos.*
 
-### Teclado
+### Configurações
 
-- Lista de execuções não seleciona com setas, Enter não abre detalhe; salas da
-  aba Zonas não são removíveis por teclado; nenhum atalho; Esc não volta.
-  *Marcos, Ricardo.*
+- **[P1]** A página não rola: cards "Servidor de simulações" e "Google Drive"
+  ficam fora da tela em 720p, e o toast "Compartilhar" manda o usuário para lá.
+  *Fernanda.*
+- **[P2]** "Chave salva." sob campo de chave vazio. *Juliana.*
 
-## P2 — médio e baixo
+### Assistente de análise
 
-### Contraste (WCAG 2.x)
+- **[P1]** Recomenda "regerar estatísticas" numa execução interrompida, o que
+  termina em `ValueError`. *Lucas.*
+
+### Transversal (todas as telas)
+
+- **[P0]** "PMV fora da faixa (%)" usa ±0,5 fixo e ignora
+  `pmv_lowerbound`/`pmv_upperbound`; a faixa sombreada de "Distribuição do PMV"
+  também. Afeta Detalhes, Comparação e as planilhas.
+  `confortimetro/results/stats.py:174`. *Ricardo.*
+- **[P0]** Nenhum botão responde a Enter ou Espaço, e o foco neles é
+  invisível. `RoundedButton` em `confortimetro/gui/theme.py:568`; corrigir o
+  componente resolve todos. *Marcos.*
+- **[P1]** Nenhum atalho de teclado; Esc não volta de tela. *Marcos, Ricardo.*
+- **[P2]** Contraste abaixo do WCAG (tabela abaixo).
+- **[P2]** Sob deuteranopia, ok/aviso/erro viram o mesmo oliva (1,09 a 1,43:1
+  entre si); ícone e texto salvam a informação, mas são pequenos. *Marcos.*
+- **[P2]** Fontes fixas (8–10 pt), sem opção de tamanho; gráficos com ~8 px não
+  escalam com o DPI. *Marcos, Fernanda.*
+- **[P2]** Mistura PT/EN e formatos numéricos; meses em inglês nos gráficos.
+  *Fernanda, Juliana.*
+- **[P2]** Sem fila de execuções. *Ricardo.*
+- **[P2]** Sem tema escuro. *Fernanda.*
+
+#### Contraste (WCAG 2.x)
 
 Cores de `confortimetro/gui/theme.py`. Mínimo 4,5:1 para texto, 3:1 para
 componentes (1.4.11).
@@ -163,41 +244,6 @@ componentes (1.4.11).
 | Linha selecionada na lista | `#e7e7e7` | `#fafafa` | 1,18:1 | **reprova** |
 | Trilho do slider / scrollbar | `#c2c2c2` | `#fafafa` | 1,71:1 | **reprova** |
 | Barra de progresso | `#176bba` | `#fafafa` | 5,23:1 | passa, mas tem 2 px |
-
-### Cor e tamanho
-
-- Sob deuteranopia, ok/aviso/erro viram o mesmo oliva (1,09 a 1,43:1 entre si);
-  ícone e texto salvam a informação, mas são pequenos.
-- Paleta dos gráficos tem três verdes; barra de diferença usa só vermelho e
-  verde (visto no código; a execução cancelada não gerou gráficos).
-- Fontes fixas (8–10 pt), sem opção de tamanho; gráficos com ~8 px não escalam
-  com o DPI.
-
-### Texto e consistência
-
-- Mistura PT/EN: "COMPLETE" na lista vs "Completo" no editor; filtro do log
-  "all"; meses em inglês nos gráficos; números ora pt-BR, ora en.
-- "0 execuções" com uma linha na tabela; "1 execuções".
-- Rodapé manda clicar em "Ver detalhes", mas o botão é "Ver em andamento".
-- "Período: consulte o IDF" no detalhe; "Chave salva." sob campo vazio.
-- Mensagens de erro com nomes internos (`met`, `clo_min`).
-- Cards da lista cortados ("SCONFORTO TÉRMI").
-
-### Onboarding e diálogos
-
-- Último botão diz "Abrir o editor", o texto fala em "Nova execução".
-- "Tudo pronto" aparece ao lado de "Baixar o EnergyPlus".
-- Rodando do repositório, sem `AMBIENS_ONBOARDING=1`, não há onboarding e a
-  tela inicial fica vazia.
-- Diálogo de arquivo abre na raiz do repositório (`.git`, `.venv`,
-  `node_modules`).
-
-### Outros
-
-- Os 45 warnings do EnergyPlus não aparecem na interface.
-- Sem fila de execuções.
-- Três métricas de desconforto diferentes, sem explicação.
-- Sem tema escuro.
 
 ## O que preservar
 
