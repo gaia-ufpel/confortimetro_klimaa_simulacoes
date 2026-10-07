@@ -137,11 +137,14 @@ class Client:
     def cancel(self, run_id: str) -> dict:
         return self._json("POST", f"/api/execucoes/{run_id}/cancelar")
 
-    def download(self, run_id: str, dest: str):
-        """Baixa o espelho para `dest`; `configs.json` sai por último, com caminhos locais."""
+    def download(self, run_id: str, dest: str, full: bool = False):
+        """Baixa o espelho (ou, com `full`, tudo, brutos incluídos) para `dest`;
+        `configs.json` sai por último, com caminhos locais."""
         os.makedirs(dest, exist_ok=True)
+        _write_json(os.path.join(dest, REMOTE_FILE), {"servidor": self.url, "id": run_id})
         partial = os.path.join(dest, ".espelho.zip.parcial")
-        with self.http.stream("GET", f"/api/execucoes/{run_id}/espelho") as response:
+        params = {"completo": "1"} if full else None
+        with self.http.stream("GET", f"/api/execucoes/{run_id}/espelho", params=params) as response:
             if response.is_error:
                 response.read()
                 raise RemoteError(_detail(response))
@@ -235,6 +238,17 @@ class RemoteSimulation:
         q.put("Baixando resultados do servidor...")
         self.client.download(self.run_id, dest)
         q.put("Resultados baixados do servidor.")
+
+
+def is_remote(dest: str) -> bool:
+    return os.path.isfile(os.path.join(dest, REMOTE_FILE))
+
+
+def download_full(dest: str):
+    """Completa a pasta local com todos os arquivos da execução no servidor."""
+    with open(os.path.join(dest, REMOTE_FILE), encoding="utf-8") as handle:
+        info = json.load(handle)
+    Client(url=info["servidor"]).download(info["id"], dest, full=True)
 
 
 def sync(root: str, client: Client = None) -> int:

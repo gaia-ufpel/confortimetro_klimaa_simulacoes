@@ -90,8 +90,18 @@ def test_envia_acompanha_e_espelha_sem_brutos(setup):
     other = tmp_path / "outra_maquina"
     assert remote.sync(str(other), ana) == 1
     assert os.path.isfile(other / simulation.run_id / "configs.json")
+    assert remote.is_remote(str(other / simulation.run_id))
     assert remote.sync(str(other), ana) == 0
     assert remote.sync(os.path.dirname(dest), ana) == 0
+
+    # Download completo: os brutos chegam, os internos do servidor não, e o zip
+    # temporário não fica no servidor.
+    ana.download(simulation.run_id, dest, full=True)
+    assert open(os.path.join(dest, "eplusout.eso"), encoding="utf-8").read() == "bruto"
+    assert not any(name.startswith(("mcp_", "entrada_servidor")) for name in os.listdir(dest))
+    assert json.load(open(os.path.join(dest, "configs.json"), encoding="utf-8"))["output_path"] == dest
+    server_run = os.path.join(tmp_path, "servidor", "execucoes", "ana", simulation.run_id)
+    assert not any(name.startswith("completo.") for name in os.listdir(server_run))
 
 
 def test_fila_respeita_limite_e_cancela_quem_espera(setup, monkeypatch):

@@ -28,6 +28,11 @@ só com o `remoto.json` (o id da execução no servidor), e **Baixar execuções
 servidor** completa o espelho depois. O mesmo botão baixa, numa máquina nova,
 todas as execuções concluídas daquele usuário.
 
+Para ter os brutos de uma execução remota, use **Baixar arquivos completos**
+nos detalhes dela. O botão só aparece em execuções com `remoto.json`, pede
+confirmação (uma anual passa de 1 GB) e completa a mesma pasta local com
+`eplusout.*`, `in.idf` e `expanded.idf`.
+
 Parar a simulação no desktop cancela a execução no servidor, que mata o grupo
 de processos dela (`SIGKILL`). A execução fica `cancelada`, sem resultado.
 
@@ -82,12 +87,15 @@ próprias execuções; o admin vê todas.
 | `GET /api/execucoes/{id}/log?desde=N` | linhas completas do progresso a partir do byte N |
 | `POST /api/execucoes/{id}/cancelar` | cancela uma execução em espera ou em andamento |
 | `GET /api/execucoes/{id}/espelho` | zip do espelho (gerado uma vez e guardado como `espelho.zip`) |
+| `GET /api/execucoes/{id}/espelho?completo=1` | zip com tudo, brutos incluídos (temporário, apagado depois do envio) |
 
 ## Limites conhecidos
 
-- Os brutos do EnergyPlus (`eplusout.eso`, `.sql`) ficam só no servidor e
-  ainda não há rota para baixá-los. Por isso o módulo `ENERGYPLUS_ONLY` chega
-  ao desktop quase vazio (só `eplustbl.csv` e afins).
+- O espelho do módulo `ENERGYPLUS_ONLY` chega quase vazio (só `eplustbl.csv`
+  e afins): os resultados dele estão nos brutos, que vêm por **Baixar arquivos
+  completos**.
+- Execuções que falharam no servidor não têm download: o diagnóstico
+  (`eplusout.err`) fica lá.
 - Reabrir o app não retoma o log ao vivo de uma execução em andamento. Ela
   continua no servidor e é baixada por **Baixar execuções do servidor**.
 - Não há rota para apagar execuções: a limpeza é do admin, direto no volume.
