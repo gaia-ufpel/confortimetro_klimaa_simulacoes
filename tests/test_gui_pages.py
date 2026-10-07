@@ -634,3 +634,16 @@ def test_compartilhar_copia_link(window, tmp_path, monkeypatch):
     assert window.clipboard_get() == f"https://drive.google.com/drive/folders/{folder}"
     assert dialog.unshare_button._state == "normal"
     dialog.destroy()
+
+
+def test_apresentacao_percorre_os_passos_e_abre_o_editor(window):
+    tour = window.open_onboarding()
+    for _ in range(4):
+        tour.show(tour.step + 1)
+        _settle(window)
+    assert tour.step == 4
+    # Último passo: o botão principal fecha e leva ao editor.
+    tour.forward._command()
+    _settle(window)
+    assert not tour.winfo_exists()
+    assert window._current_page == "editor"

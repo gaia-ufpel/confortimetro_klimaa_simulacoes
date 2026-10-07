@@ -35,6 +35,11 @@ Name: "desktopicon"; Description: "Criar atalho na area de trabalho"; GroupDescr
 [Files]
 Source: "..\dist\Ambiens\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[INI]
+; Toda instalacao (nova, reinstalacao ou atualizacao) marca a apresentacao
+; como pendente; o app a mostra ao abrir e grava "feito" (gui/onboarding.py).
+Filename: "{app}\instalacao.ini"; Section: "Ambiens"; Key: "onboarding"; String: "pendente"; Flags: uninsdeletesection
+
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\Ambiens.exe"
 Name: "{userdesktop}\{#AppName}"; Filename: "{app}\Ambiens.exe"; Tasks: desktopicon

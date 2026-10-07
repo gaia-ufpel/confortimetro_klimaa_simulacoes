@@ -39,6 +39,7 @@ from .components import (
     open_share_dialog,
 )
 from .components.drive_panel import in_background
+from . import onboarding
 from .theme import (
     COLORS,
     FONTS,
@@ -79,6 +80,12 @@ class MainWindow(tk.Tk):
         self._load_configuration()
         # Backfill, pendentes e pull do Drive, depois que a janela aparece.
         self.after(1500, self.drive_sync)
+        # Apresentação depois de instalar ou reinstalar (marca do instalador).
+        if onboarding.pending():
+            self.after(500, self.open_onboarding)
+
+    def open_onboarding(self):
+        return onboarding.open_onboarding(self)
     
     def _setup_window(self):
         """Setup the main window properties."""
@@ -447,6 +454,11 @@ class MainWindow(tk.Tk):
         drive_card.pack(fill="x", pady=(SPACE[3], 0))
         self.drive_settings = DriveSettings(drive_card.body, on_connected=self.drive_sync)
         self.drive_settings.pack(fill="x")
+
+        tour_card = Card(page, "Apresentação")
+        tour_card.pack(fill="x", pady=(SPACE[3], 0))
+        RoundedButton(tour_card.body, text="Rever apresentação", variant="ghost", icon="info",
+                      command=self.open_onboarding).pack(anchor="w")
         return page
 
     def _build_assistant_page(self):
