@@ -137,14 +137,21 @@ def base_from_run(run_path: str) -> SimulationConfig:
     return config
 
 
-def validate(config: SimulationConfig):
-    """(problemas que impedem rodar, avisos que o usuário precisa ver)."""
+def validate(config: SimulationConfig, remote: bool = None):
+    """(problemas que impedem rodar, avisos que o usuário precisa ver).
+
+    `remote` (padrão: o modo escolhido nas configurações) dispensa o
+    EnergyPlus local: quem simula é o servidor.
+    """
+    if remote is None:
+        from confortimetro.remote.client import enabled
+        remote = enabled()
     problems, warnings = [], []
     if not config.idf_path or not os.path.isfile(config.idf_path):
         problems.append(f"Arquivo IDF não encontrado: {config.idf_path}")
     if not config.epw_path or not os.path.isfile(config.epw_path):
         problems.append(f"Arquivo EPW não encontrado: {config.epw_path}")
-    if not is_energy_path(config.energy_path):
+    if not remote and not is_energy_path(config.energy_path):
         problems.append(f"Instalação do EnergyPlus inválida: {config.energy_path}")
     rooms = list(config.rooms or [])
     if not rooms:

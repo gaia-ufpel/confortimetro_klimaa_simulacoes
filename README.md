@@ -63,6 +63,7 @@ armadilhas e convenções.
   diagnóstico operacional.
 - [`docs/WINDOWS.md`](docs/WINDOWS.md) — instalação no Windows.
 - [`docs/MCP.md`](docs/MCP.md) — integração com clientes MCP locais.
+- [`docs/SERVIDOR.md`](docs/SERVIDOR.md) — servidor de simulações remoto (Docker) e modo remoto do desktop.
 
 ## Módulos de simulação
 

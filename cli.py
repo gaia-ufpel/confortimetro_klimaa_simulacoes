@@ -62,7 +62,7 @@ def main(argv=None):
         print(json.dumps(config.__dict__, indent=4, default=str))
         return 0
 
-    problems, _ = simulacao.validate(config)
+    problems, _ = simulacao.validate(config, remote=False)
     if problems:
         print("Configuração inválida:\n  " + "\n  ".join(problems), file=sys.stderr)
         return 1

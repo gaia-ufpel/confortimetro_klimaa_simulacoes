@@ -16,6 +16,7 @@ from .comparison_panel import COMPARISON_HEADINGS, ComparisonPanel
 from .timeseries_panel import TimeSeriesPanel
 from .assistant_panel import AssistantPanel, AssistantSettings
 from .drive_panel import DriveSettings, open_share_dialog
+from .remote_panel import RemoteSettings
 
 __all__ = [
     'MACHINE_FIELDS',
@@ -33,4 +34,5 @@ __all__ = [
     'AssistantSettings',
     'DriveSettings',
     'open_share_dialog',
+    'RemoteSettings',
 ]

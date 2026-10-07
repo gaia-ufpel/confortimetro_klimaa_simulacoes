@@ -36,6 +36,7 @@ from .components import (
     AssistantPanel,
     AssistantSettings,
     DriveSettings,
+    RemoteSettings,
     open_share_dialog,
 )
 from .components.drive_panel import in_background
@@ -450,6 +451,11 @@ class MainWindow(tk.Tk):
         self.assistant_settings = AssistantSettings(assistant_card.body)
         self.assistant_settings.pack(fill="x")
 
+        remote_card = Card(page, "Servidor de simulações")
+        remote_card.pack(fill="x", pady=(SPACE[3], 0))
+        RemoteSettings(remote_card.body, runs_root=self._outputs_root,
+                       on_synced=self.simulations_panel.refresh).pack(fill="x")
+
         drive_card = Card(page, "Google Drive")
         drive_card.pack(fill="x", pady=(SPACE[3], 0))
         self.drive_settings = DriveSettings(drive_card.body, on_connected=self.drive_sync)
@@ -743,7 +749,11 @@ class MainWindow(tk.Tk):
                 raise ValueError("Configuration not loaded")
             # Importado aqui, e não no topo: pythermalcomfort compila com numba
             # ao ser importado e custa ~12 s — a GUI abre sem ele.
-            from confortimetro.simulation import Simulation
+            from confortimetro.remote import client as remote
+            if remote.enabled():
+                Simulation = remote.RemoteSimulation
+            else:
+                from confortimetro.simulation import Simulation
 
             self.simulation = Simulation(copy.deepcopy(config))
             self.simulation.run(q)

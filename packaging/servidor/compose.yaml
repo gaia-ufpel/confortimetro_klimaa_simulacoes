@@ -1,0 +1,21 @@
+# docker compose -f packaging/servidor/compose.yaml up -d --build
+# Usuário: docker compose -f packaging/servidor/compose.yaml exec ambiens \
+#            python -m confortimetro.remote.server usuario NOME [--admin]
+services:
+  ambiens:
+    build:
+      context: ../..
+      dockerfile: packaging/servidor/Dockerfile
+    init: true  # recolhe os processos das simulações
+    restart: unless-stopped
+    environment:
+      CONFORTIMETRO_MCP_MAX_ACTIVE: "2"  # simulações simultâneas; ~1 núcleo cada
+      AMBIENS_COTA_GB: "200"       # acima disso, aviso no log e no /api/eu do admin
+    volumes:
+      - dados:/dados
+    # Só local: exponha pelo proxy reverso com TLS (o token vai em cada requisição).
+    ports:
+      - "127.0.0.1:8765:8765"
+
+volumes:
+  dados:
