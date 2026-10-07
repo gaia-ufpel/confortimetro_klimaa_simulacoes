@@ -6,6 +6,8 @@ import zipfile
 
 import pandas
 
+from . import series
+
 ELECTRICITY_TOTAL = 'Energia elétrica total'
 
 def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataFrame] = None):
@@ -28,7 +30,6 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
     doas_column = 'DOAS_STATUS_{}:Schedule Value'
     co2_column = '{}:Zone Air CO2 Concentration'
     em_conforto_column = 'EM_CONFORTO_{}:Schedule Value'
-    pmv_column = 'PEOPLE_{}:Zone Thermal Comfort Fanger Model PMV'
     temp_op_column = '{}:Zone Operative Temperature'
     adap_min_column = 'ADAP_MIN_{}:Schedule Value'
     adap_max_column = 'ADAP_MAX_{}:Schedule Value'
@@ -36,6 +37,7 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
     JOULES_PER_KWH = 3.6e6
 
     id_arquivo = os.path.basename(os.path.normpath(output_path))
+    met, wme = series.comfort_params(output_path)
 
     stats_df = pandas.DataFrame({'Nome do arquivo': [],
             'Nome da sala': [],
@@ -159,9 +161,17 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
             row['Energia total (kWh)'] = kwh(pthp_electric_column) + row['Ventilador (kWh)']
 
         occupied = df[df[people_column.format(room)] != 0]
-        pmv = occupied[pmv_column.format(room)]
+        # O PMV do controlador (ASHRAE 55, com o efeito do ventilador), e não o
+        # Fanger do EnergyPlus, que ficava ~0,3 acima com o ventilador ligado.
+        # Planilha sem as entradas (ou execução sem `met`) dá NaN, como o kWh.
+        inputs = pandas.DataFrame({
+            alias: df[series.column(alias, room)]
+            for alias in ('ocupacao', *series.PMV_INPUTS)
+            if series.column(alias, room) in df.columns})
+        pmv = series.controller_pmv(inputs, met, wme)[(df[people_column.format(room)] != 0).to_numpy()]
         row['PMV médio'] = pmv.mean()
-        row['PMV fora da faixa (%)'] = (pmv.abs() > 0.5).sum() / row['Número ocupação']
+        row['PMV fora da faixa (%)'] = (float('nan') if pmv.isna().all()
+                                        else (pmv.abs() > 0.5).sum() / row['Número ocupação'])
         temp_op = occupied[temp_op_column.format(room)]
         outside_adaptative = ((temp_op < occupied[adap_min_column.format(room)])
                               | (temp_op > occupied[adap_max_column.format(room)]))

@@ -109,7 +109,7 @@ class ConditionerComplete(Conditioner):
                 state, room, tdb, temp_ar, temp_op, temp_neutra_adaptativo,
                 temp_min_adaptativo, temp_max_adaptativo)
             motivo = self.window_without_people_motivo(
-                state, tdb, temp_ar, temp_op, temp_neutra_adaptativo,
+                state, room, tdb, temp_ar, temp_op, temp_neutra_adaptativo,
                 temp_max_adaptativo, status_janela)
             self.ac_on_counter[room] = 0
             self.write_room(state, room, status_janela=status_janela, status_ac=0,

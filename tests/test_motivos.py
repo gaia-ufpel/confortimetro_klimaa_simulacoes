@@ -190,17 +190,17 @@ def test_sala_vazia_no_inverno_e_travada_pelo_frio():
     motivo, writes = step(conditioner, exchange)
 
     assert motivo == M.VAZIA_JANELA_INVERNO | M.VAZIA_JANELA_TRAVADA_FRIO
-    assert writes["JANELA_SALA"] == 0 and conditioner.janela_sem_pessoas_bloqueada
+    assert writes["JANELA_SALA"] == 0 and conditioner.janela_sem_pessoas_bloqueada[ROOM]
 
 
 def test_sala_vazia_destravada_purga_co2():
     conditioner, exchange = make(
         ConditionerWithoutFan, people=0, tdb=20.0, temp_ar=23.0, temp_op=23.0)
-    conditioner.janela_sem_pessoas_bloqueada = True
+    conditioner.janela_sem_pessoas_bloqueada[ROOM] = True
     motivo, writes = step(conditioner, exchange)
 
     assert motivo == M.VAZIA_JANELA_PURGA_CO2
-    assert writes["JANELA_SALA"] == 1 and not conditioner.janela_sem_pessoas_bloqueada
+    assert writes["JANELA_SALA"] == 1 and not conditioner.janela_sem_pessoas_bloqueada[ROOM]
 
 
 def test_sala_vazia_bloqueada_por_externa_fria_e_quente():
@@ -257,3 +257,19 @@ def test_idf_sem_motivo_simula_igual_sem_gravar():
     motivo, writes = step(com, ex_com)
     assert step(sem, ex_sem) == (None, writes)
     assert "SETPOINT_AQUECIMENTO_NO_LIMITE" in decode(float(motivo))
+
+
+def test_trava_da_sala_vazia_e_por_sala():
+    # A esfriou até o mínimo e trava; B (operativa entre o mínimo e a neutra,
+    # nunca travada) abre para purgar CO2. Com uma trava só, B herdava a de A
+    # e o resultado dependia da ordem das salas.
+    operativa = {"A": 21.5, "B": 23.0}
+    for order in (["A", "B"], ["B", "A"]):
+        conditioner = ConditionerComplete(SimpleNamespace(exchange=FakeExchange()),
+                                          configs(rooms=order))
+        janela = {room: conditioner.window_without_people(
+            None, room, tdb=20.0, temp_ar=23.0, temp_op=operativa[room],
+            temp_neutra_adaptativo=24.0, temp_min_adaptativo=21.5,
+            temp_max_adaptativo=26.5) for room in order}
+        assert janela == {"A": 0, "B": 1}
+        assert conditioner.janela_sem_pessoas_bloqueada == {"A": True, "B": False}

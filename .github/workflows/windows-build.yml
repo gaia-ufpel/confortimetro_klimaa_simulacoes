@@ -40,6 +40,21 @@ jobs:
           Set-Content -Path confortimetro/_build.py -Value ('VERSAO = "' + $versao + '"') -Encoding utf8
           echo "Versão do build: $versao"
 
+      # O JSON do cliente OAuth (docs/DRIVE.md) fica no secret
+      # GOOGLE_OAUTH_CLIENT. Sem o secret o build segue e o Drive aparece
+      # desabilitado no app.
+      - name: Cliente OAuth do Google Drive
+        shell: pwsh
+        env:
+          GOOGLE_OAUTH_CLIENT: ${{ secrets.GOOGLE_OAUTH_CLIENT }}
+        run: |
+          if ($env:GOOGLE_OAUTH_CLIENT) {
+            Set-Content -Path confortimetro/drive/client_secret.json -Value $env:GOOGLE_OAUTH_CLIENT -Encoding utf8NoBOM
+            echo "Cliente OAuth incluído no build."
+          } else {
+            echo "Secret GOOGLE_OAUTH_CLIENT ausente: Drive desabilitado neste build."
+          }
+
       - name: Empacotar (PyInstaller)
         run: pyinstaller packaging/confortimetro.spec --noconfirm
 

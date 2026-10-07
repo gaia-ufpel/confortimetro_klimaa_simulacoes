@@ -234,8 +234,9 @@ a.destroy()"
   Adicionar um campo é chamar `_field(aba, linha, coluna, rótulo)`; não há numeração global de linhas
   para reajustar. Os nomes dos atributos (`self.*_entry`) são o contrato com
   `get_configuration`/`set_configuration` — renomear um quebra a leitura da
-  configuração em silêncio, porque `get_configuration` engole `ValueError` e
-  devolve `{}`. Os pares min/max (PMV, temperatura do AC, Clo) passaram a ser
+  configuração. Campo numérico inválido (vazio, texto) levanta `ValueError`
+  com o rótulo do campo, e `start_simulation` e a CLI passam por
+  `assistant.simulacao.validate` antes de rodar. Os pares min/max (PMV, temperatura do AC, Clo) passaram a ser
   `RangeField`, e as salas um `ChipSelect` — os atributos `*_min_entry` /
   `*_max_entry` seguem existindo, apontando para os campos das pontas.
 

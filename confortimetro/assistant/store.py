@@ -7,6 +7,7 @@ de cada execução, e a chave ou o modelo do chat não descrevem a simulação.
 import datetime
 import json
 import os
+import time
 import uuid
 
 from ..paths import app_data_path
@@ -18,6 +19,10 @@ KEYRING_SERVICE = "ConfortimetroKlimaa"
 KEYRING_USER = "gemini"
 KEY_VARIABLE = "GEMINI_API_KEY"
 AI_STUDIO_URL = "https://aistudio.google.com/apikey"
+# No Windows, antivírus ou outra thread lendo o arquivo bloqueiam o `os.replace`
+# por instantes (PermissionError): tenta de novo antes de desistir.
+REPLACE_ATTEMPTS = 5
+REPLACE_WAIT_S = 0.1
 
 DEFAULT_SETTINGS = {
     "model": "gemini-3.8-flash",
@@ -37,7 +42,14 @@ def _write_json(path, data):
     temporary = path + ".tmp"
     with open(temporary, "w", encoding="utf-8") as output:
         json.dump(data, output, ensure_ascii=False, indent=1)
-    os.replace(temporary, path)
+    for attempt in range(REPLACE_ATTEMPTS):
+        try:
+            os.replace(temporary, path)
+            return
+        except PermissionError:
+            if attempt == REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(REPLACE_WAIT_S)
 
 
 # --- Configurações ---------------------------------------------------------

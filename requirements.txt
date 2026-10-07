@@ -15,3 +15,6 @@ keyring==25.7.0  # cofre de senhas do sistema (Gerenciador de Credenciais no Win
 tkinterweb==4.25.4  # mostra a resposta em HTML (tabelas); traz o Tkhtml compilado
 Markdown==3.10.3
 mcp==1.30.0  # servidor MCP local (stdio)
+# Sincronização com o Google Drive (escopo drive.file), importadas sob demanda
+google-api-python-client==2.201.0
+google-auth-oauthlib==1.5.0

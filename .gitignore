@@ -32,3 +32,6 @@ build/
 
 # banco de execuções gerado localmente
 simulacoes.db
+
+# cliente OAuth do Google Drive (do projeto GCP do dono; nunca versionar)
+confortimetro/drive/client_secret.json

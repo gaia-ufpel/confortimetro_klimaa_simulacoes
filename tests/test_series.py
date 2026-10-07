@@ -3,6 +3,7 @@
 import os
 
 import pandas
+import pytest
 
 from confortimetro.results.series import CACHE_DIRECTORY, _cache_path, clear_cache, load_zone_series
 from tests.test_compare import _make_run
@@ -58,3 +59,13 @@ def test_fallback_clo_quando_energyplus_reporta_zero(tmp_path):
 
     loaded = load_zone_series(str(run_path), ROOM, refresh=True)
     assert (loaded['clo'] == 0.85).all()
+
+
+def test_pmv_e_o_do_controlador_e_o_fanger_fica_rotulado(tmp_path):
+    from confortimetro.control.base import _pmv
+
+    run_path = _make_run(tmp_path, 'RUN', 'COMPLETE')
+    df = load_zone_series(str(run_path), ROOM)
+
+    assert df['pmv'].to_numpy() == pytest.approx(_pmv(25.0, 25.0, 0.0, 50.0, 1.2, 0.5, 0.0))
+    assert (df['pmv_fanger'] == 0.1).all()  # Fanger do EnergyPlus, só consulta
