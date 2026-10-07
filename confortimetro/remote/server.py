@@ -29,6 +29,7 @@ import zipfile
 from datetime import datetime
 
 from starlette.applications import Starlette
+from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
 from starlette.responses import FileResponse, JSONResponse
@@ -55,10 +56,12 @@ TICK_S = 5
 QUOTA_INTERVAL_S = 600
 USER_RE = re.compile(r"[a-z0-9_-]{1,32}")
 ID_RE = re.compile(r"\d{8}_\d{4}_[0-9a-f]{12}")
-# Brutos do EnergyPlus e arquivos internos do servidor: o cliente não usa, e o
+# Arquivos internos do servidor: nunca vão para o cliente.
+INTERNAL = r"mcp_.*|servidor\.log|entrada_servidor\.json|espelho\.zip.*|completo\..*"
+# O espelho também deixa de fora os brutos do EnergyPlus: o app não os lê, e o
 # eplusout.eso sozinho passa de 1 GB numa simulação anual.
-MIRROR_SKIP = re.compile(r"eplusout\..*|in\.idf|expanded\.idf|sqlite\.err|mcp_.*"
-                         r"|servidor\.log|entrada_servidor\.json|espelho\.zip.*")
+MIRROR_SKIP = re.compile(r"eplusout\..*|in\.idf|expanded\.idf|sqlite\.err|" + INTERNAL)
+FULL_SKIP = re.compile(INTERNAL)
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 _children = []  # Popen dos runners: `poll()` no tick evita processos zumbis
@@ -191,8 +194,8 @@ def check_quota():
     _quota.update(usado_gb=round(used, 1), limite_gb=limit, excedida=exceeded)
 
 
-def _build_mirror(run: str, path: str):
-    """Zip com tudo menos os brutos; `configs.json` por último marca o espelho completo."""
+def _build_zip(run: str, path: str, skip=MIRROR_SKIP):
+    """Zip da execução menos `skip`; `configs.json` por último marca o download completo."""
     temporary = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
     with zipfile.ZipFile(temporary, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as archive:
         for root, dirs, files in os.walk(run):
@@ -200,7 +203,7 @@ def _build_mirror(run: str, path: str):
             for name in files:
                 full = os.path.join(root, name)
                 relative = os.path.relpath(full, run).replace(os.sep, "/")
-                if relative != "configs.json" and not MIRROR_SKIP.fullmatch(name) \
+                if relative != "configs.json" and not skip.fullmatch(name) \
                         and not os.path.islink(full):
                     archive.write(full, relative)
         if os.path.isfile(os.path.join(run, "configs.json")):
@@ -315,13 +318,20 @@ def cancel(request):
 
 
 def mirror(request):
+    """Espelho leve (guardado para os próximos downloads) ou, com `completo=1`,
+    a execução inteira com os brutos, num zip apagado depois do envio."""
     run = _run(_auth(request), request.path_params["id"])
     if runs._status(run)["estado"] != "concluida":
         raise HTTPException(409, "Execução não concluída")
+    filename = f"{request.path_params['id']}.zip"
+    if request.query_params.get("completo") == "1":
+        path = os.path.join(run, f"completo.{uuid.uuid4().hex}.zip")
+        _build_zip(run, path, FULL_SKIP)
+        return FileResponse(path, filename=filename, background=BackgroundTask(os.remove, path))
     path = os.path.join(run, MIRROR)
     if not os.path.isfile(path):
-        _build_mirror(run, path)
-    return FileResponse(path, filename=f"{request.path_params['id']}.zip")
+        _build_zip(run, path)
+    return FileResponse(path, filename=filename)
 
 
 async def _error(request, exc):

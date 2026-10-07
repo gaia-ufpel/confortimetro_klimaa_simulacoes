@@ -266,6 +266,10 @@ class MainWindow(tk.Tk):
             row, text="Regerar estatísticas", variant="ghost", icon="recompute",
             command=self._recompute_detail_stats)
         self.detail_recompute_button.pack(side="left", padx=(SPACE[2], 0))
+        # Só nas execuções do servidor; `on_open_run_details` mostra ou esconde.
+        self.detail_full_button = RoundedButton(
+            row, text="Baixar arquivos completos", variant="ghost", icon="cloud",
+            command=self._download_full_run)
 
         # --- Abas: o resumo de sempre e a série temporal timestep a timestep ---
         self.detail_tabs = ttk.Notebook(page, style="Section.TNotebook")
@@ -1100,6 +1104,11 @@ class MainWindow(tk.Tk):
             return
 
         self._detail_run = run
+        from confortimetro.remote.client import is_remote
+        if is_remote(run['path']):
+            self.detail_full_button.pack(side="left", padx=(SPACE[2], 0))
+        else:
+            self.detail_full_button.pack_forget()
         lines = [run['run'], "-" * len(run['run']), "",
                  f"{'pasta':24s} {os.path.abspath(run['path'])}",
                  f"{'status':24s} {run['status']}",
@@ -1283,6 +1292,27 @@ class MainWindow(tk.Tk):
             toast(self, "Resumo exportado com sucesso.", "ok")
         except OSError as exc:
             toast(self, f"Falha ao exportar resumo: {exc}", "error", timeout=10000)
+
+    def _download_full_run(self):
+        """Traz do servidor os brutos do EnergyPlus que o espelho deixou de fora."""
+        if not self._detail_run or not messagebox.askyesno(
+                "Baixar arquivos completos",
+                "Baixa do servidor todos os arquivos da execução, inclusive os brutos "
+                "do EnergyPlus (eplusout.eso, .sql…). Uma simulação anual passa de 1 GB.\n\n"
+                "Continuar?", parent=self):
+            return
+        from confortimetro.remote.client import download_full
+        path = self._detail_run['path']
+        self.detail_full_button.configure(state="disabled", text="Baixando…")
+
+        def done(_result, error):
+            self.detail_full_button.configure(state="normal", text="Baixar arquivos completos")
+            if error:
+                toast(self, f"Falha ao baixar: {error}", "error", timeout=10000)
+            else:
+                toast(self, "Arquivos completos baixados na pasta da execução.", "ok")
+
+        in_background(self, lambda: download_full(path), done)
 
     def _open_detail_folder(self):
         if not self._detail_run:
