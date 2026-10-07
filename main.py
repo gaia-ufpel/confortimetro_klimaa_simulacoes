@@ -19,7 +19,7 @@ def resolve_config_path() -> str:
 
     Rodando do repositório: `examples/config.json`, como sempre.
     Rodando pelo executável (PyInstaller): uma cópia gravável em
-    `%LOCALAPPDATA%\\ConfortimetroKlimaa`, semeada na primeira execução com o
+    `%LOCALAPPDATA%\\Ambiens`, semeada na primeira execução com o
     config.json embutido no pacote (o diretório do executável pode ser
     somente leitura para o usuário).
     """

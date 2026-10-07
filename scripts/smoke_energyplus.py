@@ -20,7 +20,7 @@ def main():
                         help="Prepara e valida a configuração sem rodar o EnergyPlus")
     args = parser.parse_args()
 
-    work = Path(tempfile.mkdtemp(prefix="confortimetro-smoke-"))
+    work = Path(tempfile.mkdtemp(prefix="ambiens-smoke-"))
     source = ROOT / "examples" / "idf" / "FAURB" / "FAURB_PTHP_ENTORNO.idf"
     model = work / "smoke.idf"
     output = work / "run"

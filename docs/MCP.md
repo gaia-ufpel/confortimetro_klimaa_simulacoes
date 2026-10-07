@@ -72,7 +72,7 @@ No Windows, use `claude mcp add --scope user --transport stdio confortimetro --e
   `{id, pasta, estado}` sem aguardar o EnergyPlus. Não reduz o período
   automaticamente: ajuste o `RunPeriod` no IDF indicado antes de disparar.
   Recusa (`estado: recusada`) quando já há 2 simulações vivas (`na_fila` ou
-  `executando`); o teto muda com a variável `CONFORTIMETRO_MCP_MAX_ACTIVE`.
+  `executando`); o teto muda com a variável `AMBIENS_MCP_MAX_ACTIVE`.
 - `estado_simulacao(id)`: lê `mcp_status.json` na pasta da execução (`na_fila`,
   `executando`, `concluida`, `falhou`, `interrompida`). O runner grava o
   próprio PID; se o processo não existir mais (morto, reinício da máquina), o
@@ -90,8 +90,8 @@ No Windows, use `claude mcp add --scope user --transport stdio confortimetro --e
    permissão, e o servidor não tem como obtê-la. Nesse caso o disparo falha
    (`estado: falhou`) em vez de prometer uma simulação independente do cliente.
 
-A raiz padrão pode ser trocada com `CONFORTIMETRO_DATA_DIR` (ou
-`AMBIENS_DATA_DIR`, que tem precedência). As ferramentas não aceitam caminhos
+A raiz padrão pode ser trocada com `AMBIENS_DATA_DIR` (ou a antiga
+`CONFORTIMETRO_DATA_DIR`; a nova tem precedência). As ferramentas não aceitam caminhos
 de saída nem comandos arbitrários; identificadores com traversal e symlinks
 que levem os arquivos de uma execução para fora da raiz são recusados. O IDF
 e o EPW são arquivos de entrada explicitamente indicados pelo usuário;

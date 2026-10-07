@@ -81,7 +81,7 @@ def main():
     if not same_device and total > free * 0.9:
         raise SystemExit(
             f"espaço insuficiente: {human(total)} não cabem em {human(free)} livres. "
-            "Aponte a variável CONFORTIMETRO_DATA_DIR para um disco maior e "
+            "Aponte a variável AMBIENS_DATA_DIR para um disco maior e "
             "rode de novo.")
 
     if not args.executar:

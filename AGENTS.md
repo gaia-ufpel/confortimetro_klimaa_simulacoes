@@ -1,4 +1,4 @@
-# Confortímetro Klimaa — simulações
+# Ambiens — simulações
 
 Simulações de conforto térmico com EnergyPlus. O núcleo Python modifica um IDF,
 registra um controlador que decide janela/ventilador/AC/DOAS a cada timestep e
@@ -19,7 +19,7 @@ xvfb-run -a python main.py                                    # GUI com display 
 
 
 No Windows o usuário final usa o instalador
-`ConfortimetroKlimaa-<versão>-setup.exe` (gerado por
+`Ambiens-<versão>-setup.exe` (gerado por
 `.github/workflows/windows-build.yml` com PyInstaller + Inno Setup, a partir de
 `packaging/`); a partir do código, `bin\install.bat` e `bin\executar.bat`
 (ver [`docs/WINDOWS.md`](docs/WINDOWS.md)). Nada de caminho com
@@ -38,10 +38,10 @@ saídas e diagnóstico de erros.
   pastas antigas em `./outputs` só têm ele, e exigir `configs.json` sumia com
   elas da listagem. `compare.read_config` lê os dois.
 - **Cada execução é uma pasta em `paths.runs_root()`** — `%LOCALAPPDATA%` no
-  Windows, `~/.local/share/ConfortimetroKlimaa/execucoes` no Linux,
+  Windows, `~/.local/share/Ambiens/execucoes` no Linux,
   `~/Library/Application Support` no macOS — e leva tudo consigo: `modelo.idf`
   (a cópia processada), `in.idf`, `expanded.idf` e as saídas do EnergyPlus.
-  `CONFORTIMETRO_DATA_DIR` muda essa raiz; uma simulação anual passa de 1 GB.
+  `AMBIENS_DATA_DIR` (ou o antigo `CONFORTIMETRO_DATA_DIR`) muda essa raiz; uma simulação anual passa de 1 GB.
 - **O IDF de entrada não é mais modificado no lugar.** O `IDFProcessor` grava as
   alterações na cópia dentro da execução (`modelo.idf`), e `source_idf_path`
   guarda o original. Execuções paralelas sobre o mesmo modelo deixaram de

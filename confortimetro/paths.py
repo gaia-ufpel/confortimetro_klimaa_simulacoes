@@ -5,7 +5,7 @@ próprio repositório — e ainda deixava `in.idf` e `expanded.idf` ao lado do I
 de entrada, o que fazia duas execuções paralelas disputarem os mesmos arquivos.
 Agora existe uma raiz padrão por plataforma e cada execução é uma subpasta dela.
 
-A raiz pode ser trocada pela variável de ambiente `CONFORTIMETRO_DATA_DIR` —
+A raiz pode ser trocada pela variável de ambiente `AMBIENS_DATA_DIR` (ou a antiga `CONFORTIMETRO_DATA_DIR`) —
 útil quando os resultados não cabem no disco do sistema, já que uma simulação
 anual passa de 1 GB.
 """

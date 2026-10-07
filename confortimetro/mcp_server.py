@@ -20,12 +20,13 @@ from confortimetro.config import SimulationConfig, default_energy_path, find_ene
 from confortimetro.paths import runs_root
 from confortimetro.results import compare
 
-SERVER = FastMCP("Confortímetro Klimaa")
+SERVER = FastMCP("Ambiens")
 STATUS_FILE = "mcp_status.json"
 MAX_RUNS = 30
 MAX_ROOMS = 30
 PID_FILE = "mcp_pid.json"
-MAX_ACTIVE_ENV = "CONFORTIMETRO_MCP_MAX_ACTIVE"
+MAX_ACTIVE_ENV = "AMBIENS_MCP_MAX_ACTIVE"
+LEGACY_MAX_ACTIVE_ENV = "CONFORTIMETRO_MCP_MAX_ACTIVE"
 ACTIVE_STATES = ("na_fila", "executando")
 QUEUE_TIMEOUT = 120
 INTERRUPTED = "Processo da simulação não está mais ativo"
@@ -169,7 +170,7 @@ def _launch_lock(root: str):
 
 def _active_limit() -> int:
     try:
-        limit = int(os.environ.get(MAX_ACTIVE_ENV, "2"))
+        limit = int(os.environ.get(MAX_ACTIVE_ENV) or os.environ.get(LEGACY_MAX_ACTIVE_ENV) or "2")
         if limit < 1:
             raise ValueError
         return limit

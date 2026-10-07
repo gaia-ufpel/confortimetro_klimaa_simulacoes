@@ -1,5 +1,5 @@
 @echo off
-REM Abre a interface grafica do Confortimetro Klimaa.
+REM Abre a interface grafica do Ambiens.
 setlocal
 cd /d "%~dp0.."
 

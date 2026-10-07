@@ -1,5 +1,5 @@
 """
-Main window for the Confortimetro Klimaa application.
+Main window for the Ambiens application.
 """
 
 import os

@@ -280,6 +280,7 @@ def test_teto_de_execucoes_vivas(tmp_path, monkeypatch):
     monkeypatch.setattr(mcp_server.subprocess, "Popen",
                         lambda *a, **k: types.SimpleNamespace(pid=os.getpid()))
     monkeypatch.delenv(mcp_server.MAX_ACTIVE_ENV, raising=False)
+    monkeypatch.delenv(mcp_server.LEGACY_MAX_ACTIVE_ENV, raising=False)
     _run_dir(tmp_path, "20250101_0000", {"estado": "concluida", "erro": ""})
     assert mcp_server.iniciar_simulacao(args)["estado"] == "na_fila"
     assert mcp_server.iniciar_simulacao(args)["estado"] == "na_fila"

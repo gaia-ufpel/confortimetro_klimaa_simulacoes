@@ -1,5 +1,5 @@
 """
-GUI package for the Confortimetro Klimaa application.
+GUI package for the Ambiens application.
 """
 
 from .main_window import MainWindow
