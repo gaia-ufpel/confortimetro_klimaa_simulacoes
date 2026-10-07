@@ -64,6 +64,7 @@ armadilhas e convenções.
 - [`docs/WINDOWS.md`](docs/WINDOWS.md) — instalação no Windows.
 - [`docs/MCP.md`](docs/MCP.md) — integração com clientes MCP locais.
 - [`docs/SERVIDOR.md`](docs/SERVIDOR.md) — servidor de simulações remoto (Docker) e modo remoto do desktop.
+- [`docs/USABILIDADE.md`](docs/USABILIDADE.md) — pesquisa de usabilidade da interface desktop (out/2026).
 
 ## Módulos de simulação
 
