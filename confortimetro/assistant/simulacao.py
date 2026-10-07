@@ -13,7 +13,7 @@ import math
 import os
 import uuid
 
-from ..config import PORCENT2ADAPTATIVE, SimulationConfig, is_energy_path
+from ..config import FIELD_LABELS, PORCENT2ADAPTATIVE, SimulationConfig, is_energy_path
 from ..idf.processor import (read_run_period, read_timesteps_per_hour,
                              read_zone_names, unwired_equipment)
 from ..module_type import ModuleType
@@ -137,6 +137,13 @@ def base_from_run(run_path: str) -> SimulationConfig:
     return config
 
 
+def _label(field: str) -> str:
+    """Rótulo da interface com o nome do campo, que a CLI (`--set`) e o
+    assistente usam para corrigir."""
+    label = FIELD_LABELS.get(field)
+    return f"{label} [{field}]" if label else field
+
+
 def validate(config: SimulationConfig, remote: bool = None):
     """(problemas que impedem rodar, avisos que o usuário precisa ver).
 
@@ -159,23 +166,23 @@ def validate(config: SimulationConfig, remote: bool = None):
     for low, high in (("clo_min", "clo_max"), ("pmv_lowerbound", "pmv_upperbound"),
                       ("temp_ac_min", "temp_ac_max")):
         if getattr(config, low) > getattr(config, high):
-            problems.append(f"{low} ({getattr(config, low)}) maior que "
-                            f"{high} ({getattr(config, high)}).")
+            problems.append(f"{_label(low)} ({getattr(config, low)}) maior que "
+                            f"{_label(high)} ({getattr(config, high)}).")
     for field, (low, high) in FIELD_RANGES.items():
         value = getattr(config, field)
         if not low <= value <= high:
-            problems.append(f"{field} ({value}) fora da faixa {low} a {high}.")
+            problems.append(f"{_label(field)} ({value}) fora da faixa {low} a {high}.")
     for field, high in POSITIVE_RANGES.items():
         value = getattr(config, field)
         if not 0 < value <= high:
-            problems.append(f"{field} ({value}) precisa ser maior que 0 e até {high}.")
+            problems.append(f"{_label(field)} ({value}) precisa ser maior que 0 e até {high}.")
     if not 0 <= config.wme < config.met:
-        problems.append(f"wme ({config.wme}) precisa ser >= 0 e menor que met ({config.met}).")
+        problems.append(f"{_label('wme')} ({config.wme}) precisa ser >= 0 e menor que {_label('met')} ({config.met}).")
     if config.adaptative_bound not in PORCENT2ADAPTATIVE.values():
-        problems.append(f"adaptative_bound ({config.adaptative_bound}) precisa ser um de "
+        problems.append(f"Margem do adaptativo [adaptative_bound] ({config.adaptative_bound}) precisa ser um de "
                         f"{sorted(PORCENT2ADAPTATIVE.values())}.")
     if config.clo_delta <= 0 or config.air_speed_delta <= 0:
-        problems.append("clo_delta e air_speed_delta precisam ser positivos.")
+        problems.append(f"{_label('clo_delta')} e {_label('air_speed_delta')} precisam ser positivos.")
 
     if os.path.isfile(config.idf_path or ""):
         zones = read_zone_names(config.idf_path)

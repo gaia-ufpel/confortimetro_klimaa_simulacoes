@@ -27,7 +27,7 @@ REAL_KEY = os.environ.get("GEMINI_API_KEY")
 @pytest.fixture(autouse=True)
 def data_dir(tmp_path, monkeypatch):
     """Configurações, chave e conversas numa pasta descartável."""
-    monkeypatch.setenv("CONFORTIMETRO_DATA_DIR", str(tmp_path / "dados"))
+    monkeypatch.setenv("AMBIENS_DATA_DIR", str(tmp_path / "dados"))
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     return tmp_path / "dados"
 
@@ -688,3 +688,13 @@ def test_confirmacao_mostra_parametros_herdados_e_efetivos(root, tmp_path):
     assert rows["co2_limit (alterado)"] == "850.0"
     assert rows["ignore_missing_equipment"] == "True"
     assert dict(simulacao.for_model(proposal)["configuracao"]) == rows
+
+
+def test_indicadores_recusa_execucao_interrompida(tmp_path):
+    from confortimetro.assistant.tools import Toolbox
+    run = tmp_path / 'PARADA'
+    run.mkdir()
+    (run / 'configs.json').write_text('{"module_type": "COMPLETE", "rooms": ["Z"]}')
+    tools = Toolbox(str(tmp_path))
+    assert tools.listar_execucoes()['linhas'][0]['status'] == 'interrompida'
+    assert 'interrompida' in tools.call('indicadores', {'execucao': 'PARADA'})['erro']

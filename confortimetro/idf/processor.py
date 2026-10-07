@@ -510,6 +510,109 @@ def read_run_period(idf_path: str, default_year: int = 2015):
     return (start, end)
 
 
+#: Variáveis de saída que o Ambiens acrescenta ao IDF (as planilhas dependem delas).
+OUTPUT_VARIABLES = [
+    "People Occupant Count",
+    "Site Outdoor Air Drybulb Temperature",
+    "Zone Mean Radiante Temperature",
+    "Zone Operative Temperature",
+    "Zone Air Temperature",
+    "Zone Air Relative Humidity",
+    "Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature",
+    "Zone Thermal Comfort Fanger Model PMV",
+    "Zone Thermal Comfort Clothing Value",
+    "Zone Air CO2 Concentration",
+    "Schedule Value",
+    "Zone Packaged Terminal Heat Pump Total Heating Energy",
+    "Zone Packaged Terminal Heat Pump Total Cooling Energy",
+    # Consumo elétrico: PTHP inteira, serpentinas separadas por
+    # modo e o ventilador de teto (ElectricEquipment VENTILADOR_*).
+    "Zone Packaged Terminal Heat Pump Electricity Energy",
+    "Cooling Coil Electricity Energy",
+    "Heating Coil Electricity Energy",
+    "Electric Equipment Electricity Energy",
+    # Totais por zona: incluem objetos aplicados por ZoneList e
+    # permitem atribuir iluminação e cargas de tomada à sala certa.
+    "Zone Electric Equipment Electricity Energy",
+    "Zone Lights Electricity Energy",
+    "Zone Infiltration Air Change Rate",
+    # Diagnóstico do assistente: demanda × entrega do HVAC, setpoint
+    # efetivo e balanço de calor do ar por timestep.
+    "Zone Predicted Sensible Load to Heating Setpoint Heat Transfer Rate",
+    "Zone Predicted Sensible Load to Cooling Setpoint Heat Transfer Rate",
+    "Heating Coil Heating Rate",
+    "Cooling Coil Total Cooling Rate",
+    "Zone Thermostat Heating Setpoint Temperature",
+    "Zone Thermostat Cooling Setpoint Temperature",
+    "Zone Air Heat Balance Internal Convective Heat Gain Rate",
+    "Zone Air Heat Balance Surface Convection Rate",
+    "Zone Air Heat Balance Interzone Air Transfer Rate",
+    "Zone Air Heat Balance Outdoor Air Transfer Rate",
+    "Zone Air Heat Balance System Air Transfer Rate",
+    "Zone Air Heat Balance System Convective Heat Gain Rate",
+    "Zone Air Heat Balance Air Energy Storage Rate",
+    "Zone Windows Total Heat Gain Energy",
+    "Zone Windows Total Heat Loss Energy",
+]
+
+
+def parse_iso_date(text):
+    """`aaaa-mm-dd` como `datetime`; vazio ou inválido devolve `None`."""
+    try:
+        return datetime.strptime(str(text), "%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def check_input_file(path: str, kind: str):
+    """Motivo pelo qual `path` não serve como IDF/EPW, ou `None` se serve.
+
+    Só olha a extensão e, no IDF, se há um objeto reconhecível: um `.txt` ou
+    um `.epw` no campo do IDF antes passava como "arquivo encontrado".
+    """
+    ext = ".idf" if kind == "idf" else ".epw"
+    if not str(path).lower().endswith(ext):
+        return f"Não é um arquivo {ext} (extensão {os.path.splitext(path)[1] or 'ausente'})"
+    if kind == "idf" and os.path.isfile(path) and not re.search(
+            r"^\s*(Version|Zone|Building)\s*,", _read_text(path),
+            re.IGNORECASE | re.MULTILINE):
+        return "O conteúdo não parece um IDF (sem objeto Version, Building ou Zone)"
+    return None
+
+
+def describe_changes(configs) -> List[str]:
+    """O que o Ambiens grava no IDF da execução, em português para a tela.
+
+    O arquivo original nunca é alterado: tudo vale só para a cópia simulada.
+    """
+    clo = IDFProcessor.CLO_SCHEDULE_NAME.format("<sala>")
+    lines = [
+        "Nome do RunPeriod: passa a ser o da pasta da execução.",
+        f"Schedule {clo} começa em clo {configs.clo_min:g}; "
+        "o controlador o ajusta a cada passo.",
+        f"Metabolismo {configs.met:g} met ({configs.met_as_watts:.0f} W) e "
+        f"Wme {configs.wme:g} W/m² nos schedules METABOLISMO e WORK_EF.",
+        "Cada objeto People passa a usar esses schedules, o de velocidade do "
+        "ar e o de vestimenta da zona.",
+        f"Setpoints do ar-condicionado: resfriamento {configs.temp_ac_max:g} °C, "
+        f"aquecimento {configs.temp_ac_min:g} °C (por sala"
+        + (", fixos nos schedules existentes)." if configs.module_type
+           == ModuleType.FIXED_AC_WITHOUT_FAN else ")."),
+        "Novos schedules de controle por sala (janela, ventilador, AC, PMV...) "
+        f"e +{len(OUTPUT_VARIABLES)} Output:Variable "
+        "(mais 1 por sala, do DOAS) para as planilhas.",
+    ]
+    start = parse_iso_date(getattr(configs, "run_period_start", None))
+    end = parse_iso_date(getattr(configs, "run_period_end", None))
+    if start or end:
+        lines.append("Período da simulação: "
+                     f"{start.strftime('%d/%m/%Y') if start else 'do IDF'} a "
+                     f"{end.strftime('%d/%m/%Y') if end else 'do IDF'}.")
+    if getattr(configs, "timesteps_per_hour", None):
+        lines.append(f"Passos por hora: {configs.timesteps_per_hour}.")
+    return lines
+
+
 class IDFProcessor:
     """Processador para modificar arquivos IDF do EnergyPlus."""
     
@@ -581,6 +684,7 @@ class IDFProcessor:
             
             # Aplicar modificações em sequência
             idf = self._modify_simulation_name(idf)
+            idf = self._apply_run_period(idf)
             idf = self._modify_existing_schedules(idf)
             idf = self._add_new_schedules(idf)
             idf = self._configure_people_objects(idf)
@@ -619,6 +723,29 @@ class IDFProcessor:
             self.logger.error(f"Failed to modify simulation name: {e}")
             raise
     
+    def _apply_run_period(self, idf: IDF) -> IDF:
+        """Aplica ao IDF da execução o período e o passo escolhidos na tela.
+
+        Sem isso o período editado só valia depois de "Salvar como novo IDF" e
+        a simulação rodava o ano inteiro em silêncio.
+        """
+        start = parse_iso_date(getattr(self.configs, "run_period_start", None))
+        end = parse_iso_date(getattr(self.configs, "run_period_end", None))
+        steps = getattr(self.configs, "timesteps_per_hour", None)
+        if (start or end) and idf.idfobjects.get("RunPeriod"):
+            run_period = idf.idfobjects["RunPeriod"][0]
+            if start:
+                run_period.Begin_Month = start.month
+                run_period.Begin_Day_of_Month = start.day
+                run_period.Begin_Year = start.year
+            if end:
+                run_period.End_Month = end.month
+                run_period.End_Day_of_Month = end.day
+                run_period.End_Year = end.year
+        if steps and idf.idfobjects.get("Timestep"):
+            idf.idfobjects["Timestep"][0].Number_of_Timesteps_per_Hour = int(steps)
+        return idf
+
     def _modify_existing_schedules(self, idf: IDF) -> IDF:
         """
         Modificar schedules existentes no arquivo IDF.
@@ -814,50 +941,7 @@ class IDFProcessor:
             IDF: Objeto IDF modificado
         """
         try:
-            # Definir variáveis de saída desejadas
-            desired_output_variables = [
-                "People Occupant Count",
-                "Site Outdoor Air Drybulb Temperature",
-                "Zone Mean Radiante Temperature",
-                "Zone Operative Temperature",
-                "Zone Air Temperature",
-                "Zone Air Relative Humidity",
-                "Zone Thermal Comfort ASHRAE 55 Adaptative Model Temperature",
-                "Zone Thermal Comfort Fanger Model PMV",
-                "Zone Thermal Comfort Clothing Value",
-                "Zone Air CO2 Concentration",
-                "Schedule Value",
-                "Zone Packaged Terminal Heat Pump Total Heating Energy",
-                "Zone Packaged Terminal Heat Pump Total Cooling Energy",
-                # Consumo elétrico: PTHP inteira, serpentinas separadas por
-                # modo e o ventilador de teto (ElectricEquipment VENTILADOR_*).
-                "Zone Packaged Terminal Heat Pump Electricity Energy",
-                "Cooling Coil Electricity Energy",
-                "Heating Coil Electricity Energy",
-                "Electric Equipment Electricity Energy",
-                # Totais por zona: incluem objetos aplicados por ZoneList e
-                # permitem atribuir iluminação e cargas de tomada à sala certa.
-                "Zone Electric Equipment Electricity Energy",
-                "Zone Lights Electricity Energy",
-                "Zone Infiltration Air Change Rate",
-                # Diagnóstico do assistente: demanda × entrega do HVAC, setpoint
-                # efetivo e balanço de calor do ar por timestep.
-                "Zone Predicted Sensible Load to Heating Setpoint Heat Transfer Rate",
-                "Zone Predicted Sensible Load to Cooling Setpoint Heat Transfer Rate",
-                "Heating Coil Heating Rate",
-                "Cooling Coil Total Cooling Rate",
-                "Zone Thermostat Heating Setpoint Temperature",
-                "Zone Thermostat Cooling Setpoint Temperature",
-                "Zone Air Heat Balance Internal Convective Heat Gain Rate",
-                "Zone Air Heat Balance Surface Convection Rate",
-                "Zone Air Heat Balance Interzone Air Transfer Rate",
-                "Zone Air Heat Balance Outdoor Air Transfer Rate",
-                "Zone Air Heat Balance System Air Transfer Rate",
-                "Zone Air Heat Balance System Convective Heat Gain Rate",
-                "Zone Air Heat Balance Air Energy Storage Rate",
-                "Zone Windows Total Heat Gain Energy",
-                "Zone Windows Total Heat Loss Energy",
-            ]
+            desired_output_variables = OUTPUT_VARIABLES
             
             # Verificar variáveis já existentes
             existing_variables = {

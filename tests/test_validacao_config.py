@@ -88,3 +88,64 @@ def test_gui_campo_vazio_nao_vira_zero(window, monkeypatch):
     window.on_run_simulation()
     assert started == [] and window.simulation_thread is None
     assert errors and "Variação da vel. de ventilação" in errors[0]
+
+
+def _set_range(field, low, high):
+    for entry, text in ((field.min_entry, low), (field.max_entry, high)):
+        entry.delete(0, "end")
+        entry.insert(0, text)
+
+
+@pytest.mark.parametrize("low, high, texto", [
+    ("", "0,5", "Faixa de PMV"),            # vazio
+    ("abc", "0,5", "Faixa de PMV"),         # texto
+    ("-0,5", "5", "fora da faixa"),         # fora da escala -3..3
+    ("1", "0", "maior"),                    # mínimo acima do máximo
+])
+def test_gui_pmv_invalido_nao_e_corrigido(window, low, high, texto):
+    panel = window.simulation_panel
+    _set_range(panel.pmv_range, low, high)
+    panel.pmv_range._commit()               # o foco saindo não pode "consertar"
+    assert (panel.pmv_range.min_entry.get(), panel.pmv_range.max_entry.get()) == (low, high)
+    with pytest.raises(ValueError, match=texto):
+        panel.get_configuration()
+
+
+def test_gui_clo_e_ac_invalidos_bloqueiam(window):
+    panel = window.simulation_panel
+    _set_range(panel.clo_range, "1,5", "0,5")
+    with pytest.raises(ValueError, match="Faixa de Clo"):
+        panel.get_configuration()
+    _set_range(panel.clo_range, "0,5", "1")
+    _set_range(panel.temp_ac_range, "5", "30")
+    with pytest.raises(ValueError, match="Temperatura do AC"):
+        panel.get_configuration()
+
+
+def test_gui_idf_que_nao_e_idf_bloqueia(window, tmp_path):
+    texto = tmp_path / "notas.txt"
+    texto.write_text("nada de IDF aqui\n")
+    window.path_panel.set_idf_path(str(texto))
+    with pytest.raises(ValueError, match="Arquivo IDF"):
+        window.simulation_panel.get_configuration()
+    epw = tmp_path / "clima.epw"
+    epw.write_text("LOCATION,x\n")
+    window.path_panel.set_idf_path(str(epw))
+    with pytest.raises(ValueError, match=r"\.idf"):
+        window.simulation_panel.get_configuration()
+
+
+def test_gui_periodo_editado_vai_para_a_configuracao(window, tmp_path):
+    idf = tmp_path / "anual.idf"
+    idf.write_text("Zone,\n  SALA1;\n"
+                   "RunPeriod,\n  ANO, 1, 1, 2015, 12, 31, 2015;\n")
+    window.idf_editor_panel.load(str(idf))
+    window.idf_editor_panel.end_entry.delete(0, "end")
+    window.idf_editor_panel.end_entry.insert(0, "31/01/2015")
+    config = window.simulation_panel.get_configuration()
+    assert config["run_period_start"] == "2015-01-01"
+    assert config["run_period_end"] == "2015-01-31"
+    window.idf_editor_panel.end_entry.delete(0, "end")
+    window.idf_editor_panel.end_entry.insert(0, "32/01/2015")
+    with pytest.raises(ValueError, match="Período"):
+        window.simulation_panel.get_configuration()

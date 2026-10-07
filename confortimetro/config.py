@@ -198,6 +198,46 @@ def find_energy_path() -> str:
     return valid[0] if valid else ""
 
 
+#: Nome na interface de cada campo numérico, para as mensagens de erro.
+FIELD_LABELS = {
+    "met": "Met", "wme": "Wme", "pmv_comfort_bound": "Banda de conforto",
+    "pmv_lowerbound": "Faixa de PMV (mínimo)",
+    "pmv_upperbound": "Faixa de PMV (máximo)",
+    "clo_min": "Faixa de Clo (mínimo)", "clo_max": "Faixa de Clo (máximo)",
+    "clo_delta": "Variação do Clo",
+    "temp_ac_min": "Temperatura do AC (mínimo)",
+    "temp_ac_max": "Temperatura do AC (máximo)",
+    "max_vel": "Velocidade máxima", "air_speed_delta": "Variação da vel. de ventilação",
+    "temp_open_window_bound": "Margem de temp. p/ abrir janela",
+    "co2_limit": "Limite de CO2",
+}
+
+#: Faixa permitida de cada par mínimo–máximo da tela (escala e limites físicos).
+RANGE_PAIRS = (
+    ("pmv_lowerbound", "pmv_upperbound", -3.0, 3.0),
+    ("clo_min", "clo_max", 0.0, 2.0),
+    ("temp_ac_min", "temp_ac_max", 10.0, 35.0),
+)
+
+
+def range_problems(values: dict, pairs=RANGE_PAIRS) -> list[str]:
+    """Erros nas faixas PMV, Clo e AC de `values` (nome do campo → número).
+
+    Nada é corrigido: valor fora da escala ou mínimo acima do máximo vira
+    mensagem, em vez de ser limitado ou trocado em silêncio.
+    """
+    problems = []
+    for low_key, high_key, lower, upper in pairs:
+        for key in (low_key, high_key):
+            if not lower <= values[key] <= upper:
+                problems.append(f"{FIELD_LABELS[key]}: {values[key]:g} fora da "
+                                f"faixa {lower:g} a {upper:g}.")
+        if values[low_key] > values[high_key]:
+            problems.append(f"{FIELD_LABELS[low_key]} ({values[low_key]:g}) é maior "
+                            f"que o máximo ({values[high_key]:g}).")
+    return problems
+
+
 @dataclass
 class SimulationConfig:
     met_as_watts: float
@@ -240,6 +280,11 @@ class SimulationConfig:
     # Versão do código que rodou a execução (`versao.code_version`), gravada
     # quando a simulação começa; o assistente compara com a instalada.
     code_version: dict = None
+    # Período (`aaaa-mm-dd`, fim inclusivo) e passo escolhidos na tela; quando
+    # presentes, o IDFProcessor os grava no IDF da execução. None = o do IDF.
+    run_period_start: str = None
+    run_period_end: str = None
+    timesteps_per_hour: int = None
 
     def __post_init__(self):
         # Sem saída escolhida, cada execução ganha a sua subpasta na pasta de

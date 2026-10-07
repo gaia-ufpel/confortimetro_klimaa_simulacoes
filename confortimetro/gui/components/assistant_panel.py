@@ -656,7 +656,8 @@ class AssistantSettings(ttk.Frame):
             self.advanced.pack(fill="x", after=self.toggle, pady=(SPACE[1], 0))
 
     def _update_key_status(self):
-        self.key_status.set("Chave salva." if store.get_api_key()
+        self.key_status.set("Chave salva neste computador (o campo fica vazio por segurança)."
+                            if store.get_api_key()
                             else "Nenhuma chave salva.")
 
     def _save_key(self):

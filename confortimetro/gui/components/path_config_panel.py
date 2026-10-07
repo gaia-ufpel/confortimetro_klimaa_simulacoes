@@ -16,6 +16,7 @@ from confortimetro.config import (
     find_energy_path,
     is_energy_path,
 )
+from confortimetro.idf import check_input_file
 
 
 class PathConfigCallback(Protocol):
@@ -86,6 +87,23 @@ class PathConfigPanel(ttk.Frame):
         self.callback = callback
         self._fields = fields
         self._build_ui()
+        # Na tela de execução o painel é uma aba da SimulationConfigPanel: IDF
+        # ou EPW de outro tipo bloqueia a execução, como valor numérico inválido.
+        register = getattr(getattr(self.master, "master", None),
+                           "register_extra", None)
+        if register and set(fields) & {"idf", "epw"}:
+            register(self.check_files)
+
+    def check_files(self) -> dict:
+        """`ValueError` se o IDF ou o EPW escolhido não for do tipo certo."""
+        for key in ("idf", "epw"):
+            if key not in self._fields:
+                continue
+            path = getattr(self, FIELDS[key]["entry"]).get().strip()
+            problem = check_input_file(path, key) if path else None
+            if problem:
+                raise ValueError(f"{FIELDS[key]['label']}: {problem}.")
+        return {}
     
     def _build_ui(self):
         """Build the UI components: one labeled path field per row."""
@@ -234,7 +252,13 @@ class PathConfigPanel(ttk.Frame):
         is_file = FIELDS[key]["filetypes"] is not None
         found = os.path.isfile(path) if is_file else os.path.isdir(path)
         noun = "Arquivo" if is_file else "Diretório"
-        if found:
+        wrong_type = check_input_file(path, key) if found and is_file else None
+        if wrong_type:
+            status_label.config(text=f" {wrong_type}",
+                                foreground=COLORS["danger"],
+                                image=icon("error", 14, COLORS["danger"], master=self),
+                                compound="left")
+        elif found:
             status_label.config(text=f" {noun} encontrado", foreground=COLORS["ok"],
                                 image=icon("success", 14, COLORS["ok"], master=self),
                                 compound="left")
@@ -248,15 +272,20 @@ class PathConfigPanel(ttk.Frame):
     def _browse(self, key):
         """Seletor de arquivo ou de pasta, conforme o campo."""
         spec = FIELDS[key]
+        entry = getattr(self, spec["entry"])
+        # Abre onde o arquivo atual está; sem ele, na pasta do usuário.
+        current = entry.get().strip()
+        folder = current if os.path.isdir(current) else os.path.dirname(current)
+        initial = folder if os.path.isdir(folder) else os.path.expanduser("~")
         if spec["filetypes"] is None:
-            filename = filedialog.askdirectory(initialdir=".", title=spec["title"])
+            filename = filedialog.askdirectory(initialdir=initial, title=spec["title"])
         else:
             filename = filedialog.askopenfilename(
-                initialdir=".", title=spec["title"], filetypes=spec["filetypes"])
+                initialdir=initial, title=spec["title"], filetypes=spec["filetypes"])
         if filename:
-            entry = getattr(self, spec["entry"])
             entry.delete(0, tk.END)
             entry.insert(0, filename)
+            self._validate_path(key)
             self._notify(key)
 
     def _notify(self, key):
@@ -269,6 +298,7 @@ class PathConfigPanel(ttk.Frame):
         """Set IDF path."""
         self.inputfile_entry.delete(0, tk.END)
         self.inputfile_entry.insert(0, path)
+        self._validate_path('idf')
     
     def set_output_path(self, path: str):
         """Set output path."""
@@ -279,6 +309,7 @@ class PathConfigPanel(ttk.Frame):
         """Set EPW path."""
         self.epwfile_entry.delete(0, tk.END)
         self.epwfile_entry.insert(0, path)
+        self._validate_path('epw')
     
     def set_energy_path(self, path: str):
         """Set energy path."""

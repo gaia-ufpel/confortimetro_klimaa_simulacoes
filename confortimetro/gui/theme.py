@@ -21,23 +21,33 @@ COLORS = {
     "bg": "#f0f0f0",
     "surface": "#fafafa",
     "surface_2": "#eaeaea",
-    "line": "#d8d8d8",
+    # Borda de campo/botão: 3,54:1 sobre `surface` (WCAG 1.4.11). Os fundos
+    # de "pressionado" usam `surface_3`, que é o cinza claro de antes.
+    "line": "#858585",
+    "surface_3": "#d8d8d8",
     "text": "#1c1c1c",
     # Verdes de texto escurecidos: o #588157 da paleta reprova em contraste
     # (3.1:1 sobre a areia). Continuam servindo de fundo/detalhe, não de texto.
     "text_mute": "#406346",
     "primary": "#3a5a40",
-    "primary_h": "#588157",
+    # Hover do primary: 5,67:1 com texto branco (o #588157 dava 4,48:1).
+    "primary_h": "#4a7049",
     "primary_d": "#344e41",
-    "accent": "#a3b18a",
+    # Também é cor de link (rodapé): 5,11:1 sobre `bg` (o #a3b18a dava 2,0:1).
+    "accent": "#5a6b3f",
     # Laranja do bulbo da logo. Só decorativo (2.6:1 sobre `surface`): serve de
     # preenchimento em barra/indicador de calor, nunca de cor de texto.
     "hot": "#f67a24",
     # Cinza do polegar de scrollbar do sv_ttk, para as barras tk clássicas.
-    "scroll": "#c2c2c2",
-    "ok": "#4e7a4d",
-    "warn": "#a06b00",
-    "danger": "#b3261e",
+    # 3,07:1 sobre o trilho `surface_2`.
+    "scroll": "#858585",
+    # ok/warn/danger separados também por luminância e matiz, para não virarem
+    # o mesmo oliva sob deuteranopia: ok azul-petróleo escuro (L 0,12), warn
+    # âmbar mais claro (L 0,17), danger vermelho mais escuro (L 0,08).
+    # Texto branco sobre cada um: 5,94 / 4,73 / 7,77 :1.
+    "ok": "#1a6a7a",
+    "warn": "#9a6a00",
+    "danger": "#a11d16",
 }
 
 SPACE = (0, 4, 8, 12, 16, 24, 32)
@@ -241,7 +251,7 @@ def apply_theme(root: tk.Misc) -> None:
     # configurados aqui: os estilos nomeados herdam o visual do sv_ttk. Só
     # sobra o que ele não cobre (fundos de card, fontes, cores de texto).
 
-    style.configure("Modern.TSeparator", background=COLORS["line"])
+    style.configure("Modern.TSeparator", background=COLORS["surface_3"])
 
     # Sem background próprio: o TLabelframe do sv_ttk é um sprite de moldura e
     # pintar o fundo por cima come a borda.
@@ -255,6 +265,26 @@ def apply_theme(root: tk.Misc) -> None:
 
     style.configure("Modern.Treeview", rowheight=26, font=FONTS["body"])
     style.configure("Modern.Treeview.Heading", font=FONTS["label"])
+    # O #e7e7e7 do sv_ttk mal se distingue do fundo (1,18:1): linha
+    # selecionada em verde escuro com texto branco (7,7:1 nos dois pares).
+    style.map("Modern.Treeview",
+              background=[("selected", COLORS["primary"])],
+              foreground=[("selected", "#ffffff")])
+
+    # O trilho do sv_ttk é um sprite de 2 px que não aceita `thickness`. Os
+    # elementos do clam aceitam: barra de 10 px, azul 5,2:1 sobre o trilho.
+    # ponytail: vale só para a barra horizontal indeterminada do app.
+    style.element_create("Ambiens.trough", "from", "clam",
+                         "Horizontal.Progressbar.trough")
+    style.element_create("Ambiens.pbar", "from", "clam",
+                         "Horizontal.Progressbar.pbar")
+    style.layout("Modern.Horizontal.TProgressbar",
+                 [("Ambiens.trough", {"sticky": "nswe", "children": [
+                     ("Ambiens.pbar", {"side": "left", "sticky": "ns"})]})])
+    style.configure("Modern.Horizontal.TProgressbar", thickness=10,
+                    background="#176bba", troughcolor=COLORS["surface_3"],
+                    bordercolor=COLORS["surface_3"], lightcolor="#176bba",
+                    darkcolor="#176bba")
 
 
 class Card(tk.Frame):
@@ -396,15 +426,28 @@ def ask_choices(widget, title: str, message: str, fields: dict,
     ttk.Label(body, text=message, style="Body.TLabel", justify="left",
               wraplength=520).pack(anchor="w", pady=(0, SPACE[3]))
 
+    # Com muitos equipamentos faltando o diálogo passava da altura da tela:
+    # acima de 6 campos a lista rola e só ela cresce.
+    many = len(fields) > 6
+    area = ttk.Frame(body, style="TFrame")
+    area.pack(fill="both", expand=True)
+    holder = scrollable(area) if many else area
+
     variables = {}
     for label, options in fields.items():
-        ttk.Label(body, text=label, style="Body.TLabel").pack(
+        ttk.Label(holder, text=label, style="Body.TLabel").pack(
             anchor="w", pady=(SPACE[2], 0))
         variable = tk.StringVar(value=options[0] if options else "")
-        combo = ttk.Combobox(body, textvariable=variable, values=list(options),
+        combo = ttk.Combobox(holder, textvariable=variable, values=list(options),
                              state="readonly", width=52)
         combo.pack(anchor="w", fill="x")
         variables[label] = variable
+    if many:
+        holder.update_idletasks()
+        holder.master.configure(
+            width=holder.winfo_reqwidth() + SPACE[3],
+            height=min(holder.winfo_reqheight(),
+                       int(parent.winfo_screenheight() * 0.5)))
 
     answer = {}
 
@@ -444,10 +487,10 @@ _BUTTON_VARIANTS = {
     "primary": (COLORS["primary"], COLORS["primary_h"], COLORS["primary_d"],
                 "#ffffff", None),
     "danger": (COLORS["danger"], "#c8433c", "#8f1e18", "#ffffff", None),
-    "ghost": (COLORS["surface"], COLORS["surface_2"], COLORS["line"],
+    "ghost": (COLORS["surface"], COLORS["surface_2"], COLORS["surface_3"],
               COLORS["primary"], COLORS["line"]),
     # Sobre o fundo da janela, não sobre um card.
-    "bar": (COLORS["bg"], COLORS["surface_2"], COLORS["line"],
+    "bar": (COLORS["bg"], COLORS["surface_2"], COLORS["surface_3"],
             COLORS["primary"], COLORS["line"]),
 }
 
@@ -563,6 +606,7 @@ class RoundedButton(tk.Canvas):
         self._state = "normal"
         self._hover = False
         self._pressed = False
+        self._focused = False
         self._tooltip = Tooltip(self, tooltip) if tooltip else None
 
         self.bind("<Configure>", lambda e: self._redraw())
@@ -570,6 +614,12 @@ class RoundedButton(tk.Canvas):
         self.bind("<Leave>", self._on_leave)
         self.bind("<ButtonPress-1>", self._on_press)
         self.bind("<ButtonRelease-1>", self._on_release)
+        # Teclado: Tab chega (takefocus), Enter/Espaço ativam, e o anel de foco
+        # aparece só enquanto o botão tem o foco.
+        self.bind("<FocusIn>", self._on_focus_in)
+        self.bind("<FocusOut>", self._on_focus_out)
+        for sequence in ("<Return>", "<KP_Enter>", "<space>"):
+            self.bind(sequence, self._on_key)
 
     @classmethod
     def _width_for(cls, text: str, icon_name: str = None) -> int:
@@ -630,8 +680,16 @@ class RoundedButton(tk.Canvas):
             return
         fill, fg, outline = self._colors()
         self.delete("all")
-        rounded_rect(self, 1, 1, width - 2, height - 2, self._radius,
-                     fill=fill, outline=outline or fill, width=1)
+        # Anel de foco: 2 px na cor do texto (16:1 sobre o fundo), por fora do
+        # corpo do botão, que encolhe 2 px para dar lugar a ele.
+        inset = 1
+        if self._focused and self._state != "disabled":
+            rounded_rect(self, 1, 1, width - 2, height - 2, self._radius,
+                         fill=widget_background(self.master),
+                         outline=COLORS["text"], width=2)
+            inset = 3
+        rounded_rect(self, inset, inset, width - 1 - inset, height - 1 - inset,
+                     self._radius, fill=fill, outline=outline or fill, width=1)
 
         # O ícone é uma imagem na cor do texto; o par ícone + rótulo fica
         # centralizado como um bloco só. Se não houver texto, o ícone fica centralizado.
@@ -662,9 +720,23 @@ class RoundedButton(tk.Canvas):
         self._hover = self._pressed = False
         self._redraw()
 
+    def _on_focus_in(self, _event):
+        self._focused = True
+        self._redraw()
+
+    def _on_focus_out(self, _event):
+        self._focused = False
+        self._redraw()
+
+    def _on_key(self, _event):
+        if self._state != "disabled" and self._command:
+            self._command()
+        return "break"
+
     def _on_press(self, _event):
         if self._state == "disabled":
             return
+        self.focus_set()
         self._pressed = True
         self._redraw()
 

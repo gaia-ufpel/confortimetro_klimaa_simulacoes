@@ -149,7 +149,7 @@ def summary_rooms_results_from_eso(output_path:str, rooms:list[str], timesteps_p
     futures = []
     with ThreadPoolExecutor(max_workers=len(frames) or 1) as pool:
         futures = [
-            pool.submit(write_frames, os.path.join(output_path, f"{room}.xlsx"), [("Sheet1", df)])
+            pool.submit(write_frames, os.path.join(output_path, f"{room}.xlsx"), [("Série temporal", df)])
             for room, df in frames.items()
         ]
     for future in futures:

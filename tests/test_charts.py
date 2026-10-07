@@ -57,3 +57,19 @@ def test_delta_exige_referencia_valida(duas_execucoes):
 
     with pytest.raises(ValueError):
         charts.delta_vs_baseline(df, baseline='NAO_EXISTE')
+
+
+def test_faixa_do_pmv_e_rotulos_usam_configuracao_e_idf(duas_execucoes):
+    df, runs = duas_execucoes
+    import json, os
+    with open(os.path.join(runs[0][1], 'configs.json'), encoding='utf-8') as f:
+        config = json.load(f)
+    config.update(pmv_lowerbound=-0.8, pmv_upperbound=0.8, _idf_path='/x/PREDIO_A.idf')
+    with open(os.path.join(runs[0][1], 'configs.json'), 'w', encoding='utf-8') as f:
+        json.dump(config, f)
+
+    figure = charts.distribuicao_pmv(runs, ROOM)
+
+    assert any('PREDIO_A' in text.get_text() for text in figure.axes[0].get_legend().get_texts())
+    assert figure.axes[0].patches[0].get_xy()[0, 0] == pytest.approx(-0.8)
+    assert charts._pt('Feb 15 Oct') == 'Fev 15 Out'

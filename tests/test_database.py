@@ -66,3 +66,22 @@ def test_load_comparison_filtra_por_zona(tmp_path):
 
     assert load_comparison(database_path(str(tmp_path)), room=ROOM).shape[0] == 1
     assert load_comparison(database_path(str(tmp_path)), room='OUTRA').empty
+
+
+def test_execucao_interrompida_nao_e_erro(tmp_path):
+    from confortimetro.results.compare import read_run
+    from confortimetro.results.database import is_interrupted
+
+    parada = tmp_path / 'PARADA'
+    parada.mkdir()
+    (parada / 'configs.json').write_text('{"module_type": "COMPLETE", "rooms": ["Z"]}')
+    assert is_interrupted(read_run(str(parada)))
+
+    (parada / 'eplusout.err').write_text('** Fatal  ** algo')
+    assert not is_interrupted(read_run(str(parada)))
+
+    # O marcador gravado ao parar vale mesmo se o err tiver um Fatal (o
+    # EnergyPlus abortado pela parada às vezes escreve um).
+    from confortimetro.results.database import INTERRUPTED_MARKER
+    (parada / INTERRUPTED_MARKER).touch()
+    assert is_interrupted(read_run(str(parada)))

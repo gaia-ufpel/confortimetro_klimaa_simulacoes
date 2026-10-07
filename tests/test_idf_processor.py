@@ -40,3 +40,36 @@ def test_falha_no_people_faz_process_idf_falhar(monkeypatch, tmp_path):
     with pytest.raises(RuntimeError, match="People"):
         IDFProcessor(configs).process_idf()
     assert saved == []  # o modelo pela metade não chega a ser gravado
+
+
+def test_check_input_file_recusa_extensao_e_conteudo(tmp_path):
+    from confortimetro.idf import check_input_file
+    idf = tmp_path / "a.idf"
+    idf.write_text("Version, 9.4;\nZone, SALA;\n")
+    epw = tmp_path / "a.epw"
+    epw.write_text("LOCATION,x\n")
+    lixo = tmp_path / "b.idf"
+    lixo.write_text("LOCATION,x\n")
+    assert check_input_file(str(idf), "idf") is None
+    assert check_input_file(str(epw), "epw") is None
+    assert "extensão" in check_input_file(str(epw), "idf")
+    assert "conteúdo" in check_input_file(str(lixo), "idf")
+    assert "extensão" in check_input_file(str(idf), "epw")
+
+
+def test_periodo_da_configuracao_vai_para_o_runperiod(monkeypatch, tmp_path):
+    from confortimetro.idf.processor import describe_changes
+    run_period = SimpleNamespace()
+    timestep = SimpleNamespace()
+    idf = SimpleNamespace(idfobjects={"RunPeriod": [run_period], "Timestep": [timestep]})
+    monkeypatch.setattr(IDFProcessor, "_setup_eppy", lambda self: None)
+    configs = SimpleNamespace(
+        run_period_start="2015-01-01", run_period_end="2015-01-31",
+        timesteps_per_hour=4, met=1.2, met_as_watts=125.0, wme=0.0, clo_min=0.5,
+        temp_ac_max=30.0, temp_ac_min=18.0, module_type=ModuleType.COMPLETE)
+    IDFProcessor(configs)._apply_run_period(idf)
+    assert (run_period.End_Month, run_period.End_Day_of_Month) == (1, 31)
+    assert (run_period.Begin_Month, run_period.Begin_Year) == (1, 2015)
+    assert timestep.Number_of_Timesteps_per_Hour == 4
+    texto = "\n".join(describe_changes(configs))
+    assert "01/01/2015 a 31/01/2015" in texto and "Output:Variable" in texto

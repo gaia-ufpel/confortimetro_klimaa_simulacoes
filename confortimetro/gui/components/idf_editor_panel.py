@@ -6,9 +6,11 @@ import tkinter as tk
 from tkinter import ttk
 from datetime import datetime, timedelta
 
-from ..theme import COLORS, SPACE, RoundedButton, icon, scrollable, toast
+from types import SimpleNamespace
+
+from ..theme import COLORS, SPACE, RoundedButton, Tooltip, icon, scrollable, toast
 from confortimetro.idf import (
-    PEOPLE_METHODS, PEOPLE_METHOD_FIELD, read_people, read_run_period,
+    describe_changes, PEOPLE_METHODS, PEOPLE_METHOD_FIELD, read_people, read_run_period,
     read_timesteps_per_hour,
 )
 from confortimetro.idf.processor import PEOPLE_FIELDS
@@ -34,6 +36,12 @@ class IDFEditorPanel(ttk.Frame):
         self._people_widgets = []
         self._loaded = {}
         self._build_ui()
+        # A SimulationConfigPanel dona do notebook leva o período e o passo
+        # junto com a configuração, para valerem na simulação sem gravar IDF.
+        register = getattr(notebook.master, "register_extra", None)
+        if register:
+            register(self.config_fields, self.apply_config)
+        notebook.bind("<<NotebookTabChanged>>", self._refresh_changes, add="+")
 
     def _build_ui(self):
         self.period_tab = self._tab("Período", "timestep")
@@ -51,7 +59,9 @@ class IDFEditorPanel(ttk.Frame):
         self.timestep_entry = self._field(self.period_tab, 1, 2,
                                             "Passos por hora")
         ttk.Label(self.period_tab,
-                  text="O período e o timestep serão usados também no pós-processamento.",
+                  text=("As datas e os passos informados valem para a próxima "
+                        "simulação (a cópia da execução); o IDF original só "
+                        "muda ao salvar como novo."),
                   style="Caption.TLabel").grid(
                       row=3, column=0, columnspan=4, padx=SPACE[1],
                       pady=(SPACE[1], 0), sticky="w")
@@ -60,6 +70,14 @@ class IDFEditorPanel(ttk.Frame):
                           command=self.on_save).grid(
                               row=4, column=0, padx=SPACE[1], pady=(SPACE[3], 0),
                               sticky="w")
+        changes = ttk.Labelframe(self.period_tab, style="Section.TLabelframe",
+                                 text="O que o Ambiens altera no IDF da execução",
+                                 padding=SPACE[2])
+        changes.grid(row=5, column=0, columnspan=4, padx=SPACE[1],
+                     pady=(SPACE[3], 0), sticky="ew")
+        self.changes_label = ttk.Label(changes, text="", style="Caption.TLabel",
+                                       justify="left", wraplength=600)
+        self.changes_label.pack(anchor="w")
 
         # A ocupação tem uma linha por objeto People: o número deles só é
         # conhecido no `load`, então a aba é remontada a cada IDF.
@@ -88,14 +106,83 @@ class IDFEditorPanel(ttk.Frame):
         self.notebook.add(frame, text=f" {title}", image=image,
                           compound="left")
 
-    def _field(self, parent, row: int, column: int, label: str) -> ttk.Entry:
-        ttk.Label(parent, text=label, style="Label.TLabel").grid(
-            row=row, column=column, padx=SPACE[1], pady=(0, SPACE[1]),
-            sticky="w")
+    def _field(self, parent, row: int, column: int, label: str,
+               help: str = "") -> ttk.Entry:
+        caption = ttk.Label(parent, text=label, style="Label.TLabel")
+        caption.grid(row=row, column=column, padx=SPACE[1], pady=(0, SPACE[1]),
+                     sticky="w")
         entry = ttk.Entry(parent, style="Field.TEntry")
         entry.grid(row=row + 1, column=column, padx=SPACE[1],
                    pady=(0, SPACE[2]), sticky="ew")
+        if help:
+            Tooltip(caption, help)
+            Tooltip(entry, help)
         return entry
+
+    # ------------------------------------------- período na configuração
+
+    def config_fields(self) -> dict:
+        """Período e passo a aplicar ao IDF da execução (`SimulationConfig`).
+
+        Só o que difere do IDF carregado; `None` mantém o do arquivo. Data ou
+        passo inválido levanta `ValueError` (e bloqueia a execução).
+        """
+        fields = {"run_period_start": None, "run_period_end": None,
+                  "timesteps_per_hour": None}
+        if not self._loaded:
+            return fields
+        dates = {}
+        for key, entry, label in (("start", self.start_entry, "Início"),
+                                  ("end", self.end_entry, "Fim")):
+            text = entry.get().strip() or self._loaded[key]
+            try:
+                dates[key] = datetime.strptime(text, "%d/%m/%Y")
+            except ValueError:
+                raise ValueError(f"Período, {label}: “{text}” não é uma data "
+                                 "dd/mm/aaaa.") from None
+        if dates["end"] < dates["start"]:
+            raise ValueError("Período: o fim vem antes do início.")
+        if (dates["start"].strftime("%d/%m/%Y") != self._loaded["start"]
+                or dates["end"].strftime("%d/%m/%Y") != self._loaded["end"]):
+            fields["run_period_start"] = dates["start"].strftime("%Y-%m-%d")
+            fields["run_period_end"] = dates["end"].strftime("%Y-%m-%d")
+        text = self.timestep_entry.get().strip()
+        if text and text != self._loaded["timestep"]:
+            try:
+                steps = int(float(text.replace(",", ".")))
+            except ValueError:
+                raise ValueError(f"Passos por hora: “{text}” não é um "
+                                 "número.") from None
+            if not 1 <= steps <= 60:
+                raise ValueError("Passos por hora deve ficar entre 1 e 60.")
+            fields["timesteps_per_hour"] = steps
+        return fields
+
+    def apply_config(self, config: dict):
+        """Restaura na tela o período e o passo salvos na configuração."""
+        for key, entry in (("run_period_start", self.start_entry),
+                           ("run_period_end", self.end_entry)):
+            try:
+                text = datetime.strptime(config[key], "%Y-%m-%d").strftime("%d/%m/%Y")
+            except (KeyError, TypeError, ValueError):
+                continue
+            entry.delete(0, tk.END)
+            entry.insert(0, text)
+        if config.get("timesteps_per_hour"):
+            self.timestep_entry.delete(0, tk.END)
+            self.timestep_entry.insert(0, str(config["timesteps_per_hour"]))
+
+    def _refresh_changes(self, _event=None):
+        """Resumo do que o processador grava no IDF, com a configuração atual."""
+        host = getattr(self.notebook, "master", None)
+        try:
+            config = host.get_configuration()
+            config["met_as_watts"] = config["met"] * 58.1 * 1.8
+            lines = describe_changes(SimpleNamespace(**config))
+        except Exception:     # configuração incompleta: o erro aparece ao executar
+            lines = ["Corrija os campos em vermelho nas abas de configuração "
+                     "para ver o resumo."]
+        self.changes_label.configure(text="\n".join(f"• {line}" for line in lines))
 
     # ------------------------------------------------------------- leitura
 
@@ -121,6 +208,7 @@ class IDFEditorPanel(ttk.Frame):
 
         self._people = read_people(idf_path)
         self._build_people_rows()
+        self._refresh_changes()
 
     def _build_people_rows(self):
         for widget in self.people_tab.winfo_children():
@@ -143,7 +231,9 @@ class IDFEditorPanel(ttk.Frame):
                           pady=(SPACE[2], SPACE[1]), sticky="w")
 
             schedule = self._field(self.people_tab, row + 1, 0,
-                                   "Schedule de ocupação")
+                                   "Schedule de ocupação",
+                                   help="Nome do schedule que dá a fração de "
+                                        "ocupação ao longo do tempo.")
             schedule.insert(0, person["schedule"])
 
             method = tk.StringVar(value=person["method"] or PEOPLE_METHODS[0])
@@ -156,8 +246,12 @@ class IDFEditorPanel(ttk.Frame):
                                  values=list(PEOPLE_METHODS))
             combo.grid(row=row + 2, column=1, padx=SPACE[1],
                        pady=(0, SPACE[2]), sticky="ew")
+            Tooltip(combo, "Como o EnergyPlus calcula o número de ocupantes "
+                           "da zona.")
 
-            value = self._field(self.people_tab, row + 1, 2, "Valor do método")
+            value = self._field(self.people_tab, row + 1, 2, "Valor do método",
+                                help="Número do método escolhido: pessoas, "
+                                     "pessoas por m² ou m² por pessoa.")
             value.insert(0, self._method_value(person))
 
             self._people_widgets.append({

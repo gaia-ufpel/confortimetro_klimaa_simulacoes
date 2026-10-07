@@ -10,15 +10,20 @@ execução) e desenham na hora. Os de *série* releem as planilhas por zona via
 """
 
 import os
+import re
 
+import matplotlib.dates as mdates
 import numpy
 from matplotlib.figure import Figure
+from matplotlib.ticker import PercentFormatter
 
+from .compare import PERCENTAGE_COLUMNS, read_config
+from . import series
 from .series import load_zone_series
 
-# Verdes do design system, mais os neutros de apoio; ciclo pensado para
-# distinguir de quatro a seis execuções sem virar arco-íris.
-PALETTE = ['#3a5a40', '#a06b00', '#588157', '#b3261e', '#406346', '#7a6f9b']
+# Paleta Okabe-Ito (segura para daltonismo): azul, laranja, verde, vermelhão,
+# rosa e azul-claro. Azul/laranja também servem de "melhor/pior" nas diferenças.
+PALETTE = ['#0072B2', '#E69F00', '#009E73', '#D55E00', '#CC79A7', '#56B4E9']
 GRID_COLOR = '#d5d8cf'
 TEXT_COLOR = '#344e41'
 # Mesmo fundo dos cards da interface (COLORS["surface"] em gui/theme.py): a
@@ -51,8 +56,44 @@ def _style(axes, xlabel='', ylabel=''):
     return axes
 
 
+def _with_idf(labels, idfs):
+    """Acrescenta o nome do IDF de origem ao número/nome curto da execução."""
+    result = []
+    for label, idf in zip(labels, idfs):
+        stem = os.path.splitext(os.path.basename(str(idf)))[0] if idf and str(idf) != 'nan' else ''
+        result.append(f"{label} · {stem}" if stem else label)
+    return result
+
+
 def _labels(df):
-    return trim_common_prefix(list(df['Execução']))
+    labels = trim_common_prefix(list(df['Execução']))
+    return _with_idf(labels, df['idf'] if 'idf' in df.columns else [None] * len(labels))
+
+
+def _run_labels(runs):
+    """Rótulos das execuções `(nome, caminho)` das séries: nome curto + IDF."""
+    labels = trim_common_prefix([r[0] for r in runs])
+    return _with_idf(labels, [os.path.basename(read_config(r[1]).get('_idf_path') or '')
+                              for r in runs])
+
+
+_MESES = {'Jan': 'Jan', 'Feb': 'Fev', 'Mar': 'Mar', 'Apr': 'Abr', 'May': 'Mai',
+          'Jun': 'Jun', 'Jul': 'Jul', 'Aug': 'Ago', 'Sep': 'Set', 'Oct': 'Out',
+          'Nov': 'Nov', 'Dec': 'Dez'}
+
+
+def _pt(text):
+    return re.sub(r'\b(%s)\b' % '|'.join(_MESES), lambda m: _MESES[m.group(1)], text)
+
+
+class DateFormatterPT(mdates.ConciseDateFormatter):
+    """ConciseDateFormatter com os meses em português (o `%b` segue o idioma do C)."""
+
+    def format_ticks(self, values):
+        return [_pt(label) for label in super().format_ticks(values)]
+
+    def get_offset(self):
+        return _pt(super().get_offset())
 
 
 def trim_common_prefix(labels):
@@ -70,7 +111,7 @@ def trim_common_prefix(labels):
     return [label[len(prefix):] for label in labels]
 
 
-def _short(label, limit=22):
+def _short(label, limit=30):
     return label if len(label) <= limit else label[:limit - 1] + '…'
 
 
@@ -78,11 +119,12 @@ def _short(label, limit=22):
 
 def energia_vs_desconforto(df, comfort_metric=None):
     """Dispersão energia × desconforto: a fronteira de Pareto entre estratégias."""
-    figure = _figure('Energia anual × desconforto')
+    figure = _figure('Energia × desconforto')
     if comfort_metric is None:
         comfort_metric = 'Desconforto (%)' if 'Desconforto (%)' in df.columns else 'Desconforto'
-    axes = _style(figure.add_subplot(111), 'Energia total (kWh/ano)',
-                  f'{comfort_metric} (fração do tempo ocupado)')
+    axes = _style(figure.add_subplot(111), 'Energia total no período (kWh)',
+                  'Desconforto (% do tempo ocupado)')
+    axes.yaxis.set_major_formatter(PercentFormatter(1.0))
 
     for index, (label, (_, row)) in enumerate(zip(_labels(df), df.iterrows())):
         color = PALETTE[index % len(PALETTE)]
@@ -96,14 +138,14 @@ def energia_vs_desconforto(df, comfort_metric=None):
     # Canto inferior esquerdo é o melhor dos dois mundos; dizer isso poupa a
     # legenda mental de quem lê o gráfico pela primeira vez.
     axes.text(0.01, 1.02, '↙ menos energia e menos desconforto', fontsize=9,
-              color='#588157', transform=axes.transAxes)
+              color=PALETTE[2], transform=axes.transAxes)
     return figure
 
 
 def energia_por_execucao(df):
     """Barras empilhadas de aquecimento, resfriamento e ventilador de teto."""
-    figure = _figure('Consumo anual por execução')
-    axes = _style(figure.add_subplot(111), '', 'Energia (kWh/ano)')
+    figure = _figure('Consumo no período por execução')
+    axes = _style(figure.add_subplot(111), '', 'Energia no período (kWh)')
 
     labels = [_short(label) for label in _labels(df)]  # prefixo comum já removido
     positions = numpy.arange(len(labels))
@@ -141,8 +183,9 @@ ACTUATION_COLUMNS = [
 
 def acionamentos(df):
     """Barras agrupadas com a fração do tempo ocupado de cada acionamento."""
-    figure = _figure('Acionamentos (fração do tempo ocupado)')
-    axes = _style(figure.add_subplot(111), '', 'Fração do tempo ocupado')
+    figure = _figure('Acionamentos (% do tempo ocupado)')
+    axes = _style(figure.add_subplot(111), '', '% do tempo ocupado')
+    axes.yaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
 
     # Prioriza as colunas com (%) se presentes, senão legadas sem duplicar
     desired_order = [
@@ -208,14 +251,16 @@ def delta_vs_baseline(df, baseline=None, metrics=None):
         _style(axes, '', f'Δ {metric}')
         deltas = others[metric].to_numpy() - reference[metric]
         positions = numpy.arange(len(deltas))
-        # Vermelho para pior (subiu) e verde para melhor (caiu): nas duas
-        # métricas menos é melhor.
-        colors = [PALETTE[3] if delta > 0 else PALETTE[0] for delta in deltas]
+        # Laranja para pior (subiu) e azul para melhor (caiu): nas duas
+        # métricas menos é melhor (par seguro para daltonismo).
+        colors = [PALETTE[1] if delta > 0 else PALETTE[0] for delta in deltas]
+        if metric in PERCENTAGE_COLUMNS:
+            axes.xaxis.set_major_formatter(PercentFormatter(1.0))
         axes.barh(positions, deltas, 0.6, color=colors)
         axes.axvline(0, color=TEXT_COLOR, linewidth=1)
         axes.set_yticks(positions)
         axes.set_yticklabels(
-            [_short(label, 18) for label in trim_common_prefix(list(others['Execução']))],
+            [_short(label, 26) for label in _labels(others)],
             fontsize=9)
 
     return figure
@@ -228,16 +273,20 @@ def _occupied(run_path, room):
     return series[series['ocupacao'] > 0]
 
 
-def distribuicao_pmv(runs, room, bounds=(-0.5, 0.5)):
-    """Distribuição do PMV nas horas ocupadas, uma curva por execução."""
+def distribuicao_pmv(runs, room, bounds=None):
+    """Distribuição do PMV nas horas ocupadas, uma curva por execução.
+
+    A faixa sombreada vem da configuração da primeira execução (±0,5 se ausente).
+    """
+    bounds = bounds or series.pmv_bounds(runs[0][1])
     figure = _figure(f'Distribuição do PMV ocupado — {room}')
     axes = _style(figure.add_subplot(111), 'PMV', 'Fração das horas ocupadas')
 
-    axes.axvspan(bounds[0], bounds[1], color='#588157', alpha=0.12,
+    axes.axvspan(bounds[0], bounds[1], color=PALETTE[2], alpha=0.12,
                  label=f'faixa {bounds[0]} a {bounds[1]}')
 
     edges = numpy.linspace(-3, 3, 61)
-    for index, (label, run_path) in enumerate(zip(trim_common_prefix([r[0] for r in runs]),
+    for index, (label, run_path) in enumerate(zip(_run_labels(runs),
                                                   [r[1] for r in runs])):
         pmv = _occupied(run_path, room)['pmv'].dropna()
         weights = numpy.ones(len(pmv)) / max(len(pmv), 1)
@@ -254,7 +303,7 @@ def adaptativo(runs, room, sample=2000):
     axes = _style(figure.add_subplot(111), 'Temperatura externa (°C)',
                   'Temperatura operativa (°C)')
 
-    for index, (label, run_path) in enumerate(zip(trim_common_prefix([r[0] for r in runs]),
+    for index, (label, run_path) in enumerate(zip(_run_labels(runs),
                                                   [r[1] for r in runs])):
         occupied = _occupied(run_path, room)
         # Dezenas de milhares de pontos viram uma mancha sólida e travam o
@@ -305,7 +354,7 @@ def carpete(runs, room, variable='temp_operativa'):
     low = min(float(numpy.nanmin(grid.to_numpy())) for grid in grids)
     high = max(float(numpy.nanmax(grid.to_numpy())) for grid in grids)
 
-    for axes, (label, _), grid in zip(axes_list, runs, grids):
+    for axes, label, grid in zip(axes_list, _run_labels(runs), grids):
         image = axes.imshow(grid.to_numpy(), aspect='auto', origin='lower',
                             cmap='RdYlGn_r' if variable != 'co2' else 'YlOrBr',
                             vmin=low, vmax=high,
@@ -313,6 +362,8 @@ def carpete(runs, room, variable='temp_operativa'):
         axes.set_title(_short(label, 40), color=TEXT_COLOR, fontsize=10, loc='left')
         axes.set_ylabel('Hora', color=TEXT_COLOR, fontsize=9)
         axes.set_yticks([0, 6, 12, 18, 24])
+        axes.set_xticks([1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335])
+        axes.set_xticklabels(list(_MESES.values()))
         axes.tick_params(colors=TEXT_COLOR, labelsize=8)
         figure.colorbar(image, ax=axes, pad=0.01)
 
@@ -329,9 +380,9 @@ def periodo(runs, room, start='2015-01-15', days=7):
     begin = numpy.datetime64(start)
     end = begin + numpy.timedelta64(days, 'D')
 
-    for axes, (label, run_path) in zip(axes_list, runs):
-        series = load_zone_series(run_path, room)
-        window = series[(series['data'] >= begin) & (series['data'] < end)]
+    for axes, label, (_, run_path) in zip(axes_list, _run_labels(runs), runs):
+        zone = load_zone_series(run_path, room)
+        window = zone[(zone['data'] >= begin) & (zone['data'] < end)]
         _style(axes, '', '°C')
 
         axes.plot(window['data'], window['temp_externa'], color=PALETTE[1],
@@ -339,12 +390,12 @@ def periodo(runs, room, start='2015-01-15', days=7):
         axes.plot(window['data'], window['temp_operativa'], color=PALETTE[0],
                   linewidth=1.8, label='Operativa')
         axes.fill_between(window['data'], window['adap_min'], window['adap_max'],
-                          color='#588157', alpha=0.15, label='Banda adaptativa')
+                          color=PALETTE[2], alpha=0.15, label='Banda adaptativa')
 
         # Faixas de estado no rodapé: o que o controlador fez em cada instante.
         bottom = axes.get_ylim()[0]
         for offset, (state, color) in enumerate(
-                (('janela', '#588157'), ('ventilador', '#a06b00'), ('ac', '#b3261e'))):
+                (('janela', PALETTE[2]), ('ventilador', PALETTE[1]), ('ac', PALETTE[3]))):
             if state not in window:
                 continue
             axes.fill_between(window['data'], bottom + offset * 0.4,
@@ -356,9 +407,8 @@ def periodo(runs, room, start='2015-01-15', days=7):
         axes.set_title(_short(label, 40), color=TEXT_COLOR, fontsize=10, loc='left')
         axes.legend(frameon=False, labelcolor=TEXT_COLOR, fontsize=8, ncol=6)
 
-    for label in axes_list[-1].get_xticklabels():
-        label.set_rotation(20)
-        label.set_horizontalalignment('right')
+    axes_list[-1].xaxis.set_major_formatter(
+        DateFormatterPT(axes_list[-1].xaxis.get_major_locator()))
     return figure
 
 

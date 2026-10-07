@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import os
+import re
 import platform
 from queue import Queue
 from importlib import import_module
@@ -11,6 +12,7 @@ from time import perf_counter
 from confortimetro.control import MODULES_MAPPER
 from confortimetro.versao import code_version
 from confortimetro.control.base import request_stop
+from confortimetro.results.database import INTERRUPTED_MARKER
 from confortimetro.results import (
     summary_rooms_results_from_eso,
     get_stats_from_simulation,
@@ -115,6 +117,10 @@ class Simulation:
             raise
         finally:
             self._record_time("Total", perf_counter() - started)
+            # Marca a parada pelo usuário: sem isso a lista só deduz
+            # "interrompida" pela falta de planilhas.
+            if self.stop_requested and os.path.isdir(self.configs.output_path or ""):
+                open(os.path.join(self.configs.output_path, INTERRUPTED_MARKER), "w").close()
 
     def _record_time(self, stage, seconds):
         message = f"Tempo {stage}: {seconds:.2f} s"
@@ -288,6 +294,19 @@ class Simulation:
             raise RuntimeError(f"EnergyPlus não concluiu: {status}. Veja {err_path}")
 
         self.logger.info(status)
+        self._report_warnings(err_path)
+
+    def _report_warnings(self, err_path):
+        """Contagem de warnings e severe errors da última linha do eplusout.err."""
+        try:
+            with open(err_path, "r", errors="replace") as err_file:
+                last = [line for line in err_file.read().splitlines() if line.strip()][-1]
+            found = re.search(r"(\d+)\s+Warning.*?(\d+)\s+Severe", last)
+        except (OSError, IndexError):
+            return
+        if found and self._queue is not None:
+            self._queue.put(f"EnergyPlus: {found.group(1)} warnings e "
+                            f"{found.group(2)} severe errors (veja eplusout.err na pasta da execução).")
 
     def _say(self, q: Queue, message: str):
         """Mesma mensagem para a GUI (fila) e para quem roda pela CLI (stdout)."""

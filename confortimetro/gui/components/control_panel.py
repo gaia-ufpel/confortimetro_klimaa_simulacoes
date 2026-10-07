@@ -2,6 +2,7 @@
 Control panel component.
 """
 
+import time
 from tkinter import ttk
 from typing import Protocol, Optional
 
@@ -73,6 +74,9 @@ class ControlPanel(ttk.Frame):
         self.progress_bar = ttk.Progressbar(
             self, mode="indeterminate",
             style="Modern.Horizontal.TProgressbar")
+        # Porcentagem e tempo restante estimado, junto da barra.
+        self.progress_label = ttk.Label(self, text="", style="Caption.TLabel")
+        self._progress_start = None
 
     def _on_run_clicked(self):
         """Handle run button click."""
@@ -117,6 +121,9 @@ class ControlPanel(ttk.Frame):
             # percentual, só o EnergyPlus reporta.
             self.progress_bar.configure(mode="indeterminate", value=0)
             self.progress_bar.pack(fill="x", pady=(SPACE[3], 0))
+            self.progress_label.configure(text="Preparando a simulação…")
+            self.progress_label.pack(anchor="w", pady=(SPACE[1], 0))
+            self._progress_start = None
             self.progress_bar.start(10)
             self.set_status("Executando simulação...", "running")
         else:
@@ -127,6 +134,7 @@ class ControlPanel(ttk.Frame):
             self.edit_idf_button.configure(state="normal")
             self.progress_bar.stop()
             self.progress_bar.pack_forget()
+            self.progress_label.pack_forget()
             self.set_status("Pronto para executar", "info")
 
     def set_progress(self, percent: float):
@@ -135,7 +143,24 @@ class ControlPanel(ttk.Frame):
         if str(self.progress_bar.cget("mode")) != "determinate":
             self.progress_bar.stop()
             self.progress_bar.configure(mode="determinate", maximum=100)
-        self.progress_bar.configure(value=max(0, min(100, percent)))
+        percent = max(0, min(100, percent))
+        self.progress_bar.configure(value=percent)
+        self.progress_label.configure(text=self._progress_text(percent))
+
+    def _progress_text(self, percent: float) -> str:
+        """`37 % concluído · restam ~12 min`, estimado pelo ritmo até agora."""
+        now = time.monotonic()
+        if self._progress_start is None:
+            self._progress_start = (now, percent)
+        start_time, start_percent = self._progress_start
+        text = f"{percent:.0f} % concluído"
+        if percent > start_percent and now - start_time >= 5:
+            seconds = (now - start_time) * (100 - percent) / (percent - start_percent)
+            if seconds >= 3600:
+                text += f" · restam ~{seconds / 3600:.1f} h"
+            else:
+                text += f" · restam ~{max(1, round(seconds / 60))} min"
+        return text
 
     def set_status(self, status: str, status_type: str = "info"):
         """

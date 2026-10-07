@@ -9,22 +9,47 @@ import multiprocessing
 import os
 import sys
 
-from confortimetro.gui.main_window import MainWindow
 from confortimetro.paths import app_data_path
+
+
+# Importado em main(), depois do aviso de abertura (os imports pesados levam
+# dezenas de segundos); fica aqui para os testes poderem substituí-lo.
+MainWindow = None
+
+
+def _splash():
+    """Janelinha 'Abrindo…' enquanto os imports pesados rodam; None sem display."""
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        return None
+    root.title("Ambiens")
+    root.overrideredirect(True)
+    tk.Label(root, text="Abrindo o Ambiens…\nPode levar alguns instantes.",
+             padx=40, pady=24, font=("TkDefaultFont", 12)).pack()
+    root.update_idletasks()
+    x = (root.winfo_screenwidth() - root.winfo_reqwidth()) // 2
+    y = (root.winfo_screenheight() - root.winfo_reqheight()) // 3
+    root.geometry(f"+{x}+{y}")
+    root.update()
+    return root
 
 
 def resolve_config_path() -> str:
     """
     Caminho do config.json a ser usado pela interface.
 
-    Rodando do repositório: `examples/config.json`, como sempre.
+    Rodando do repositório: `config.json` na pasta de dados do app (semeado
+    de `examples/config.json` pela janela).
     Rodando pelo executável (PyInstaller): uma cópia gravável em
     `%LOCALAPPDATA%\\Ambiens`, semeada na primeira execução com o
     config.json embutido no pacote (o diretório do executável pode ser
     somente leitura para o usuário).
     """
     if not getattr(sys, "frozen", False):
-        return os.path.join("examples", "config.json")
+        # Em dados do app, nunca em examples/; a janela semeia do exemplo.
+        return os.path.join(app_data_path(), "config.json")
 
     user_config = os.path.join(app_data_path(), "config.json")
     if not os.path.exists(user_config):
@@ -62,7 +87,13 @@ def main():
     # nenhuma estatística regerada. Tem que ser a primeira coisa do main().
     multiprocessing.freeze_support()
 
+    global MainWindow
+    splash = _splash() if MainWindow is None else None
     try:
+        if MainWindow is None:
+            from confortimetro.gui.main_window import MainWindow
+        if splash is not None:
+            splash.destroy()
         app = MainWindow(config_path=resolve_config_path())
         app.mainloop()
 

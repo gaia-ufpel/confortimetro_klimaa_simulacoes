@@ -21,16 +21,17 @@ from matplotlib.backends.backend_tkagg import (
 )
 from matplotlib.figure import Figure
 
-from confortimetro.results.charts import BACKGROUND, GRID_COLOR, PALETTE, TEXT_COLOR
+from confortimetro.results.charts import (
+    BACKGROUND, GRID_COLOR, PALETTE, TEXT_COLOR, DateFormatterPT)
 from confortimetro.results.series import load_zone_series, window_series
 
 from ..theme import COLORS, SPACE, RoundedButton
 
 JOULES_PER_KWH = 3.6e6
-COMFORT_COLOR = '#588157'
-DISCOMFORT_COLOR = '#b3261e'
-STATES = (('janela', 'Janela', '#588157'), ('ventilador', 'Ventilador', '#a06b00'),
-          ('ac', 'AC', '#b3261e'), ('doas', 'DOAS', '#7a6f9b'))
+COMFORT_COLOR = PALETTE[0]
+DISCOMFORT_COLOR = PALETTE[3]
+STATES = (('janela', 'Janela', PALETTE[2]), ('ventilador', 'Ventilador', PALETTE[1]),
+          ('ac', 'AC', PALETTE[3]), ('doas', 'DOAS', PALETTE[4]))
 # Espera após o último zoom/arraste antes de redesenhar: a barra dispara um
 # evento por eixo e vários por segundo durante o arraste.
 REDRAW_DELAY_MS = 150
@@ -38,6 +39,12 @@ TABLE_PAGE_SIZE = 250
 
 # Linha de totais da tabela, como a "linha de totais" do Excel: rótulo do
 # seletor -> agregação do pandas (None esconde a linha).
+# Colunas em que somar faz sentido (contagem de timesteps e energia); nas
+# demais (temperaturas, PMV, CO₂...) a "Soma" vira média.
+ADDITIVE_ROWS = {'em_conforto', 'janela', 'ventilador', 'ac', 'doas',
+                 'aquecimento', 'resfriamento', 'energia_ac', 'energia_ventilador',
+                 'energia_outros', 'energia_iluminacao', 'energia_total'}
+
 TOTAL_AGGREGATIONS = (
     ('Oculto', None),
     ('Soma', 'sum'),
@@ -259,14 +266,15 @@ class TimeSeriesPanel(ttk.Frame):
             if column is None or not pandas.api.types.is_numeric_dtype(column):
                 values.append('—')
                 continue
-            result = getattr(column, agg)()
+            summed = agg == 'sum' and name in ADDITIVE_ROWS
+            result = getattr(column, 'sum' if summed else 'mean' if agg == 'sum' else agg)()
             if pandas.isna(result):
                 values.append('—')
             elif name in ('em_conforto', 'janela', 'ventilador', 'ac', 'doas'):
-                values.append(f"{result:,.0f} timestep(s)" if agg == 'sum'
+                values.append(f"{result:,.0f} timestep(s)" if summed
                               else f"{result:.1%}" if agg == 'mean' else fmt(result))
             else:
-                values.append(fmt(result))
+                values.append(f"méd. {fmt(result)}" if agg == 'sum' and not summed else fmt(result))
         self.series_totals.insert('', 'end', values=values)
 
     def _show_message(self, text):
@@ -421,7 +429,7 @@ class TimeSeriesPanel(ttk.Frame):
         _style(self.energy_axes, grid=False)
         self.axes[0].set_xlim(start, end)
         self.axes[-1].xaxis.set_major_formatter(
-            mdates.ConciseDateFormatter(self.axes[-1].xaxis.get_major_locator()))
+            DateFormatterPT(self.axes[-1].xaxis.get_major_locator()))
         self._draw_selection_line()
         self.axes[0].callbacks.connect('xlim_changed', self._on_xlim_changed)
         self.canvas.draw_idle()

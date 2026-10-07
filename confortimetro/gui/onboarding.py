@@ -99,7 +99,10 @@ def _steps(app):
          "janelas, ventiladores e ar-condicionado de cada sala, e mostra os "
          "resultados em tabelas e gráficos. Estes passos mostram o essencial; "
          "dá para rever tudo depois em Configurações.", None),
-        ("EnergyPlus", _energyplus_text(app), energyplus_link),
+        # O link de download só aparece quando falta o EnergyPlus certo: ao
+        # lado de "Tudo pronto" ele confundia.
+        ("EnergyPlus", _energyplus_text(app),
+         None if "Tudo pronto" in _energyplus_text(app) else energyplus_link),
         ("Onde ficam as execuções",
          f"Cada simulação vira uma pasta em:\n{app._outputs_root()}\n\n"
          "Uma simulação anual passa de 1 GB. Se o disco do sistema for pequeno, "
@@ -162,7 +165,7 @@ def open_onboarding(app):
         last = index == len(steps) - 1
         back.configure(state="normal" if index else "disabled",
                        command=lambda: show(index - 1))
-        forward.configure(text="Abrir o editor" if last else "Próximo",
+        forward.configure(text="Nova execução" if last else "Próximo",
                           command=finish if last else lambda: show(index + 1))
 
     def finish():

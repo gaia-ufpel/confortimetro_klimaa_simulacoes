@@ -22,6 +22,28 @@ from .compare import CONFIG_FIELDS, needs_recompute, read_run
 
 DATABASE_NAME = 'simulacoes.db'
 
+
+#: Arquivo vazio que a simulação grava na pasta da execução ao ser parada.
+INTERRUPTED_MARKER = "INTERROMPIDA"
+
+
+def is_interrupted(run) -> bool:
+    """A execução foi parada pelo usuário (não falhou) antes de gerar planilhas?
+
+    A simulação grava `INTERRUPTED_MARKER` ao parar. Execuções antigas não
+    têm o marcador: sem planilhas, módulo que gera planilhas e sem erro fatal
+    no eplusout.err, é o que sobra.
+    """
+    if os.path.exists(os.path.join(run.get('path', ''), INTERRUPTED_MARKER)):
+        return True
+    if run.get('status') != 'sem planilhas' or run.get('module_type') == 'ENERGYPLUS_ONLY':
+        return False
+    try:
+        with open(os.path.join(run['path'], 'eplusout.err'), errors='replace') as err:
+            return '** Fatal' not in err.read()
+    except OSError:
+        return True
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS execucoes (
     path        TEXT PRIMARY KEY,

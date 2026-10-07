@@ -12,7 +12,7 @@ from confortimetro.config import SimulationConfig  # noqa: E402
 
 @pytest.fixture
 def window(tmp_path, monkeypatch):
-    monkeypatch.setenv("CONFORTIMETRO_DATA_DIR", str(tmp_path / "dados"))
+    monkeypatch.setenv("AMBIENS_DATA_DIR", str(tmp_path / "dados"))
     from confortimetro.gui.main_window import MainWindow
 
     # Configuração já existente: sem ela a janela cai no `SimulationConfig()`
@@ -647,3 +647,56 @@ def test_apresentacao_percorre_os_passos_e_abre_o_editor(window):
     _settle(window)
     assert not tour.winfo_exists()
     assert window._current_page == "editor"
+
+
+def test_esc_volta_e_parar_pede_confirmacao(window, monkeypatch):
+    window.show_page("editor")
+    window.focus_force()
+    window.update()
+    window.event_generate("<Escape>")
+    window.update()
+    assert window._current_page == "runs"
+
+    class Viva:
+        def is_alive(self):
+            return True
+
+    parou = []
+    window.simulation_thread = Viva()
+    window.simulation = type("S", (), {"stop": lambda self: parou.append(1)})()
+    window._run_started = 0
+    from confortimetro.gui import main_window
+    monkeypatch.setattr(main_window.messagebox, "askyesno", lambda *a, **k: False)
+    window.on_stop_simulation()
+    assert not parou
+    monkeypatch.setattr(main_window.messagebox, "askyesno", lambda *a, **k: True)
+    window.on_stop_simulation()
+    assert parou
+
+
+def test_fechar_com_simulacao_confirma_e_para(window, monkeypatch):
+    class Viva:
+        def is_alive(self):
+            return True
+
+        def join(self, timeout=None):
+            pass
+
+    parou = []
+    window.simulation_thread = Viva()
+    window.simulation = type("S", (), {"stop": lambda self: parou.append(1)})()
+    from confortimetro.gui import main_window
+    monkeypatch.setattr(main_window.messagebox, "askyesno", lambda *a, **k: False)
+    window._on_close()
+    assert not parou and window.winfo_exists()
+    monkeypatch.setattr(main_window.messagebox, "askyesno", lambda *a, **k: True)
+    monkeypatch.setattr(window, "destroy", lambda: parou.append("destroy"))
+    window._on_close()
+    assert parou == [1, "destroy"]
+    window.simulation_thread = None
+
+
+def test_idf_novo_vai_para_dados_do_app(window):
+    alvo = window._new_idf_name("/x/examples/modelo.idf")
+    assert alvo.startswith(os.path.join(str(window.config_path and os.environ["AMBIENS_DATA_DIR"])))
+    assert alvo.endswith("modelo_editado.idf")

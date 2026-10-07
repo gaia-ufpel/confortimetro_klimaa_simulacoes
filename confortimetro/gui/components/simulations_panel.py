@@ -2,6 +2,7 @@
 
 import datetime
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -9,11 +10,13 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, ttk
 
+from confortimetro.config import ADAPTATIVE2PORCENT
 from confortimetro.drive import sync as drive_sync
 from confortimetro.results import database
 from confortimetro.results.compare import export_runs_zip, list_runs, recompute_runs
 
 from ..theme import COLORS, FONTS, SPACE, Card, RoundedButton, toast
+from .simulation_config_panel import MODULE_LABELS
 
 # Colunas da listagem: (id, título, largura).
 _LIST_COLUMNS = [
@@ -39,7 +42,29 @@ _STATUS_TEXT = {
     'desatualizada': 'desatualizada',
     'sem estatísticas': 'sem estatísticas',
     'sem planilhas': 'sem planilhas',
+    'interrompida': 'Interrompida',
 }
+
+# Nome criado sozinho (data e hora): não diz nada, então o IDF o substitui.
+_AUTO_NAME = re.compile(r"^\d{8}_\d{4}(_\d+)?$")
+
+# Módulo em português, igual ao do editor (só o que vem antes do parêntese).
+_MODULE_NAMES = {module.value: label.split(" (")[0]
+                 for module, label in MODULE_LABELS.items()}
+
+
+def _display(run: dict) -> dict:
+    """Nome, IDF de origem e módulo como a listagem os mostra."""
+    config = run.get('config') or {}
+    idf = os.path.basename(config.get('source_idf_path') or '') or run['idf']
+    name = config.get('nome') or config.get('rotulo') or config.get('label')
+    if not name:
+        name = run['run']
+        if _AUTO_NAME.match(name) and idf:
+            name = f"{os.path.splitext(idf)[0]} · {run['modificado']:%d/%m %H:%M}"
+    module = run['module_type']
+    return {'name': name, 'idf': idf or "—",
+            'module': _MODULE_NAMES.get(module, module) or "—"}
 
 
 class SimulationsPanel(ttk.Frame):
@@ -83,6 +108,20 @@ class SimulationsPanel(ttk.Frame):
             command=self._new_run)
         self.btn_new_run.pack(side="right")
 
+        # Barra inferior contextual de Comparação
+        self.compare_bar = ttk.Frame(list_card.body, style="Surface.TFrame")
+        self.compare_bar.pack(side="bottom", fill="x", pady=(SPACE[3], 0))
+        self.compare_info_var = tk.StringVar(
+            value="Selecione 2 ou mais execuções para comparar")
+        ttk.Label(self.compare_bar, textvariable=self.compare_info_var,
+                  style="Caption.TLabel").pack(side="left", padx=(SPACE[1], 0))
+
+        self.compare_btn = RoundedButton(
+            self.compare_bar, text="Comparar selecionadas", variant="primary",
+            icon="compare", command=self._compare)
+        self.compare_btn.pack(side="right")
+        self.compare_btn.configure(state="disabled")
+
         # Container da Treeview com barras de rolagem
         tree_container = ttk.Frame(list_card.body, style="Surface.TFrame")
         tree_container.pack(fill="both", expand=True)
@@ -90,7 +129,7 @@ class SimulationsPanel(ttk.Frame):
         self.tree = ttk.Treeview(
             tree_container, style="Modern.Treeview", selectmode="extended",
             columns=[column for column, _, _ in _LIST_COLUMNS], show="headings",
-            height=10)
+            height=4)
         for column, title, width in _LIST_COLUMNS:
             self.tree.heading(column, text=title,
                               command=lambda c=column: self._sort_by(c))
@@ -106,23 +145,12 @@ class SimulationsPanel(ttk.Frame):
         scroll.pack(side="right", fill="y")
         self.tree.bind("<<TreeviewSelect>>", self._on_select)
         self.tree.bind("<Double-1>", lambda _event: self._open_details())
+        self.tree.bind("<Return>", lambda _event: self._open_details())
+        self.tree.bind("<KP_Enter>", lambda _event: self._open_details())
+        self.tree.bind("<FocusIn>", self._on_tree_focus)
 
         self.tree.tag_configure("incompleta", foreground=COLORS["text_mute"])
         self.tree.tag_configure("executando", foreground=COLORS["primary"])
-
-        # Barra inferior contextual de Comparação
-        self.compare_bar = ttk.Frame(list_card.body, style="Surface.TFrame")
-        self.compare_bar.pack(fill="x", pady=(SPACE[3], 0))
-        self.compare_info_var = tk.StringVar(
-            value="Selecione 2 ou mais execuções para comparar")
-        ttk.Label(self.compare_bar, textvariable=self.compare_info_var,
-                  style="Caption.TLabel").pack(side="left", padx=(SPACE[1], 0))
-
-        self.compare_btn = RoundedButton(
-            self.compare_bar, text="Comparar selecionadas", variant="primary",
-            icon="compare", command=self._compare)
-        self.compare_btn.pack(side="right")
-        self.compare_btn.configure(state="disabled")
 
         # --- Detalhes (Direita) ---
         detail_card = Card(panes, "Detalhes")
@@ -171,29 +199,37 @@ class SimulationsPanel(ttk.Frame):
                                         highlightbackground=COLORS["line"])
         self.kpi_energy_card.pack(side="left", fill="both", expand=True, padx=(0, SPACE[2]))
         tk.Label(self.kpi_energy_card, text="CONSUMO TOTAL", bg=COLORS["surface_2"],
-                 fg=COLORS["text_mute"], font=FONTS["caption"]).pack(anchor="w", padx=SPACE[3], pady=(SPACE[2], 0))
+                 fg=COLORS["text_mute"], font=FONTS["caption"], wraplength=130, justify="left").pack(anchor="w", padx=SPACE[3], pady=(SPACE[2], 0))
         self.kpi_energy_val = tk.Label(
             self.kpi_energy_card, text="—", bg=COLORS["surface_2"],
-            fg=COLORS["text"], font=FONTS["h2"])
+            fg=COLORS["text"], font=FONTS["h2"], wraplength=130, justify="left")
         self.kpi_energy_val.pack(anchor="w", padx=SPACE[3], pady=(0, SPACE[2]))
 
         self.kpi_discomfort_card = tk.Frame(self.kpi_frame, bg=COLORS["surface_2"],
                                             highlightthickness=1,
                                             highlightbackground=COLORS["line"])
         self.kpi_discomfort_card.pack(side="left", fill="both", expand=True)
-        tk.Label(self.kpi_discomfort_card, text="DESCONFORTO TÉRMICO", bg=COLORS["surface_2"],
-                 fg=COLORS["text_mute"], font=FONTS["caption"]).pack(anchor="w", padx=SPACE[3], pady=(SPACE[2], 0))
+        tk.Label(self.kpi_discomfort_card, text="DESCONFORTO", bg=COLORS["surface_2"],
+                 fg=COLORS["text_mute"], font=FONTS["caption"], wraplength=130, justify="left").pack(anchor="w", padx=SPACE[3], pady=(SPACE[2], 0))
         self.kpi_discomfort_val = tk.Label(
             self.kpi_discomfort_card, text="—", bg=COLORS["surface_2"],
-            fg=COLORS["text"], font=FONTS["h2"])
+            fg=COLORS["text"], font=FONTS["h2"], wraplength=130, justify="left")
         self.kpi_discomfort_val.pack(anchor="w", padx=SPACE[3], pady=(0, SPACE[2]))
+
+        # Rodapé do painel de detalhes: Ação secundária para regerar estatísticas
+        self.detail_footer = ttk.Frame(detail_card.body, style="Surface.TFrame")
+        self.detail_footer.pack(side="bottom", fill="x", pady=(SPACE[2], 0))
+        self.btn_recompute = RoundedButton(
+            self.detail_footer, text="Regerar estatísticas", variant="ghost", icon="recompute",
+            command=self.recompute_selected)
+        self.btn_recompute.pack(side="right")
 
         # Texto detalhado com parâmetros e configurações formatados
         detail_text_frame = ttk.Frame(detail_card.body, style="Surface.TFrame")
         detail_text_frame.pack(fill="both", expand=True)
 
         self.detail_text = tk.Text(
-            detail_text_frame, height=12, width=42, wrap="word", state="disabled",
+            detail_text_frame, height=4, width=42, wrap="word", state="disabled",
             font=FONTS["body"], background=COLORS["surface"], foreground=COLORS["text"],
             relief="flat", borderwidth=0, highlightthickness=1,
             highlightbackground=COLORS["line"], padx=SPACE[3], pady=SPACE[3])
@@ -214,14 +250,6 @@ class SimulationsPanel(ttk.Frame):
                                        spacing1=4, spacing3=4)
         self.detail_text.tag_configure("bullet", font=FONTS["body"], foreground=COLORS["text"],
                                        lmargin1=12, lmargin2=24)
-
-        # Rodapé do painel de detalhes: Ação secundária para regerar estatísticas
-        self.detail_footer = ttk.Frame(detail_card.body, style="Surface.TFrame")
-        self.detail_footer.pack(fill="x", pady=(SPACE[2], 0))
-        self.btn_recompute = RoundedButton(
-            self.detail_footer, text="Regerar estatísticas", variant="ghost", icon="recompute",
-            command=self.recompute_selected)
-        self.btn_recompute.pack(side="right")
 
         self._render_detail_empty()
 
@@ -254,24 +282,37 @@ class SimulationsPanel(ttk.Frame):
         drive_state = drive_sync.load_state()
         for run in rows:
             running = run['path'] in self._running
+            if not running and database.is_interrupted(run):
+                run['status'] = 'interrompida'
+            shown = _display(run)
             status = 'em simulação' if running else run['status']
             tags = ("executando",) if running else (
                 () if run['status'] == 'pronta' else ("incompleta",))
             self.tree.insert(
                 "", "end", iid=run['path'],
-                values=(run['run'], run['module_type'] or "—", run['idf'] or "—",
-                        run['epw'] or "—", len(run['rooms_disponiveis']),
+                values=(shown['name'], shown['module'], shown['idf'],
+                        run['epw'] or "—", len(run['rooms_disponiveis']) or "—",
                         _STATUS_TEXT.get(status, status),
                         run['modificado'].strftime("%d/%m/%Y %H:%M"),
                         self._drive_text(run, drive_state)),
                 tags=tags)
 
         ready = sum(1 for run in self._runs if run['status'] == 'pronta')
-        message = (f"{len(self._runs)} execuções, {ready} com estatísticas "
-                   "completas")
+        total = len(rows)
+        message = (f"{total} {'execução' if total == 1 else 'execuções'}, "
+                   f"{ready} com estatísticas completas")
         if ingested:
             message += f". {ingested} ingeridas no banco agora"
         self._set_status(message)
+
+    def _on_tree_focus(self, _event=None):
+        """Com o foco na lista, as setas já têm de onde partir."""
+        if not self.tree.focus():
+            first = self.tree.get_children()
+            if first:
+                self.tree.focus(first[0])
+                if not self.tree.selection():
+                    self.tree.selection_set(first[0])
 
     @staticmethod
     def _drive_text(run: dict, state: dict) -> str:
@@ -350,7 +391,7 @@ class SimulationsPanel(ttk.Frame):
         elif selected_count == 1:
             self.compare_btn.configure(state="disabled")
             if is_running_selected:
-                self.compare_info_var.set("Simulação em andamento — clique em Ver detalhes para acompanhar")
+                self.compare_info_var.set("Simulação em andamento — clique em Ver em andamento para acompanhar")
             else:
                 self.compare_info_var.set("Selecione mais uma execução (Ctrl+Clique) para comparar")
         else:
@@ -382,7 +423,7 @@ class SimulationsPanel(ttk.Frame):
             self.detail_text.delete("1.0", "end")
 
             # Cabeçalho da execução
-            self.detail_text.insert("end", f"{run['run']}\n", "title")
+            self.detail_text.insert("end", f"{_display(run)['name']}\n", "title")
 
             # Seção: Informações Gerais
             self.detail_text.insert("end", "INFORMAÇÕES GERAIS\n", "section")
@@ -397,12 +438,12 @@ class SimulationsPanel(ttk.Frame):
 
             # Seção: Arquivos do Modelo
             self.detail_text.insert("end", "\nARQUIVOS E DIRETÓRIOS\n", "section")
-            if run.get('idf'):
-                self._insert_detail_field("Modelo (IDF):", run['idf'])
+            if _display(run)['idf'] != "—":
+                self._insert_detail_field("Modelo (IDF):", _display(run)['idf'])
             if run.get('epw'):
                 self._insert_detail_field("Clima (EPW):", run['epw'])
             if run.get('module_type'):
-                self._insert_detail_field("Módulo:", run['module_type'])
+                self._insert_detail_field("Módulo:", _display(run)['module'])
 
             # Seção: Parâmetros de Simulação
             config = run.get('config', {})
@@ -410,7 +451,7 @@ class SimulationsPanel(ttk.Frame):
                 'pmv_comfort_bound': "Banda de conforto PMV",
                 'pmv_upperbound': "Limite sup. PMV",
                 'pmv_lowerbound': "Limite inf. PMV",
-                'adaptative_bound': "Margem adaptativa (°C)",
+                'adaptative_bound': "Aceitação adaptativa",
                 'met': "Taxa metabólica (met)",
                 'met_as_watts': "Metabólico (W)",
                 'wme': "Trabalho externo (W/m²)",
@@ -430,7 +471,9 @@ class SimulationsPanel(ttk.Frame):
             for key, label in _PARAM_LABELS.items():
                 if key in config:
                     val = config[key]
-                    if isinstance(val, float):
+                    if key == 'adaptative_bound' and val in ADAPTATIVE2PORCENT:
+                        val_str = f"{ADAPTATIVE2PORCENT[val]} de aceitação"
+                    elif isinstance(val, float):
                         val_str = f"{val:.2f}".rstrip("0").rstrip(".")
                     else:
                         val_str = str(val)
@@ -461,8 +504,16 @@ class SimulationsPanel(ttk.Frame):
     @staticmethod
     def _period_text(run: dict) -> str:
         config = run.get("config", {})
-        return (config.get("run_period") or config.get("period")
-                or config.get("start_date") or "consulte o IDF")
+        text = config.get("run_period") or config.get("period") or config.get("start_date")
+        if text:
+            return text
+        try:
+            from confortimetro.idf import read_run_period
+            idf = os.path.join(run.get("path", ""), "modelo.idf")
+            start, end = read_run_period(idf)
+            return f"{start:%d/%m/%Y} a {(end - datetime.timedelta(days=1)):%d/%m/%Y}"
+        except Exception:
+            return "consulte o IDF"
 
     @staticmethod
     def _metric_text(run: dict, column: str, suffix: str = "") -> str:
@@ -627,6 +678,10 @@ class SimulationsPanel(ttk.Frame):
         selected = self._selected_runs()
         if not selected:
             toast(self, "Escolha uma execução na lista.", "warn")
+            return
+        if all(run['status'] == 'interrompida' for run in selected):
+            toast(self, "Execução interrompida: não há resultados para regerar.",
+                  "info")
             return
         runs = [run for run in selected
                 if run['status'] in ('desatualizada', 'sem estatísticas', 'sem planilhas')]

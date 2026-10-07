@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 import tkinter as tk
 from tkinter import messagebox, filedialog
@@ -18,9 +19,9 @@ from confortimetro.assistant import simulacao
 from confortimetro.config import SimulationConfig
 from confortimetro.drive import sync as drive_sync
 from confortimetro.idf import (apply_equipment_fixes, plan_equipment_fixes,
-                                read_zone_names, unwired_equipment,
+                                read_run_period, read_zone_names, unwired_equipment,
                                 write_idf_fields)
-from confortimetro.paths import new_run_path, runs_root
+from confortimetro.paths import app_data_path, new_run_path, runs_root
 from .components import (
     COMPARISON_HEADINGS,
     MACHINE_FIELDS,
@@ -51,6 +52,7 @@ from .theme import (
     apply_theme,
     ask_choices,
     icon,
+    scrollable,
     toast,
 )
 
@@ -58,10 +60,13 @@ from .theme import (
 class MainWindow(tk.Tk):
     """Main application window."""
     
-    def __init__(self, config_path: str = "examples/config.json"):
+    def __init__(self, config_path: str = None):
         super().__init__()
-        
-        self.config_path = config_path
+
+        # A configuração do usuário mora na pasta de dados do app; o
+        # `examples/config.json` só semeia a primeira abertura.
+        self.config_path = config_path or os.path.join(app_data_path(), "config.json")
+        self._run_started = 0.0
         self.configs: Optional[SimulationConfig] = None
         self.simulation_thread: Optional[threading.Thread] = None
         # A simulação em andamento, para poder pedir o cancelamento a ela.
@@ -78,6 +83,10 @@ class MainWindow(tk.Tk):
         self._setup_window()
         apply_theme(self)
         self._build_ui()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.bind("<Escape>", lambda _e: self.show_page("runs"))
+        for sequence in ("<F5>", "<Control-Return>"):
+            self.bind(sequence, self._on_run_shortcut)
         self._load_configuration()
         # Backfill, pendentes e pull do Drive, depois que a janela aparece.
         self.after(1500, self.drive_sync)
@@ -91,8 +100,11 @@ class MainWindow(tk.Tk):
     def _setup_window(self):
         """Setup the main window properties."""
         self.title("Ambiens — Simulações EnergyPlus")
-        self.geometry("1200x900")
-        self.minsize(800, 600)
+        # Relativo à tela: 1200x900 fixo passava do alto de um notebook 768p.
+        width = min(1200, int(self.winfo_screenwidth() * 0.9))
+        height = min(900, int(self.winfo_screenheight() * 0.9))
+        self.geometry(f"{width}x{height}")
+        self.minsize(min(800, width), min(600, height))
         self.configure(background=COLORS["bg"])
         self._set_icon()
         self.center_window()
@@ -253,23 +265,31 @@ class MainWindow(tk.Tk):
         row = ttk.Frame(actions.body, style="Surface.TFrame")
         row.pack(fill="x")
         RoundedButton(row, text="Duplicar para nova execução", variant="primary", icon="duplicate",
+                      tooltip="Abre a configuração desta execução na tela de execução",
                       command=lambda: self.on_duplicate_run(self._detail_run)).pack(
                           side="left")
         RoundedButton(row, text="Abrir pasta", variant="ghost", icon="open",
+                       tooltip="Abre a pasta com as planilhas desta execução",
                        command=self._open_detail_folder).pack(side="left",
                                                               padx=(SPACE[2], 0))
         self.detail_export_button = RoundedButton(
             row, text="Baixar resumo", variant="ghost", icon="export",
+            tooltip="Salva uma cópia do ESTATISTICAS.xlsx",
             command=self._export_detail_summary)
         self.detail_export_button.pack(side="left", padx=(SPACE[2], 0))
         self.detail_recompute_button = RoundedButton(
             row, text="Regerar estatísticas", variant="ghost", icon="recompute",
+            tooltip="Recalcula o ESTATISTICAS.xlsx a partir das planilhas; leva minutos",
             command=self._recompute_detail_stats)
         self.detail_recompute_button.pack(side="left", padx=(SPACE[2], 0))
         # Só nas execuções do servidor; `on_open_run_details` mostra ou esconde.
         self.detail_full_button = RoundedButton(
             row, text="Baixar arquivos completos", variant="ghost", icon="cloud",
             command=self._download_full_run)
+
+        self.detail_info_var = tk.StringVar()
+        ttk.Label(page, textvariable=self.detail_info_var, style="Caption.TLabel",
+                  justify="left").pack(anchor="w", pady=(0, SPACE[2]))
 
         # --- Abas: o resumo de sempre e a série temporal timestep a timestep ---
         self.detail_tabs = ttk.Notebook(page, style="Section.TNotebook")
@@ -441,7 +461,12 @@ class MainWindow(tk.Tk):
         page = ttk.Frame(self.page_host, style="Main.TFrame")
         self._page_nav(page, "Configurações", back_to="runs")
 
-        card = Card(page, "Configurações da máquina")
+        # Rolável: em 720p os últimos cards ficavam fora da tela.
+        body = scrollable(page)
+        body.master.configure(bg=COLORS["bg"])
+        body.configure(style="Main.TFrame")
+
+        card = Card(body, "Configurações da máquina")
         card.pack(fill="x")
         self.settings_panel = PathConfigPanel(card.body, callback=self,
                                               fields=MACHINE_FIELDS)
@@ -450,22 +475,22 @@ class MainWindow(tk.Tk):
                                   "máquina e são salvos junto da configuração.",
                   style="Caption.TLabel").pack(anchor="w", pady=(SPACE[3], 0))
 
-        assistant_card = Card(page, "Assistente de análise")
+        assistant_card = Card(body, "Assistente de análise")
         assistant_card.pack(fill="x", pady=(SPACE[3], 0))
         self.assistant_settings = AssistantSettings(assistant_card.body)
         self.assistant_settings.pack(fill="x")
 
-        remote_card = Card(page, "Servidor de simulações")
+        remote_card = Card(body, "Servidor de simulações")
         remote_card.pack(fill="x", pady=(SPACE[3], 0))
         RemoteSettings(remote_card.body, runs_root=self._outputs_root,
                        on_synced=self.simulations_panel.refresh).pack(fill="x")
 
-        drive_card = Card(page, "Google Drive")
+        drive_card = Card(body, "Google Drive")
         drive_card.pack(fill="x", pady=(SPACE[3], 0))
         self.drive_settings = DriveSettings(drive_card.body, on_connected=self.drive_sync)
         self.drive_settings.pack(fill="x")
 
-        tour_card = Card(page, "Apresentação")
+        tour_card = Card(body, "Apresentação")
         tour_card.pack(fill="x", pady=(SPACE[3], 0))
         RoundedButton(tour_card.body, text="Rever apresentação", variant="ghost", icon="info",
                       command=self.open_onboarding).pack(anchor="w")
@@ -502,16 +527,21 @@ class MainWindow(tk.Tk):
         self.update_idletasks()
         width = self.winfo_width()
         height = self.winfo_height()
-        x = (self.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.winfo_screenheight() // 2) - (height // 2)
+        x = max(0, (self.winfo_screenwidth() - width) // 2)
+        y = max(0, (self.winfo_screenheight() - height) // 2)
         self.geometry(f'{width}x{height}+{x}+{y}')
     
     def _load_configuration(self):
         """Load configuration from file."""
         try:
             if not os.path.exists(self.config_path):
-                # Create default configuration
-                self.configs = SimulationConfig()
+                # Primeira abertura: semeia com o exemplo do repositório, se houver.
+                seed = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "..", "..", "examples", "config.json")
+                try:
+                    self.configs = SimulationConfig.from_json(seed)
+                except Exception:
+                    self.configs = SimulationConfig()
                 os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
                 self.configs.to_json(self.config_path)
                 self.results_panel.append_info("Configuração padrão criada.")
@@ -562,7 +592,10 @@ class MainWindow(tk.Tk):
             'clo_delta': self.configs.clo_delta,
             'clo_priority': self.configs.clo_priority,
             'rooms': self.configs.rooms,
-            'module_type': self.configs.module_type
+            'module_type': self.configs.module_type,
+            'run_period_start': self.configs.run_period_start,
+            'run_period_end': self.configs.run_period_end,
+            'timesteps_per_hour': self.configs.timesteps_per_hour,
         }
         self.simulation_panel.set_configuration(config_dict)
     
@@ -905,10 +938,10 @@ class MainWindow(tk.Tk):
         self.simulation_panel.notebook.select(self.idf_editor_panel.period_tab)
 
     def on_save_idf_copy(self):
-        """Grava um IDF novo ao lado do original e passa a usá-lo.
+        """Grava um IDF novo (nome sugerido, à escolha do usuário) e passa a usá-lo.
 
-        O arquivo escolhido pelo usuário nunca é reescrito: cada edição vira
-        um `<nome>_editado.idf` (com sufixo numérico se já existir).
+        O arquivo escolhido pelo usuário nunca é reescrito: a sugestão é um
+        `<nome>_editado.idf` na pasta de dados do app, nunca em `examples/`.
         """
         source = self.idf_editor_panel.idf_path
         updates = self.idf_editor_panel.get_updates()
@@ -918,7 +951,18 @@ class MainWindow(tk.Tk):
             toast(self, "Nenhum campo foi alterado.", "info")
             return
 
-        target = self._new_idf_name(source)
+        suggested = self._new_idf_name(source)
+        target = filedialog.asksaveasfilename(
+            parent=self, title="Salvar IDF editado como",
+            initialdir=os.path.dirname(suggested),
+            initialfile=os.path.basename(suggested),
+            defaultextension=".idf", filetypes=[("IDF do EnergyPlus", "*.idf")])
+        if not target:
+            return
+        if os.path.abspath(target) == os.path.abspath(source):
+            toast(self, "Escolha um nome diferente: o IDF original não é reescrito.",
+                  "warn")
+            return
         try:
             write_idf_fields(source, target, updates)
         except (OSError, IndexError) as error:
@@ -932,12 +976,15 @@ class MainWindow(tk.Tk):
 
     @staticmethod
     def _new_idf_name(source: str, suffix: str = "editado") -> str:
-        """`<nome>_<sufixo>.idf`, numerado enquanto o nome já existir."""
-        base, extension = os.path.splitext(source)
-        candidate = f"{base}_{suffix}{extension}"
+        """`<nome>_<sufixo>.idf` na pasta `modelos` dos dados do app,
+        numerado enquanto o nome já existir."""
+        base, extension = os.path.splitext(os.path.basename(source))
+        folder = os.path.join(app_data_path(), "modelos")
+        os.makedirs(folder, exist_ok=True)
+        candidate = os.path.join(folder, f"{base}_{suffix}{extension}")
         counter = 2
         while os.path.exists(candidate):
-            candidate = f"{base}_{suffix}_{counter}{extension}"
+            candidate = os.path.join(folder, f"{base}_{suffix}_{counter}{extension}")
             counter += 1
         return candidate
 
@@ -991,6 +1038,27 @@ class MainWindow(tk.Tk):
 
         self.start_simulation(self.configs)
 
+    def _on_run_shortcut(self, _event=None):
+        """F5 / Ctrl+Enter executam na página de execução (nunca param)."""
+        if self._current_page == "editor":
+            self.on_run_simulation()
+
+    def _simulation_running(self) -> bool:
+        return bool(self.simulation_thread and self.simulation_thread.is_alive())
+
+    def _on_close(self):
+        """Fechar a janela com simulação em andamento a encerra antes."""
+        if self._simulation_running():
+            if not messagebox.askyesno(
+                    "Simulação em andamento",
+                    "Há uma simulação em andamento. Fechar o Ambiens a encerra e "
+                    "a execução fica incompleta.\n\nFechar mesmo assim?",
+                    icon="warning", default="no", parent=self):
+                return
+            self._stop_simulation()
+            self.simulation_thread.join(timeout=10)
+        self.destroy()
+
     def _reject_configuration(self, problems):
         """Mostra por que a simulação não começou: log completo e um toast."""
         for problem in problems:
@@ -1035,13 +1103,28 @@ class MainWindow(tk.Tk):
         # Start simulation thread
         self.simulation_thread = threading.Thread(
             target=self._run_simulation_thread,
-            args=(self.simulation_queue, config)
+            args=(self.simulation_queue, config),
+            daemon=True  # fechar a janela não deixa o processo preso
         )
+        self._run_started = time.monotonic()
+        self._warn_long_run(config)
         self.simulation_thread.start()
         
         # Start checking thread status
         self.after(100, self._check_simulation_thread)
         return config.output_path
+
+    def _warn_long_run(self, config: SimulationConfig):
+        """Avisa quando o período do IDF torna a simulação demorada."""
+        try:
+            start, end = read_run_period(config.idf_path)
+        except Exception:
+            return
+        days = (end - start).days
+        if days > 90:
+            self.results_panel.append_warning(
+                f"Período de {days} dias: a simulação pode levar de dezenas de "
+                "minutos a 1–2 h. A barra mostra o progresso e o tempo restante.")
 
     def _assistant_base_config(self) -> SimulationConfig:
         """Cópia da configuração da tela de execução: a base das propostas."""
@@ -1065,8 +1148,20 @@ class MainWindow(tk.Tk):
         return path, None
     
     def on_stop_simulation(self):
-        """Handle stop simulation request."""
-        if not (self.simulation_thread and self.simulation_thread.is_alive()):
+        """Pedido do usuário: confirma antes. Ignora o clique logo após iniciar
+        (o segundo clique de um duplo clique em Executar caía aqui)."""
+        if not self._simulation_running() or time.monotonic() - self._run_started < 1.0:
+            return
+        if not messagebox.askyesno(
+                "Parar simulação",
+                "Parar a simulação em andamento? A execução ficará incompleta.",
+                icon="warning", default="no", parent=self):
+            return
+        self._stop_simulation()
+
+    def _stop_simulation(self):
+        """Encerra a simulação (sem perguntar)."""
+        if not self._simulation_running():
             return
         # `stop_simulation` da API do EnergyPlus: ele encerra no próximo passo,
         # então a thread continua viva por alguns segundos e o botão fica
@@ -1104,6 +1199,12 @@ class MainWindow(tk.Tk):
             return
 
         self._detail_run = run
+        self.detail_info_var.set(
+            f"Pasta: {os.path.abspath(run['path'])}\n"
+            "Planilhas Excel (.xlsx): uma por zona e o resumo ESTATISTICAS.xlsx.")
+        # Execução interrompida ou sem planilhas não tem o que regerar.
+        self.detail_recompute_button.configure(
+            state="disabled" if run.get('status') == 'sem planilhas' else "normal")
         from confortimetro.remote.client import is_remote
         if is_remote(run['path']):
             self.detail_full_button.pack(side="left", padx=(SPACE[2], 0))
@@ -1262,8 +1363,42 @@ class MainWindow(tk.Tk):
         if not self._detail_run:
             toast(self, "Abra uma execução antes de regerar as estatísticas.", "warn")
             return
-        self.simulations_panel.tree.selection_set(self._detail_run["path"])
-        self.simulations_panel.recompute_selected()
+        run = self._detail_run
+        if run.get('status') == 'sem planilhas':
+            toast(self, "Esta execução não tem planilhas (foi interrompida ou falhou): "
+                        "não há o que regerar.", "warn")
+            return
+        from confortimetro.results.compare import recompute_runs
+        before = (self.kpi_total_var.get(), self.kpi_aquec_var.get(),
+                  self.kpi_resfr_var.get())
+        # Enquanto regera, nada de exportar nem regerar de novo.
+        self.detail_recompute_button.configure(state="disabled", text="Regerando…")
+        self.detail_export_button.configure(state="disabled")
+        self.detail_empty_var.set("Regerando estatísticas… isso lê todas as planilhas e leva minutos.")
+        toast(self, "Regerando estatísticas… leva minutos.", "info")
+
+        def done(errors, error):
+            self.detail_recompute_button.configure(state="normal",
+                                                   text="Regerar estatísticas")
+            failure = error or (errors or {}).get(run['path'])
+            self.simulations_panel.refresh()
+            self._render_detail_stats(run)
+            if failure:
+                self.results_panel.append_error(f"Regerar estatísticas: {failure}")
+                toast(self, "Não foi possível regerar as estatísticas: as planilhas "
+                            "desta execução estão incompletas ou ilegíveis "
+                            "(detalhe no log).", "error", timeout=10000)
+                return
+            after = (self.kpi_total_var.get(), self.kpi_aquec_var.get(),
+                     self.kpi_resfr_var.get())
+            if after != before:
+                toast(self, f"Estatísticas regeradas e os valores mudaram: total "
+                            f"{before[0]} → {after[0]} kWh, resfriamento "
+                            f"{before[2]} → {after[2]} kWh.", "warn", timeout=10000)
+            else:
+                toast(self, "Estatísticas regeradas; os valores não mudaram.", "ok")
+
+        in_background(self, lambda: recompute_runs([run['path']]), done)
 
     def _export_detail_summary(self):
         """Exporta o resumo das estatísticas da execução aberta em XLSX."""

@@ -102,6 +102,17 @@ def comfort_params(run_path):
             float(config.get('wme') or 0.0))
 
 
+def pmv_bounds(run_path):
+    """`(inferior, superior)` do PMV aceitável configurado na execução (±0,5 se ausente)."""
+    from .compare import read_config  # compare importa este módulo
+
+    config = read_config(run_path)
+    try:
+        return (float(config['pmv_lowerbound']), float(config['pmv_upperbound']))
+    except (KeyError, TypeError, ValueError):
+        return (-0.5, 0.5)
+
+
 def controller_pmv(df, met, wme=0.0):
     """PMV de cada linha ocupada com a função do controlador (`_pmv`: ASHRAE 55
     com velocidade relativa e clo dinâmico), a partir das séries apelidadas

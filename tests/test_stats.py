@@ -147,3 +147,17 @@ def test_sem_met_na_configuracao_pmv_fica_sem_valor(tmp_path):
     stats = pandas.read_excel(tmp_path / "ESTATISTICAS.xlsx").iloc[0]
 
     assert numpy.isnan(stats["PMV médio"]) and numpy.isnan(stats["PMV fora da faixa (%)"])
+
+
+def test_pmv_fora_da_faixa_usa_limites_da_configuracao(tmp_path):
+    """Com ±0,5 o PMV ≈ 0,12 está dentro; com limite superior 0,1 está fora."""
+    df = _room_dataframe(rows=6, nan_rows=0)
+    (tmp_path / "configs.json").write_text(json.dumps(
+        {"_met": 1.2, "wme": 0.0, "pmv_lowerbound": -0.1, "pmv_upperbound": 0.1}))
+
+    get_stats_from_simulation(str(tmp_path), [ROOM], frames={ROOM: df})
+    stats = pandas.read_excel(tmp_path / "ESTATISTICAS.xlsx").iloc[0]
+
+    assert stats["PMV fora da faixa (%)"] == 1.0
+    assert stats["Horas ocupadas (h)"] == pytest.approx(1.0)  # 6 timesteps de 10 min
+    assert stats["Horas em conforto (h)"] == pytest.approx(1.0)

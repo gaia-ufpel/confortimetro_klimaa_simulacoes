@@ -20,6 +20,7 @@ from .. import control
 from ..control import MODULES_MAPPER, motivos
 from ..idf.processor import _iter_objects, _read_text
 from ..results import compare, series, tabular
+from ..results.database import is_interrupted
 from ..versao import code_version
 from . import simulacao
 
@@ -377,7 +378,8 @@ class Toolbox:
     def listar_execucoes(self) -> dict:
         runs = compare.list_runs(self.root)
         return {"linhas": [{
-            "execucao": run["run"], "status": run["status"],
+            "execucao": run["run"],
+            "status": "interrompida" if is_interrupted(run) else run["status"],
             "modulo": run["module_type"], "idf": run["idf"], "epw": run["epw"],
             "zonas": run["rooms_disponiveis"],
             "modificado": run["modificado"].strftime("%Y-%m-%d %H:%M"),
@@ -388,7 +390,11 @@ class Toolbox:
                 "configuracao": compare.read_config(self.run_path(execucao))}
 
     def indicadores(self, execucao: str, zona: str = None) -> dict:
-        stats_path = os.path.join(self.run_path(execucao), "ESTATISTICAS.xlsx")
+        path = self.run_path(execucao)
+        stats_path = os.path.join(path, "ESTATISTICAS.xlsx")
+        if is_interrupted(compare.read_run(path)):
+            raise ToolError(f"{execucao} foi interrompida antes de gerar resultados; "
+                            "não há o que regerar. Rode a simulação de novo.")
         if not os.path.exists(stats_path):
             raise ToolError(f"{execucao} não tem ESTATISTICAS.xlsx; é preciso regerar "
                             "as estatísticas na tela de Execuções.")

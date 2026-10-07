@@ -6,8 +6,13 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Protocol, Optional
 
-from ..theme import COLORS, SPACE, ChipSelect, RangeField, fmt_num, icon, parse_num
-from confortimetro.config import ADAPTATIVE2PORCENT, PORCENT2ADAPTATIVE
+from ..theme import (
+    COLORS, SPACE, ChipSelect, RangeField, Tooltip, fmt_num, icon, parse_num,
+    scrollable,
+)
+from confortimetro.config import (
+    ADAPTATIVE2PORCENT, PORCENT2ADAPTATIVE, RANGE_PAIRS, range_problems,
+)
 from confortimetro.module_type import ModuleType
 
 
@@ -26,10 +31,118 @@ MODULE_LABELS = {
 }
 LABEL2MODULE = {label: module for module, label in MODULE_LABELS.items()}
 
+#: O que cada módulo faz, mostrado abaixo do seletor.
+MODULE_DESCRIPTIONS = {
+    ModuleType.COMPLETE:
+        "O controlador abre a janela, liga o ventilador e o ar-condicionado "
+        "conforme o PMV e o modelo adaptativo.",
+    ModuleType.WITHOUT_FAN:
+        "Igual ao completo, mas sem ventilador: só janela e ar-condicionado.",
+    ModuleType.FIXED_AC_WITHOUT_FAN:
+        "Janela controlada; o ar-condicionado usa sempre o setpoint fixo da "
+        "faixa de temperatura, sem ventilador.",
+    ModuleType.CLOSED_WINDOW:
+        "A janela fica sempre fechada; ventilador e ar-condicionado "
+        "fazem o controle.",
+    ModuleType.ENERGYPLUS_ONLY:
+        "Roda o IDF como está, sem controle e sem planilhas do Ambiens.",
+}
+
+#: Ajuda curta dos campos técnicos (balão ao passar o mouse ou focar).
+HELP = {
+    "pmv": "Faixa de PMV (-3 frio a +3 quente) considerada conforto. Fora dela o "
+           "controlador aciona janela, ventilador ou ar-condicionado.",
+    "bound": "Folga somada às duas pontas da faixa de PMV nas decisões do "
+             "controlador (padrão 0,2). Não é a faixa do índice.",
+    "adaptative": "Aceitação do modelo adaptativo (ASHRAE 55): 90% = banda de "
+                  "±2,5 °C; 80% = ±3,5 °C em torno da temperatura neutra.",
+    "met": "Taxa metabólica do ocupante (1,0 met = sentado, em repouso).",
+    "wme": "Wme: trabalho mecânico externo, em W/m². Use 0 para atividade "
+           "de escritório.",
+    "clo": "Isolamento térmico da roupa. O controlador varia o clo dentro "
+           "desta faixa; o valor inicial é o mínimo.",
+    "clo_delta": "Quanto o clo muda a cada ajuste do controlador (clo).",
+    "ac": "Setpoints do ar-condicionado: o mínimo aquece, o máximo resfria.",
+}
+
 #: Banda adaptativa usada quando a configuração não traz uma válida — a mesma
 #: do `SimulationConfig`. O 0.8 que estava aqui era resquício de quando o campo
 #: guardava a fração de aceitação, e virava uma semibanda de 0,8 °C.
 DEFAULT_ADAPTATIVE = 2.5
+
+
+def _invalid_style():
+    """Estilo de campo com valor recusado (herda o `Field.TEntry`)."""
+    ttk.Style().configure("Invalid.Field.TEntry", foreground=COLORS["danger"])
+    return "Invalid.Field.TEntry"
+
+
+class StrictRangeField(RangeField):
+    """`RangeField` que não corrige o que o usuário digitou.
+
+    O campo base limita ao domínio e troca mínimo e máximo trocados; aqui o
+    valor inválido fica na tela, em vermelho, e `read_strict` o recusa.
+    """
+
+    def __init__(self, parent, label: str, *args, **kwargs):
+        super().__init__(parent, label, *args, **kwargs)
+        self.label = label
+        self.error = ttk.Label(self, text="", style="Caption.TLabel",
+                               foreground=COLORS["danger"])
+        self.error.grid(row=2, column=0, columnspan=3, sticky="w")
+        self.error.grid_remove()
+
+    def read_strict(self) -> tuple:
+        """(mínimo, máximo) como digitados; `ValueError` se não forem números."""
+        try:
+            return (parse_num(self.min_entry.get()),
+                    parse_num(self.max_entry.get()))
+        except ValueError:
+            raise ValueError(f"{self.label}: preencha mínimo e máximo "
+                             "com números") from None
+
+    def flag(self, message: str = ""):
+        """Marca (ou, sem mensagem, limpa) o erro do campo."""
+        style = _invalid_style() if message else "Field.TEntry"
+        for entry in (self.min_entry, self.max_entry):
+            entry.configure(style=style)
+        self.error.configure(text=message)
+        if message:
+            self.error.grid()
+        else:
+            self.error.grid_remove()
+
+    def _commit(self, _event=None):
+        try:
+            low, high = self.read_strict()
+            if not self._lower <= low <= high <= self._upper:
+                raise ValueError(
+                    f"{self.label}: use mínimo ≤ máximo, entre "
+                    f"{fmt_num(self._lower)} e {fmt_num(self._upper)}")
+        except ValueError as error:
+            self.flag(str(error))
+            if self._on_change:
+                self._on_change()
+            return
+        self.flag()
+        super()._commit()
+
+
+class KeyboardChipSelect(ChipSelect):
+    """`ChipSelect` cujos chips recebem foco: Delete ou BackSpace remove."""
+
+    def _render_chips(self):
+        super()._render_chips()
+        for chip, value in zip(self._chips.winfo_children(), self._values):
+            close = chip.winfo_children()[-1]
+            close.configure(takefocus=True, highlightthickness=1,
+                            highlightcolor=COLORS["primary"])
+            for key in ("<Delete>", "<BackSpace>", "<Return>", "<space>"):
+                close.bind(key, lambda e, v=value: self._remove(v))
+            close.bind("<FocusIn>", lambda e: e.widget.configure(
+                fg=COLORS["danger"]))
+            close.bind("<FocusOut>", lambda e: e.widget.configure(
+                fg=COLORS["text_mute"]))
 
 
 class SimulationConfigCallback(Protocol):
@@ -46,7 +159,15 @@ class SimulationConfigPanel(ttk.Frame):
     def __init__(self, parent, callback: Optional[SimulationConfigCallback] = None):
         super().__init__(parent, style="Surface.TFrame")
         self.callback = callback
+        # Fontes de configuração que vivem em outras abas (período do IDF,
+        # validação dos arquivos): (ler, aplicar). Ver `register_extra`.
+        self._extras = []
         self._build_ui()
+
+    def register_extra(self, read, apply=None):
+        """Painel irmão contribui com campos: `read()` devolve um dict (ou
+        levanta `ValueError`) e `apply(config)` recebe a configuração lida."""
+        self._extras.append((read, apply))
     
     def _build_ui(self):
         """Build the UI components: one notebook tab per logical group."""
@@ -85,32 +206,57 @@ class SimulationConfigPanel(ttk.Frame):
         return frame
 
     def _range(self, parent, row: int, column: int, label: str, lower: float,
-               upper: float, step: float = 0.1) -> RangeField:
+               upper: float, step: float = 0.1,
+               help: str = "") -> StrictRangeField:
         """Create a min-max range spanning two columns of `parent`."""
-        field = RangeField(parent, label, lower, upper, step,
-                           on_change=self._on_config_changed)
+        field = StrictRangeField(parent, label, lower, upper, step,
+                                 on_change=self._on_config_changed)
         field.grid(row=row, column=column, columnspan=2, rowspan=2,
                    padx=SPACE[1], pady=(0, SPACE[2]), sticky="ew")
+        if help:
+            Tooltip(field, help)
+            for widget in field.winfo_children():
+                Tooltip(widget, help)
         return field
 
-    def _field(self, parent, row: int, column: int, label: str) -> ttk.Entry:
+    def _field(self, parent, row: int, column: int, label: str,
+               help: str = "") -> ttk.Entry:
         """Create a labeled entry in `column` of `parent`."""
-        ttk.Label(parent, text=label, style="Label.TLabel").grid(
-            row=row, column=column, padx=SPACE[1], pady=(0, SPACE[1]),
-            sticky="w")
+        caption = ttk.Label(parent, text=label, style="Label.TLabel")
+        caption.grid(row=row, column=column, padx=SPACE[1],
+                     pady=(0, SPACE[1]), sticky="ew")
+        # Rótulo longo quebra em duas linhas em vez de ser cortado.
+        caption.bind("<Configure>",
+                     lambda e: e.widget.configure(wraplength=e.width))
         entry = ttk.Entry(parent, style="Field.TEntry")
         entry.grid(row=row + 1, column=column, padx=SPACE[1],
                    pady=(0, SPACE[2]), sticky="ew")
-        entry.bind('<FocusOut>', self._on_config_changed)
+        entry.bind('<FocusOut>', self._on_entry_left)
         entry.label = label  # nomeia o campo no erro de get_configuration
+        if help:
+            Tooltip(caption, help)
+            Tooltip(entry, help)
         return entry
 
+    def _on_entry_left(self, event=None):
+        """Marca em vermelho o campo numérico que não é um número."""
+        entry = event.widget
+        try:
+            parse_num(entry.get())
+            entry.configure(style="Field.TEntry")
+        except ValueError:
+            entry.configure(style=_invalid_style())
+        self._on_config_changed()
+
     def _combo(self, parent, row: int, column: int, label: str, values,
-               variable: tk.StringVar, columnspan: int = 1) -> ttk.Combobox:
+               variable: tk.StringVar, columnspan: int = 1,
+               help: str = "") -> ttk.Combobox:
         """Create a labeled read-only combobox in `column` of `parent`."""
-        ttk.Label(parent, text=label, style="Label.TLabel").grid(
-            row=row, column=column, columnspan=columnspan, padx=SPACE[1],
-            pady=(0, SPACE[1]), sticky="w")
+        caption = ttk.Label(parent, text=label, style="Label.TLabel")
+        caption.grid(row=row, column=column, columnspan=columnspan,
+                     padx=SPACE[1], pady=(0, SPACE[1]), sticky="w")
+        if help:
+            Tooltip(caption, help)
         combo = ttk.Combobox(parent, textvariable=variable,
                              style="Field.TCombobox", state="readonly",
                              values=values)
@@ -121,30 +267,46 @@ class SimulationConfigPanel(ttk.Frame):
 
     def _build_comfort_tab(self):
         """Um bloco por assunto: índice, ocupante e vestimenta."""
-        tab = ttk.Frame(self.notebook, style="Surface.TFrame",
-                        padding=SPACE[3])
-        self.notebook.add(tab, **self._tab_label("Conforto", "armchair"))
+        tab = self._scroll_tab("Conforto", "armchair")
+
+        # O módulo decide o que o controlador faz: fica na primeira aba.
+        module = self._section(tab, "Módulo de condicionamento")
+        self.selected_module = tk.StringVar()
+        self.cbx_module = self._combo(module, 0, 0, "Módulo",
+                                      list(MODULE_LABELS.values()),
+                                      self.selected_module, columnspan=4)
+        self.module_help = ttk.Label(module, text="", style="Caption.TLabel",
+                                     wraplength=520, justify="left")
+        self.module_help.grid(row=2, column=0, columnspan=4, padx=SPACE[1],
+                              sticky="w")
+        self.cbx_module.bind('<<ComboboxSelected>>', self._on_module_changed)
 
         index = self._section(tab, "Índice de conforto")
         # Faixa do PMV na escala ASHRAE (-3 frio … +3 quente).
-        self.pmv_range = self._range(index, 0, 0, "Faixa de PMV", -3.0, 3.0)
+        self.pmv_range = self._range(index, 0, 0, "Faixa de PMV", -3.0, 3.0,
+                                help=HELP["pmv"])
         self.comfort_bound_entry = self._field(index, 0, 2,
-                                               "Banda de conforto")
+                                               "Banda de conforto",
+                                               help=HELP["bound"])
         self.selected_adaptative = tk.StringVar()
         self.cbx_adaptative = self._combo(index, 0, 3,
                                           "Margem do adaptativo",
                                           ("80%", "90%"),
-                                          self.selected_adaptative)
+                                          self.selected_adaptative,
+                                          help=HELP["adaptative"])
 
         occupant = self._section(tab, "Ocupante")
-        self.met_entry = self._field(occupant, 0, 0, "Met (met)")
-        self.wme_entry = self._field(occupant, 0, 1, "Wme (W/m²)")
+        self.met_entry = self._field(occupant, 0, 0, "Met (met)",
+                                    help=HELP["met"])
+        self.wme_entry = self._field(occupant, 0, 1, "Wme (W/m²)",
+                                     help=HELP["wme"])
 
         clothing = self._section(tab, "Vestimenta")
         self.clo_range = self._range(clothing, 0, 0, "Faixa de Clo (clo)",
-                                     0.0, 2.0, 0.05)
+                                     0.0, 2.0, 0.05, help=HELP["clo"])
         self.clo_delta_entry = self._field(clothing, 0, 2,
-                                           "Variação do Clo (clo)")
+                                           "Variação do Clo (clo)",
+                                           help=HELP["clo_delta"])
 
         # Prioridade do Clo sobre os equipamentos
         self.clo_priority_var = tk.BooleanVar(value=True)
@@ -154,6 +316,19 @@ class SimulationConfigPanel(ttk.Frame):
             style="Card.TCheckbutton")
         self.clo_priority_check.grid(row=1, column=3, padx=SPACE[1],
                                      pady=(0, SPACE[2]), sticky="w")
+
+    def _scroll_tab(self, title: str, icon_name: str) -> ttk.Frame:
+        """Aba rolável: em tela pequena ou com zoom, as seções não ficam com
+        altura zero."""
+        tab = ttk.Frame(self.notebook, style="Surface.TFrame",
+                        padding=SPACE[3])
+        self.notebook.add(tab, **self._tab_label(title, icon_name))
+        return scrollable(tab)
+
+    def _on_module_changed(self, event=None):
+        module = LABEL2MODULE.get(self.selected_module.get())
+        self.module_help.configure(text=MODULE_DESCRIPTIONS.get(module, ""))
+        self._on_config_changed()
 
     def _section(self, parent, title: str) -> ttk.Labelframe:
         """Create a titled section that stacks vertically inside a tab."""
@@ -166,42 +341,41 @@ class SimulationConfigPanel(ttk.Frame):
 
     def _build_equipment_tab(self):
         """Um bloco por equipamento: fica claro o que cada ajuste comanda."""
-        tab = ttk.Frame(self.notebook, style="Surface.TFrame",
-                        padding=SPACE[3])
-        self.notebook.add(tab, **self._tab_label("Equipamentos", "fan"))
+        tab = self._scroll_tab("Equipamentos", "fan")
 
         ac = self._section(tab, "Ar-condicionado")
         self.temp_ac_range = self._range(
-            ac, 0, 0, "Faixa de temperatura do AC (°C)", 10.0, 35.0, 0.5)
+            ac, 0, 0, "Faixa de temperatura do AC (°C)", 10.0, 35.0, 0.5,
+            help=HELP["ac"])
 
         fan = self._section(tab, "Ventilador")
-        self.vel_max_entry = self._field(fan, 0, 0, "Velocidade máxima (m/s)")
+        self.vel_max_entry = self._field(fan, 0, 0, "Velocidade máxima (m/s)",
+                                    help="Maior velocidade do ar que o "
+                                         "ventilador pode atingir.")
         self.air_speed_delta_entry = self._field(
-            fan, 0, 1, "Variação da vel. de ventilação (m/s)")
+            fan, 0, 1, "Variação da vel. de ventilação (m/s)",
+            help="Quanto a velocidade do ar muda a cada ajuste do ventilador.")
 
         window = self._section(tab, "Janela")
         self.temp_open_window_bound_entry = self._field(
-            window, 0, 0, "Margem de temp. p/ abrir janela (°C)")
-        self.co2_limit_entry = self._field(window, 0, 1, "Limite de CO2 (ppm)")
+            window, 0, 0, "Margem de temp. p/ abrir janela (°C)",
+            help="A janela só abre se a temperatura externa não estiver mais "
+                 "que esta margem abaixo da interna.")
+        self.co2_limit_entry = self._field(
+            window, 0, 1, "Limite de CO2 (ppm)",
+            help="Acima deste CO2 a janela abre para renovar o ar.")
 
     def _build_rooms_module_tab(self):
         """Zonas simuladas e módulo de condicionamento."""
         tab = self._tab("Zonas", "layout-grid")
 
-        # Mesmo padding do rótulo e do campo que `_combo` usa: sem isso o
-        # seletor de salas descia quatro pixels e desalinhava do Módulo.
         ttk.Label(tab, text="Salas", style="Label.TLabel").grid(
-            row=0, column=0, columnspan=2, padx=SPACE[1],
+            row=0, column=0, columnspan=4, padx=SPACE[1],
             pady=(0, SPACE[1]), sticky="w")
-        self.rooms_select = ChipSelect(tab, "Selecione uma sala…",
-                                       on_change=self._on_config_changed)
-        self.rooms_select.grid(row=1, column=0, columnspan=2, padx=SPACE[1],
+        self.rooms_select = KeyboardChipSelect(
+            tab, "Selecione uma sala…", on_change=self._on_config_changed)
+        self.rooms_select.grid(row=1, column=0, columnspan=4, padx=SPACE[1],
                                pady=(0, SPACE[2]), sticky="new")
-
-        self.selected_module = tk.StringVar()
-        self.cbx_module = self._combo(tab, 0, 2, "Módulo",
-                                      list(MODULE_LABELS.values()),
-                                      self.selected_module, columnspan=2)
 
     def set_room_options(self, rooms):
         """Zonas oferecidas no seletor de salas (lidas do IDF escolhido)."""
@@ -213,36 +387,65 @@ class SimulationConfigPanel(ttk.Frame):
             self.callback.on_simulation_config_changed()
     
     def get_configuration(self) -> dict:
-        """Configuração da tela; campo numérico inválido levanta `ValueError`
-        com o rótulo do campo (antes virava 0,0 ou `{}` em silêncio)."""
+        """Configuração da tela. Campo inválido (texto que não é número,
+        valor fora da escala, mínimo acima do máximo) levanta `ValueError` com
+        o rótulo do campo e o marca em vermelho; nada é corrigido em silêncio."""
         def num(entry):
             try:
-                return parse_num(entry.get())
+                value = parse_num(entry.get())
             except ValueError:
+                entry.configure(style=_invalid_style())
                 raise ValueError(f"{entry.label}: “{entry.get()}” não é um número") from None
+            entry.configure(style="Field.TEntry")
+            return value
 
-        return {
-            'pmv_lowerbound': self.pmv_range.get()[0],
-            'pmv_upperbound': self.pmv_range.get()[1],
+        # (campo, mínimo, máximo, par em config.RANGE_PAIRS)
+        ranges = ((self.pmv_range, "pmv_lowerbound", "pmv_upperbound"),
+                  (self.clo_range, "clo_min", "clo_max"),
+                  (self.temp_ac_range, "temp_ac_min", "temp_ac_max"))
+        values = {}
+        for field, low, high in ranges:
+            try:
+                values[low], values[high] = field.read_strict()
+            except ValueError as error:
+                field.flag(str(error))
+                raise
+
+        config = {
+            'pmv_lowerbound': values["pmv_lowerbound"],
+            'pmv_upperbound': values["pmv_upperbound"],
             'max_vel': num(self.vel_max_entry),
             'adaptative_bound': PORCENT2ADAPTATIVE.get(
                 self.selected_adaptative.get(), DEFAULT_ADAPTATIVE),
-            'temp_ac_min': self.temp_ac_range.get()[0],
-            'temp_ac_max': self.temp_ac_range.get()[1],
+            'temp_ac_min': values["temp_ac_min"],
+            'temp_ac_max': values["temp_ac_max"],
             'met': num(self.met_entry),
             'wme': num(self.wme_entry),
             'pmv_comfort_bound': num(self.comfort_bound_entry),
             'co2_limit': num(self.co2_limit_entry),
             'air_speed_delta': num(self.air_speed_delta_entry),
             'temp_open_window_bound': num(self.temp_open_window_bound_entry),
-            'clo_min': self.clo_range.get()[0],
-            'clo_max': self.clo_range.get()[1],
+            'clo_min': values["clo_min"],
+            'clo_max': values["clo_max"],
             'clo_delta': num(self.clo_delta_entry),
             'clo_priority': bool(self.clo_priority_var.get()),
             'rooms': self.rooms_select.get_values(),
             'module_type': LABEL2MODULE.get(self.selected_module.get())
         }
-    
+
+        problems = []
+        for field, low, high in ranges:
+            found = range_problems(config, [p for p in RANGE_PAIRS
+                                            if p[0] == low])
+            field.flag(" ".join(found))
+            problems += found
+        if problems:
+            raise ValueError(" ".join(problems))
+
+        for read, _apply in self._extras:
+            config.update(read())
+        return config
+
     def set_configuration(self, config: dict):
         """Set configuration from dictionary."""
         self.pmv_range.set(config.get('pmv_lowerbound', -0.5),
@@ -290,3 +493,9 @@ class SimulationConfigPanel(ttk.Frame):
         if module_type:
             module_type = ModuleType(str(module_type))
             self.selected_module.set(MODULE_LABELS.get(module_type, ''))
+        self.module_help.configure(
+            text=MODULE_DESCRIPTIONS.get(module_type if module_type else None, ""))
+
+        for _read, apply in self._extras:
+            if apply:
+                apply(config)

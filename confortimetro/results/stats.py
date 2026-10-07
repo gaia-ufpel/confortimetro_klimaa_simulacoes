@@ -38,6 +38,7 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
 
     id_arquivo = os.path.basename(os.path.normpath(output_path))
     met, wme = series.comfort_params(output_path)
+    pmv_low, pmv_high = series.pmv_bounds(output_path)
 
     stats_df = pandas.DataFrame({'Nome do arquivo': [],
             'Nome da sala': [],
@@ -53,6 +54,8 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
             'DOAS ligado (%)': [],
             'Janela fechada, ar desligado e ventilador desligado (%)': [],
             'Desconforto (%)': [],
+            'Horas ocupadas (h)': [],
+            'Horas em conforto (h)': [],
             'CO2 máximo (ppm)': [],
             'Timesteps simulados': [],
             'Janela aberta sem pessoas (%)': [],
@@ -102,7 +105,8 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
                'Aquecimento (%)': None, 'Resfriamento (%)': None, 'Ventilador ligado (%)': None,
                'Ventilador ligado e ar ligado (%)': None, 'Ventilador ligado, ar desligado e janela fechada (%)': None,
                'Janela aberta (%)': None, 'Janela aberta e ventilador ligado (%)': None, 'DOAS ligado (%)': None,
-               'Janela fechada, ar desligado e ventilador desligado (%)': None, 'Desconforto (%)': None, 'CO2 máximo (ppm)': None,
+               'Janela fechada, ar desligado e ventilador desligado (%)': None, 'Desconforto (%)': None,
+               'Horas ocupadas (h)': None, 'Horas em conforto (h)': None, 'CO2 máximo (ppm)': None,
                'Timesteps simulados': None,
                'Janela aberta sem pessoas (%)': None, 'Aquecimento (kWh)': None,
                'Resfriamento (kWh)': None, 'Ventilador (kWh)': None, 'Energia total (kWh)': None, 'PMV médio': None,
@@ -125,6 +129,14 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
         row['DOAS ligado (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[doas_column.format(room)] == 1)]) / row['Número ocupação']
         row['Janela fechada, ar desligado e ventilador desligado (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[vent_column.format(room)] == 0) & (df[janela_column.format(room)] == 0) & (df[ac_column.format(room)] == 0)]) / row['Número ocupação']
         row['Desconforto (%)'] = len(df[(df[people_column.format(room)] != 0) & (df[em_conforto_column.format(room)] == 0)]) / row['Número ocupação']
+        # Horas = timesteps ocupados × passo da planilha (mediana dos intervalos).
+        step_hours = 1.0
+        if 'Date/Time' in df.columns and len(df) > 1:
+            step = pandas.to_datetime(df['Date/Time']).diff().median()
+            if pandas.notna(step):
+                step_hours = step.total_seconds() / 3600
+        row['Horas ocupadas (h)'] = row['Número ocupação'] * step_hours
+        row['Horas em conforto (h)'] = row['Horas ocupadas (h)'] * (1 - row['Desconforto (%)'])
         row['CO2 máximo (ppm)'] = df[co2_column.format(room)].max()
         without_people = df[df[people_column.format(room)] == 0]
         row['Janela aberta sem pessoas (%)'] = len(without_people[without_people[janela_column.format(room)] == 1]) / len(without_people) if len(without_people) else 0
@@ -171,7 +183,7 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
         pmv = series.controller_pmv(inputs, met, wme)[(df[people_column.format(room)] != 0).to_numpy()]
         row['PMV médio'] = pmv.mean()
         row['PMV fora da faixa (%)'] = (float('nan') if pmv.isna().all()
-                                        else (pmv.abs() > 0.5).sum() / row['Número ocupação'])
+                                        else ((pmv < pmv_low) | (pmv > pmv_high)).sum() / row['Número ocupação'])
         temp_op = occupied[temp_op_column.format(room)]
         outside_adaptative = ((temp_op < occupied[adap_min_column.format(room)])
                               | (temp_op > occupied[adap_max_column.format(room)]))
@@ -184,7 +196,15 @@ def get_stats_from_simulation(output_path, rooms, frames: dict[str, pandas.DataF
     fd, tmp_path = tempfile.mkstemp(prefix=".tmp_stats_", suffix=".xlsx", dir=target_dir)
     os.close(fd)
     try:
-        stats_df.to_excel(tmp_path, index=False)
+        # Frações ficam como 0-1 na planilha (o banco e o comparador leem assim);
+        # o formato de célula as mostra como porcentagem no Excel.
+        with pandas.ExcelWriter(tmp_path, engine='openpyxl') as writer:
+            stats_df.to_excel(writer, sheet_name='Estatísticas', index=False)
+            sheet = writer.sheets['Estatísticas']
+            for index, name in enumerate(stats_df.columns, start=1):
+                if name.endswith('(%)'):
+                    for cell in sheet.iter_rows(min_row=2, min_col=index, max_col=index):
+                        cell[0].number_format = '0.0%'
         os.replace(tmp_path, stats_path)
     except PermissionError as error:
         # No Windows o Excel bloqueia o arquivo aberto para escrita.
