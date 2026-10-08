@@ -345,6 +345,15 @@ corrigidos. A rodada achou 3 P0 novos, dois já corrigidos, — um deles regress
   equipamentos" numa linha própria.
 - **[P2]** Contraste: laranja de texto `#b45309` (4,8:1); anotação verde
   `#00704f`; `danger` `#7d1712` (2,7:1 contra `warn` sob deuteranopia).
+- **[P2]** Tab do mínimo para o máximo de PMV/clo/AC seleciona o máximo: o
+  `FocusOut` do mínimo reescrevia os dois campos (`RangeField._write`) e
+  apagava a seleção.
+- **[P2]** Campo "Nome" na barra da execução (`nome` no `configs.json`);
+  listagem e comparação mostram o nome, ou "IDF · dd/mm hh:mm", no lugar da
+  pasta. Duplicar vira "Nome (cópia)"; Nova execução começa sem nome.
+- **[P2]** Abertura: `pythermalcomfort` (compilação numba, ~10 s) só é
+  importado ao simular ou ler séries. Imports da janela de 11,6 s para 1,8 s;
+  janela pronta em ~2,5 s (Linux, Xvfb).
 
 ## Pendente
 
@@ -361,15 +370,6 @@ corrigidos. A rodada achou 3 P0 novos, dois já corrigidos, — um deles regress
   mostra "N de M concluídas · X min", e se nenhuma execução terminar em
   45 min (`compare.STALL_TIMEOUT`) os workers são encerrados e as que faltam
   voltam com erro; ZIP e Regerar avisam quando há tarefa em andamento.
-
-**P2**
-
-- Campos de PMV/clo às vezes recebem foco sem seleção (não reproduzido).
-  *Juliana, Marcos.*
-- Comparação ainda mostra a pasta (`20261007_2133`) na coluna Execução; não
-  há campo para dar nome à execução. *Juliana, Ricardo.*
-- Abertura ainda leva ~26–45 s até a tela utilizável, agora com splash.
-  *Juliana, Ricardo.*
 
 ## O que melhorou
 
