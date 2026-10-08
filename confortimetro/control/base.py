@@ -3,7 +3,6 @@ import logging
 from ctypes import c_void_p
 from functools import lru_cache
 
-import pythermalcomfort.utilities
 from ladybug_comfort.pmv import predicted_mean_vote_no_set
 
 from typing import Optional
@@ -29,13 +28,17 @@ def _pmv(temp_ar, mrt, vel, rh, met, clo, wme):
     )['pmv']
 
 
+# pythermalcomfort compila modelos com numba ao ser importado (~10 s): o import
+# fica aqui, e a GUI, que só chega a este módulo pelas séries, abre sem ele.
 @lru_cache(maxsize=1024)
 def _v_relative(vel, met):
+    import pythermalcomfort.utilities
     return pythermalcomfort.utilities.v_relative(vel, met=met)
 
 
 @lru_cache(maxsize=1024)
 def _clo_dynamic(clo, met):
+    import pythermalcomfort.utilities
     return pythermalcomfort.utilities.clo_dynamic(clo, met=met)
 
 def request_stop(ep_api, state):
