@@ -22,7 +22,7 @@ from ..idf.processor import _iter_objects, _read_text
 from ..results import compare, series, tabular
 from ..results.database import is_failed, is_interrupted
 from ..versao import code_version
-from . import simulacao
+from . import normas, simulacao
 
 MAX_ROWS = 200
 MAX_BYTES = 20_000
@@ -264,6 +264,57 @@ DECLARATIONS = [
                             "description": "Nomes de funções/métodos daquele arquivo."},
             },
             "required": ["arquivo"],
+        },
+    },
+    {
+        "name": "guia_norma",
+        "description": ("Guia (skill) do PBE Edifica: mapa da Portaria Inmetro 309/2022 "
+                        "(INI-C, INI-R, RAC) com páginas, siglas, como a envoltória é "
+                        "classificada e o que a etiquetagem do Ambiens implementa e "
+                        "simplifica, com as tabelas por tipologia que ele usa. Leia antes "
+                        "de responder sobre norma, etiquetagem, ENCE ou classe."),
+        "parameters_json_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "buscar_norma",
+        "description": ("Busca no texto integral das normas (sem acento nem caixa) e devolve "
+                        "as páginas que mais casam, com trechos. Termos separados por "
+                        "espaço; frase exata entre aspas (\"Tabela 8.16\", \"fator de "
+                        "forma\")."),
+        "parameters_json_schema": {
+            "type": "object",
+            "properties": {
+                "termos": {"type": "string"},
+                "documento": {"type": "string", "enum": list(normas.DOCUMENTOS)},
+                "limite": {"type": "integer", "description": "Páginas (padrão 6)."},
+            },
+            "required": ["termos"],
+        },
+    },
+    {
+        "name": "ler_norma",
+        "description": ("Texto de páginas inteiras de uma norma (até 4), para tabelas, "
+                        "equações e o contexto de um trecho de buscar_norma."),
+        "parameters_json_schema": {
+            "type": "object",
+            "properties": {
+                "documento": {"type": "string", "enum": list(normas.DOCUMENTOS)},
+                "pagina": {"type": "integer"},
+                "ate": {"type": "integer", "description": "Última página (opcional)."},
+            },
+            "required": ["documento", "pagina"],
+        },
+    },
+    {
+        "name": "etiquetagem",
+        "description": ("Resultado da etiquetagem INI-C de uma execução do grupo (classe, "
+                        "RedCgTT, limites, CgTT real e de referência por zona, PHOCT, "
+                        "avisos dos modelos) e as opções usadas (tipologia, uso, modo, ZB, "
+                        "fachada)."),
+        "parameters_json_schema": {
+            "type": "object",
+            "properties": {"execucao": {"type": "string"}},
+            "required": ["execucao"],
         },
     },
     {
@@ -723,6 +774,51 @@ class Toolbox:
             raise ToolError(str(error)) from error
         self.proposals.append(proposal)
         return simulacao.for_model(proposal)
+
+    def guia_norma(self) -> dict:
+        from ..etiquetagem import norma
+
+        tipologias = [{
+            "tipologia": chave, "nome": dados["nome"],
+            "paf": (dict(zip(("principal", "demais"), dados["paf"]))
+                    if isinstance(dados["paf"], tuple) else dados["paf"]),
+            "rotina_horas": dados["horas"], "m2_por_pessoa": dados["ocupacao"],
+            "crcgtt_por_zb": {zb: list(valores) for zb, valores in norma.CRCGTT[chave].items()},
+        } for chave, dados in norma.TIPOLOGIAS.items()]
+        return {"guia": normas.guia(), "tipologias_do_ambiens": tipologias,
+                "faixas_ff_do_crcgtt": ["FF ≤ 0,20", "0,20 < FF ≤ 0,30",
+                                        "0,30 < FF ≤ 0,40", "FF > 0,40"]}
+
+    def buscar_norma(self, termos, documento=None, limite=6) -> dict:
+        if documento and documento not in normas.DOCUMENTOS:
+            raise ToolError(f"documento deve ser um de {list(normas.DOCUMENTOS)}.")
+        try:
+            achados = normas.buscar(termos, documento, max(1, min(int(limite), 10)))
+        except ValueError as error:
+            raise ToolError(str(error)) from error
+        if not achados:
+            raise ToolError("Nada encontrado. Tente sinônimos, a sigla ou menos termos.")
+        return {"paginas": achados}
+
+    def ler_norma(self, documento, pagina, ate=None) -> dict:
+        if documento not in normas.DOCUMENTOS:
+            raise ToolError(f"documento deve ser um de {list(normas.DOCUMENTOS)}.")
+        try:
+            return {"documento": documento,
+                    "paginas": normas.ler(documento, int(pagina), ate and int(ate))}
+        except ValueError as error:
+            raise ToolError(str(error)) from error
+
+    def etiquetagem(self, execucao) -> dict:
+        from ..etiquetagem import avaliacao
+
+        path = self.run_path(execucao)
+        resultado = avaliacao.ler(path)
+        opcoes = compare.read_config(path).get("etiquetagem")
+        if resultado is None:
+            raise ToolError(f"{execucao} não tem resultado de etiquetagem"
+                            + (" (o grupo não terminou)." if opcoes else "."))
+        return {"execucao": execucao, "opcoes": opcoes, "resultado": resultado}
 
     def codigo_controle(self, arquivo, funcoes=None) -> dict:
         if arquivo not in CODE_FILES:

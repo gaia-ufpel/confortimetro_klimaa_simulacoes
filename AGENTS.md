@@ -59,6 +59,10 @@ saídas e diagnóstico de erros.
   `config.etiquetagem` (`papel`, `grupo`), e a nota fica em `ETIQUETAGEM.json`.
   O remoto e o MCP não aceitam o campo. Detalhes em
   [`docs/CLI.md`](docs/CLI.md#etiquetagem-da-envoltória-ini-c).
+- **O assistente consulta a norma pelo texto empacotado**
+  (`assistant/normas/*.txt.gz` e o guia `guia_inic.md`): os PDFs ficam fora do
+  git; trocou um PDF, rode `scripts/extrair_normas.py`. Mudou a etiquetagem,
+  atualize a seção "O que o Ambiens implementa" do guia.
 - O período e o passo do pós-processamento vêm do `RunPeriod` e do `Timestep`
   do IDF (`read_run_period`, `read_timesteps_per_hour`); o descarte inicial é de
   dois dias de aquecimento, proporcional ao timestep.

@@ -299,6 +299,33 @@ def test_codigo_controle(root):
     assert "erro" in tools.call("codigo_controle", {"arquivo": "../assistant/tools"})
 
 
+def test_norma_guia_busca_e_leitura(root):
+    tools = Toolbox(root)
+    guia = tools.call("guia_norma", {})
+    assert "INI-C" in guia["guia"]
+    varejo = next(t for t in guia["tipologias_do_ambiens"] if t["tipologia"] == "varejo")
+    assert varejo["paf"] == {"principal": 0.60, "demais": 0.05}
+
+    # O valor da tabela que o Ambiens usa está no texto, na página que o guia aponta.
+    achado = tools.call("buscar_norma", {"termos": '"Tabela 8.16"', "documento": "portaria"})
+    assert achado["paginas"][0]["pagina"] == 56
+    pagina = tools.call("ler_norma", {"documento": "portaria", "pagina": 56})
+    assert "ZB 8  0,11  0,12  0,14  0,15" in pagina["paginas"][0]["texto"]
+
+    assert "erro" in tools.call("ler_norma", {"documento": "portaria", "pagina": 9999})
+    assert "erro" in tools.call("buscar_norma", {"termos": "xyzwq"})
+    assert "erro" in tools.call("buscar_norma", {"termos": "a", "documento": "outra"})
+
+
+def test_etiquetagem_da_execucao(root):
+    from confortimetro.etiquetagem import avaliacao
+
+    tools = Toolbox(root)
+    assert "erro" in tools.call("etiquetagem", {"execucao": "COM_JANELA"})
+    avaliacao.gravar({"classe": "B", "red_cgtt": 20.0}, [os.path.join(root, "COM_JANELA")])
+    assert tools.call("etiquetagem", {"execucao": "COM_JANELA"})["resultado"]["classe"] == "B"
+
+
 def test_resultado_grande_e_cortado(root, monkeypatch):
     tools = Toolbox(root)
     monkeypatch.setattr(tools, "listar_execucoes",

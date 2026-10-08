@@ -25,6 +25,9 @@ datas = [
     # Municípios e zonas bioclimáticas da etiquetagem INI-C, lidos do disco.
     (os.path.join(ROOT, "confortimetro", "etiquetagem", "zonas_bioclimaticas.csv"),
      "confortimetro/etiquetagem"),
+    # Texto das normas e guia que o assistente consulta (assistant/normas.py).
+    (os.path.join(ROOT, "confortimetro", "assistant", "normas"),
+     "confortimetro/assistant/normas"),
     (os.path.join(ROOT, "examples", "config.json"), "examples"),
     (os.path.join(ROOT, "examples", "idf"), "examples/idf"),
     (os.path.join(ROOT, "examples", "epw"), "examples/epw"),

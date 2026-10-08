@@ -18,7 +18,8 @@ packages = ["confortimetro"]
 
 # A fonte de ícones é lida do disco em tempo de execução (gui/theme.icon).
 [tool.setuptools.package-data]
-confortimetro = ["gui/assets/*", "drive/client_secret.json", "etiquetagem/*.csv"]
+confortimetro = ["gui/assets/*", "drive/client_secret.json", "etiquetagem/*.csv",
+                 "assistant/normas/*"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
