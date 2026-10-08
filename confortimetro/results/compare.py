@@ -251,8 +251,19 @@ def recompute_run(run_path):
         return run_path, f"{type(error).__name__}: {error}"
 
 
-def recompute_runs(run_paths, workers=None, on_result=None):
-    """Regera as estatísticas de várias execuções em paralelo."""
+# Sem nenhuma execução concluída nesse tempo, o pool é dado como travado. Uma
+# anual leva 10–20 min para regerar; o limite fica bem acima disso.
+STALL_TIMEOUT = 45 * 60
+
+
+def recompute_runs(run_paths, workers=None, on_result=None,
+                   stall_timeout=STALL_TIMEOUT):
+    """Regera as estatísticas de várias execuções em paralelo.
+
+    `on_result(caminho, erro)` é chamado a cada execução concluída. Se nenhuma
+    terminar em `stall_timeout` segundos, as que faltam voltam com erro e os
+    workers são encerrados: a interface não fica presa em "Regerando…".
+    """
     errors = {}
     if not run_paths:
         return errors
@@ -260,11 +271,35 @@ def recompute_runs(run_paths, workers=None, on_result=None):
     # bundle inteiro (centenas de MB): mais workers que execuções só gasta RAM,
     # e o pool do Windows não aceita mais de 61 processos.
     workers = min(workers or os.cpu_count() or 1, len(run_paths), 61)
-    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as pool:
-        for run_path, error in pool.map(recompute_run, run_paths):
-            errors[run_path] = error
-            if on_result:
-                on_result(run_path, error)
+    pool = concurrent.futures.ProcessPoolExecutor(max_workers=workers)
+    pending = {pool.submit(recompute_run, path): path for path in run_paths}
+    try:
+        while pending:
+            done, _ = concurrent.futures.wait(
+                pending, timeout=stall_timeout,
+                return_when=concurrent.futures.FIRST_COMPLETED)
+            if not done:
+                minutes = round(stall_timeout / 60)
+                for path in pending.values():
+                    errors[path] = (f"sem resposta em {minutes} min; regeração "
+                                    "interrompida")
+                    if on_result:
+                        on_result(path, errors[path])
+                # ponytail: _processes é privado, mas é o único jeito de matar
+                # um worker travado; shutdown() esperaria por ele para sempre.
+                for process in list((pool._processes or {}).values()):
+                    process.terminate()
+                break
+            for future in done:
+                path = pending.pop(future)
+                try:
+                    errors[path] = future.result()[1]
+                except Exception as error:  # worker morto (BrokenProcessPool)
+                    errors[path] = f"{type(error).__name__}: {error}"
+                if on_result:
+                    on_result(path, errors[path])
+    finally:
+        pool.shutdown(wait=not pending, cancel_futures=True)
     return errors
 
 

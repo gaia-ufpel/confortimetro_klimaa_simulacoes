@@ -324,10 +324,15 @@ corrigidos. A rodada achou 3 P0 novos, dois já corrigidos, — um deles regress
 
 - "Regerar estatísticas" ficou mais de 10 min em "Regerando…", sem fim, e o
   ZIP não respondeu; os 2 workers estavam em `futex_wait` com CPU quase zero.
-  *Fernanda.* Não reproduzido: com a `MainWindow` real sob Xvfb, a mesma
-  regeração de 2 execuções terminou em 18 s com `fork` e em 31 s com `spawn`.
-  Diferenças do cenário dela: uma execução com planilha corrompida e a máquina
-  carregada por outras 4 instâncias. Causa em aberto.
+  *Fernanda.* Não reproduzido com a `MainWindow` real sob Xvfb: 2 execuções
+  do Ricardo em 18 s (`fork`) e 31 s (`spawn`); as próprias cópias dela
+  (`20261007_2200`/`2201`) em 21 s; e em 35 s depois de uma simulação de 1
+  semana no mesmo processo. A 2ª instância dela (:96) só abriu depois do
+  travamento. Falta testar: máquina carregada por outras 4 instâncias e
+  Comparação/série/ZIP abertos antes. Causa em aberto. Mitigado: a lista
+  mostra "N de M concluídas · X min", e se nenhuma execução terminar em
+  45 min (`compare.STALL_TIMEOUT`) os workers são encerrados e as que faltam
+  voltam com erro; ZIP e Regerar avisam quando há tarefa em andamento.
 
 **P1**
 

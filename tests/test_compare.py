@@ -1,6 +1,7 @@
 """Listagem e comparação de execuções já simuladas."""
 
 import json
+import time
 
 import pytest
 
@@ -10,6 +11,7 @@ from confortimetro.results.compare import (
     needs_recompute,
     recompute_run,
 )
+from confortimetro.results import compare
 from tests.test_stats import ROOM, _room_dataframe
 
 
@@ -208,3 +210,19 @@ def test_export_runs_zip_keeps_one_folder_per_run_without_cache(tmp_path):
     assert 'run_b/configs.json' in names
     assert 'run_b/eplusout.err' in names
     assert not any('.series_cache' in name for name in names)
+
+
+def _hang(path):
+    time.sleep(3600)
+
+
+def test_recompute_runs_nao_fica_preso_em_worker_travado(monkeypatch):
+    # Worker travado deixava a lista em "Regerando…" para sempre.
+    monkeypatch.setattr(compare, "recompute_run", _hang)
+    seen = []
+    start = time.monotonic()
+    errors = compare.recompute_runs(["a", "b"], stall_timeout=2,
+                                    on_result=lambda path, error: seen.append(path))
+    assert time.monotonic() - start < 30
+    assert set(errors) == {"a", "b"} and all("sem resposta" in e for e in errors.values())
+    assert sorted(seen) == ["a", "b"]

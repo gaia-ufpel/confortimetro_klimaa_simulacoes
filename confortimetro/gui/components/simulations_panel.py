@@ -2,11 +2,13 @@
 
 import datetime
 import os
+import queue
 import re
 import sqlite3
 import subprocess
 import sys
 import threading
+import time
 import tkinter as tk
 from tkinter import filedialog, ttk
 
@@ -16,6 +18,7 @@ from confortimetro.results import database
 from confortimetro.results.compare import export_runs_zip, list_runs, recompute_runs
 
 from ..theme import COLORS, FONTS, SPACE, Card, RoundedButton, toast
+from .drive_panel import in_background
 from .simulation_config_panel import MODULE_LABELS
 
 # Colunas da listagem: (id, título, largura).
@@ -633,6 +636,7 @@ class SimulationsPanel(ttk.Frame):
     def export_selected_zip(self):
         """Compacta as pastas das execuções selecionadas num único zip."""
         if self._busy:
+            toast(self, "Aguarde a tarefa em andamento terminar.", "info")
             return
         runs = [run for run in self._selected_runs()
                 if run['path'] not in self._running and os.path.isdir(run['path'])]
@@ -674,6 +678,7 @@ class SimulationsPanel(ttk.Frame):
     def recompute_selected(self):
         """Regera ESTATISTICAS.xlsx das execuções selecionadas, em segundo plano."""
         if self._busy:
+            toast(self, "Aguarde a tarefa em andamento terminar.", "info")
             return
         selected = self._selected_runs()
         if not selected:
@@ -691,18 +696,31 @@ class SimulationsPanel(ttk.Frame):
             return
 
         self._busy = True
-        status_msg = (f"Regerando estatísticas de {len(runs)} "
-                      f"{'execução' if len(runs) == 1 else 'execuções'}. "
-                      "Isso lê todas as planilhas por zona e leva minutos.")
-        self._set_status(status_msg)
+        total = len(runs)
+        finished = queue.Queue()
+        started = time.monotonic()
 
-        def work():
-            # Cada planilha por zona tem dezenas de milhares de linhas: fora da
-            # thread a interface congelaria por minutos.
-            errors = recompute_runs([run['path'] for run in runs])
-            self.after(0, lambda: self._recompute_done(errors))
+        def tick():
+            # Só a thread do Tk desenha; a do pool apenas empilha o progresso.
+            count = finished.qsize()
+            minutes = int((time.monotonic() - started) // 60)
+            self._set_status(
+                f"Regerando estatísticas: {count} de {total} "
+                f"{'concluída' if count == 1 else 'concluídas'} · {minutes} min. "
+                "Isso lê todas as planilhas por zona e leva minutos.")
 
-        threading.Thread(target=work, daemon=True).start()
+        def done(errors, error):
+            if error is not None:
+                errors = {run['path']: f"{type(error).__name__}: {error}"
+                          for run in runs}
+            self._recompute_done(errors)
+
+        tick()
+        # Cada planilha por zona tem dezenas de milhares de linhas: fora da
+        # thread a interface congelaria por minutos.
+        in_background(self, lambda: recompute_runs(
+            [run['path'] for run in runs],
+            on_result=lambda path, error: finished.put(path)), done, tick)
 
     def _recompute_done(self, errors: dict):
         self._busy = False

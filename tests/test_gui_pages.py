@@ -234,7 +234,7 @@ def test_recompute_selected_validacoes_e_mensagens(window, monkeypatch):
     # Caso 3: Execução sem planilhas é aceita e dispara recompute_runs
     disparado = []
     monkeypatch.setattr("confortimetro.gui.components.simulations_panel.recompute_runs",
-                        lambda paths: disparado.extend(paths) or {paths[0]: None})
+                        lambda paths, **kwargs: disparado.extend(paths) or {paths[0]: None})
     monkeypatch.setattr(panel, "_selected_runs", lambda: [{'path': '/run/sem_plan', 'status': 'sem planilhas'}])
 
     class MockThread:
