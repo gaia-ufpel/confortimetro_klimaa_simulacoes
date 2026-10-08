@@ -39,6 +39,8 @@ CONFIG_FIELDS = {field.name for field in fields(SimulationConfig)} - {
     "input_path", "expanded_idf_path", "source_idf_path", "idf_filename", "code_version",
 }
 CONFIG_FIELDS -= {"epw_path", "energy_path", "rooms"}
+# A etiquetagem INI-C é um grupo de execuções que só a GUI e a CLI montam.
+CONFIG_FIELDS -= {"etiquetagem"}
 PATH_FIELDS = {"idf_path", "epw_path", "energy_path", "output_path", "runs_root_path",
                "source_idf_path", "_idf_path", "input_path", "expanded_idf_path"}
 

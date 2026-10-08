@@ -111,7 +111,12 @@ class ComparisonPanel(ttk.Frame):
         self._comparison = None
         self._show_chart_placeholder()
         self._set_ready_state()
-        if len(self._runs) >= 2:
+        labeled = self._show_labeling(self._runs)
+        # O grupo da etiquetagem roda sem planilhas: sem a nota, o aviso de
+        # "nenhuma tem estatísticas" seria tudo o que a tela diria.
+        if labeled and all(run['status'] != 'pronta' for run in self._runs):
+            self._set_status("Execuções da etiquetagem não têm planilhas: a nota está abaixo.")
+        elif len(self._runs) >= 2:
             self.compare()
 
         # Um gráfico agregado sai na hora: abrir a comparação já com ele
@@ -174,9 +179,21 @@ class ComparisonPanel(ttk.Frame):
         ttk.Label(row, textvariable=self.status_var,
                   style="Caption.TLabel").pack(side="right", padx=(0, SPACE[3]))
 
+        # --- Nota da etiquetagem INI-C, quando as execuções formam um grupo ---
+        self.labeling_card = Card(self, pad=SPACE[3])
+        self.labeling_title = ttk.Label(self.labeling_card.body, style="CardTitle.TLabel")
+        self.labeling_title.pack(anchor="w")
+        self.labeling_text = ttk.Label(self.labeling_card.body, style="Body.TLabel",
+                                       wraplength=1000, justify="left")
+        self.labeling_text.pack(anchor="w", pady=(SPACE[1], 0))
+        self.labeling_notes = ttk.Label(self.labeling_card.body, style="Caption.TLabel",
+                                        wraplength=1000, justify="left")
+        self.labeling_notes.pack(anchor="w", pady=(SPACE[1], 0))
+
         # --- Comparação: números à esquerda, gráfico à direita ---
         compare_card = Card(self, pad=SPACE[3])
         compare_card.pack(fill="both", expand=True, pady=(SPACE[3], 0))
+        self._compare_card = compare_card
         compare_panes = ttk.PanedWindow(compare_card.body, orient="horizontal")
         compare_panes.pack(fill="both", expand=True)
 
@@ -271,6 +288,40 @@ class ComparisonPanel(ttk.Frame):
             except ValueError:
                 values['days'] = 7
         return values
+
+    def _show_labeling(self, runs) -> bool:
+        """Cartão com a classe da envoltória, se alguma execução tiver a nota."""
+        from confortimetro.etiquetagem import avaliacao
+
+        result = next((r for r in (avaliacao.ler(run['path']) for run in runs) if r), None)
+        if result is None:
+            self.labeling_card.pack_forget()
+            return False
+        self.labeling_title.configure(
+            text=f"Envoltória classe {result['classe']} (INI-C, "
+                 f"{'híbrido' if result['modo'] == 'hibrido' else 'condicionado'})")
+        limits = result['limites']
+        lines = [
+            f"RedCgTT {result['red_cgtt']:.1f} %  ·  A > {limits['A']:.1f} %, "
+            f"B > {limits['B']:.1f} %, C > {limits['C']:.1f} %, D ≥ 0  ·  "
+            f"ZB {result['zb']}, FF {result['ff']:.2f}",
+            f"CgTT real {result['cgtt_real']:.0f} kWh/ano  ·  referência "
+            f"{result['cgtt_ref']:.0f} kWh/ano",
+        ]
+        if result.get('phoct') is not None:
+            lines.append(f"PHOCT {result['phoct']:.1f} % (≥ 90 % daria A direto)")
+        for zone in result['zonas']:
+            line = (f"{zone['zona']}: real {zone['cgtt_real']:.0f}, referência "
+                    f"{zone['referencia']['total']:.0f} kWh/ano")
+            if zone.get('phoct') is not None:
+                line += f", PHOCT {zone['phoct']:.1f} %"
+            lines.append(line)
+        self.labeling_text.configure(text="\n".join(lines))
+        self.labeling_notes.configure(
+            text="\n".join(["• " + note for note in result.get('avisos', [])]
+                           + [result.get('aviso_estimativa', '')]))
+        self.labeling_card.pack(fill="x", pady=(SPACE[3], 0), before=self._compare_card)
+        return True
 
     # --------------------------------------------------------------- dados
 

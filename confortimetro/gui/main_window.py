@@ -17,6 +17,7 @@ from typing import Optional
 
 from confortimetro.assistant import simulacao
 from confortimetro.config import SimulationConfig
+from confortimetro.module_type import ModuleType
 from confortimetro.drive import sync as drive_sync
 from confortimetro.idf import (apply_equipment_fixes, plan_equipment_fixes,
                                 read_run_period, read_zone_names, rooms_without_people,
@@ -763,6 +764,11 @@ class MainWindow(tk.Tk):
             toast(self, "Pasta do EnergyPlus não existe.", "error")
             return False
 
+        if self.configs.etiquetagem:
+            # A etiquetagem cria a ocupação da norma e troca o condicionamento:
+            # o equipamento do módulo não importa.
+            return True
+
         no_people = rooms_without_people(self.configs.idf_path,
                                          self.configs.rooms or [])
         if no_people:
@@ -811,7 +817,8 @@ class MainWindow(tk.Tk):
             else:
                 from confortimetro.simulation import Simulation
 
-            self.simulation = Simulation(copy.deepcopy(config))
+            runner = getattr(self, "_labeling_runner", None)
+            self.simulation = runner or Simulation(copy.deepcopy(config))
             self.simulation.run(q)
         except Exception as e:
             self._simulation_error = str(e)
@@ -878,7 +885,17 @@ class MainWindow(tk.Tk):
             self._running_origin = None
             if finished_path and not interrupted and not has_error:
                 self._drive_push(finished_path)
-            if finished_path and not interrupted and not has_error and not from_assistant:
+            runner, self._labeling_runner = getattr(self, "_labeling_runner", None), None
+            if runner is not None and not interrupted and not has_error:
+                # O grupo da etiquetagem abre na comparação, com a nota.
+                for path in list(runner.execucoes.values())[1:]:
+                    self._drive_push(path)
+                self.simulations_panel.refresh()
+                paths = set(runner.execucoes.values())
+                runs = [r for r in self.simulations_panel._runs if r['path'] in paths]
+                if runs:
+                    self.on_compare_runs(runs, self._outputs_root())
+            elif finished_path and not interrupted and not has_error and not from_assistant:
                 run = next((r for r in self.simulations_panel._runs
                             if r['path'] == finished_path), None)
                 if run is not None:
@@ -1107,7 +1124,17 @@ class MainWindow(tk.Tk):
         """
         if origin != "editor":   # o Executar do editor já limpou antes de validar
             self._reset_run_feedback()
-        problems, _ = simulacao.validate(config)
+        # A proposta do assistente é uma execução comum, mesmo com a opção
+        # ligada na tela.
+        labeling = config.etiquetagem if origin == "editor" else None
+        if not labeling:
+            config.etiquetagem = None
+        checked = config
+        if labeling:
+            # Cada modelo da etiquetagem roda no módulo somente EnergyPlus.
+            checked = copy.deepcopy(config)
+            checked.module_type = ModuleType.ENERGYPLUS_ONLY
+        problems, _ = simulacao.validate(checked)
         if problems:
             self._reject_configuration(problems)
             return None
@@ -1116,6 +1143,13 @@ class MainWindow(tk.Tk):
         # Cada rodada escreve numa subpasta nova da raiz configurada; nunca
         # por cima da anterior.
         config.output_path = new_run_path(root=config.runs_root_path)
+        self._labeling_runner = None
+        if labeling:
+            try:
+                self._labeling_runner = self._labeling(config, labeling)
+            except (OSError, ValueError) as error:
+                self._reject_configuration([f"Etiquetagem INI-C: {error}"])
+                return None
         # Entra na listagem como "em simulação" já na largada, antes de a
         # pasta existir.
         self._running_run_path = config.output_path
@@ -1145,6 +1179,21 @@ class MainWindow(tk.Tk):
         # Start checking thread status
         self.after(100, self._check_simulation_thread)
         return config.output_path
+
+    def _labeling(self, config: SimulationConfig, opcoes: dict):
+        """Gera os modelos da etiquetagem; a ZB automática sai do EPW."""
+        from confortimetro.etiquetagem.execucao import EtiquetagemRun, zona_sugerida
+
+        opcoes = dict(opcoes)
+        if not opcoes.get("zb"):
+            zb, cidade = zona_sugerida(config.epw_path, config.idf_path)
+            if zb is None:
+                raise ValueError("nem o EPW nem o IDF dizem o local; escolha a "
+                                 "zona bioclimática.")
+            opcoes["zb"] = zb
+            self.results_panel.append_info(
+                f"Zona bioclimática {zb} ({cidade}, município mais próximo do EPW).")
+        return EtiquetagemRun(copy.deepcopy(config), opcoes, config.output_path)
 
     def _warn_long_run(self, config: SimulationConfig):
         """Avisa quando o período simulado torna a simulação demorada.

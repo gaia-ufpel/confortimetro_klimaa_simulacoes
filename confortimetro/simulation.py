@@ -173,7 +173,12 @@ class Simulation:
             
             if result.returncode != 0:
                 raise RuntimeError(f"ExpandObjects falhou: {result.stderr}")
-            
+            # Sem nada para expandir (nenhum HVACTemplate nem GroundDomain), o
+            # ExpandObjects não escreve o expanded.idf: o modelo já é o final.
+            expanded = os.path.join(self.configs.output_path, "expanded.idf")
+            if not os.path.isfile(expanded):
+                shutil.copy(os.path.join(self.configs.output_path, "in.idf"), expanded)
+
             self.logger.info("Objetos expandidos com sucesso")
             
         except subprocess.TimeoutExpired:

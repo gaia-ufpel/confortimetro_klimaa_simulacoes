@@ -319,6 +319,38 @@ real mais próximo; ← e → andam um timestep. Desenho em
 | Simulação termina mas faltam `.xlsx` | Falha no pós-processamento; veja o traceback e `eplusout.err`. |
 | `File <ZONA>.xlsx not found! Skipping...` | A zona não existe no `.eso`; nome errado em `rooms`. |
 
+## Etiquetagem da envoltória (INI-C)
+
+Estimativa da classe da envoltória pelo método de simulação da INI-C (Anexo I
+da Portaria Inmetro 309/2022; PDFs em `docs/material/Normas PBE Edifica/`).
+As `rooms` são as APP avaliadas; as demais zonas são APT.
+
+```bash
+.venv/bin/python cli.py --inic condicionado --tipologia educacional \
+    --uso "Ensino superior" --set 'rooms=["SALA_AULA","ATELIE1"]'   # --zb 2 opcional
+.venv/bin/python cli.py --inic hibrido ...    # + modelo real com janelas abrindo (PHOCT)
+```
+
+- Gera `modelo_inic.idf` (`confortimetro/etiquetagem/modelos.py`) para cada
+  papel — `real`, `referencia` e, no híbrido, `real_vn` — e simula cada um como
+  uma execução comum no módulo somente EnergyPlus, o ano inteiro. Pastas:
+  `<grupo>`, `<grupo>_inic_real_vn`, `<grupo>_inic_referencia`.
+- Nos dois modelos: rotina e densidade de ocupação da tipologia, sistema ideal
+  21/24 °C só nas horas ocupadas (aquecimento nas ZB 1–2 ou se o IDF aquece),
+  ar externo 5 L/s·pessoa + 0,6 L/s·m², frestas da Tabela C.3. APP sem
+  `People` ganha um. Só a referência: paredes, cobertura, piso e vidro da
+  Tabela A.9, PAF da tipologia (janelas escaladas no lugar; sem caber, viram
+  uma faixa de painéis na parede) e sem brises/beirais (`Shading:Zone`, …;
+  `Shading:Building`/`Site` ficam como entorno).
+- A nota (`ETIQUETAGEM.json` em cada pasta do grupo) sai de
+  `etiquetagem/avaliacao.py`: RedCgTT contra os limites do CRCgTT (Tabelas
+  8.12, 8.13, 8.19) pelo fator de forma e pela ZB (automática pelo município
+  mais próximo do local do EPW). No híbrido, FHdesc desconta só a
+  refrigeração e PHOCT ≥ 90 % dá A.
+- Recusa geometria simplificada (`Wall:Exterior`, `Window`…) e HVAC fora de
+  `HVACTemplate`. Os avisos (PAF, ático, entorno) vão para o log e o cartão da
+  comparação.
+
 ## 10. Referência de código
 
 | Caminho | Papel |
@@ -330,6 +362,7 @@ real mais próximo; ← e → andam um timestep. Desenho em
 | `confortimetro/control/` | Controladores de conforto por timestep. |
 | `confortimetro/config.py` | Esquema de configuração. |
 | `confortimetro/results/` | Pós-processamento e planilhas. |
+| `confortimetro/etiquetagem/` | Etiquetagem INI-C: tabelas, modelos real/referência e nota. |
 
 ## Detecção do EnergyPlus
 

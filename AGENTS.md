@@ -54,6 +54,11 @@ saídas e diagnóstico de erros.
   Inno Setup não rodam em Linux. A versão vem do `version` do `pyproject.toml`,
   e a tag `v<version>` precisa bater com ela ou o build falha de propósito.
   Armadilhas do `.spec` e do `.iss` em [`docs/WINDOWS.md`](docs/WINDOWS.md).
+- **Etiquetagem INI-C é um grupo de execuções** (`etiquetagem/execucao.py`):
+  cada modelo gerado roda como execução comum `ENERGYPLUS_ONLY` com
+  `config.etiquetagem` (`papel`, `grupo`), e a nota fica em `ETIQUETAGEM.json`.
+  O remoto e o MCP não aceitam o campo. Detalhes em
+  [`docs/CLI.md`](docs/CLI.md#etiquetagem-da-envoltória-ini-c).
 - O período e o passo do pós-processamento vêm do `RunPeriod` e do `Timestep`
   do IDF (`read_run_period`, `read_timesteps_per_hour`); o descarte inicial é de
   dois dias de aquecimento, proporcional ao timestep.

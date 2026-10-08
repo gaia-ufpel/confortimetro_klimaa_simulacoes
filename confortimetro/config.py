@@ -288,6 +288,10 @@ class SimulationConfig:
     # Nome dado pelo usuário; a listagem e a comparação o mostram no lugar da
     # pasta (`20261007_2133`). None = nome montado com o IDF e a hora.
     nome: str = None
+    # Execução de um grupo de etiquetagem INI-C (`confortimetro.etiquetagem`):
+    # grupo, papel do modelo (real, real_vn, referencia), tipologia, uso, modo,
+    # ZB e zonas avaliadas. None = simulação comum.
+    etiquetagem: dict = None
 
     def __post_init__(self):
         # Sem saída escolhida, cada execução ganha a sua subpasta na pasta de

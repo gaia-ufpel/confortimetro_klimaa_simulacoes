@@ -22,6 +22,9 @@ datas = [
     # PYZ só há bytecode, então os .py vão como arquivos.
     (os.path.join(ROOT, "confortimetro", "control", "*.py"),
      "confortimetro/control"),
+    # Municípios e zonas bioclimáticas da etiquetagem INI-C, lidos do disco.
+    (os.path.join(ROOT, "confortimetro", "etiquetagem", "zonas_bioclimaticas.csv"),
+     "confortimetro/etiquetagem"),
     (os.path.join(ROOT, "examples", "config.json"), "examples"),
     (os.path.join(ROOT, "examples", "idf"), "examples/idf"),
     (os.path.join(ROOT, "examples", "epw"), "examples/epw"),
