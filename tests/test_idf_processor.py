@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 import eppy.modeleditor
-from confortimetro.idf.processor import IDFProcessor
+from confortimetro.idf.processor import IDFProcessor, rooms_without_people
 from confortimetro.module_type import ModuleType
 
 
@@ -73,3 +73,10 @@ def test_periodo_da_configuracao_vai_para_o_runperiod(monkeypatch, tmp_path):
     assert timestep.Number_of_Timesteps_per_Hour == 4
     texto = "\n".join(describe_changes(configs))
     assert "01/01/2015 a 31/01/2015" in texto and "Output:Variable" in texto
+
+
+def test_zona_sem_people_e_barrada():
+    # Sem PEOPLE_<ZONA> o EnergyPlus 9.4 caía em segfault no meio da simulação.
+    idf = "examples/idf/FAURB/FAURB_PTHP_ENTORNO.idf"
+    problems = rooms_without_people(idf, ["ATELIE1", "COPA"])
+    assert len(problems) == 1 and "PEOPLE_COPA" in problems[0]

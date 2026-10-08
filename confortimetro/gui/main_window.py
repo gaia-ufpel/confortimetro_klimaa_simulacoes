@@ -19,7 +19,8 @@ from confortimetro.assistant import simulacao
 from confortimetro.config import SimulationConfig
 from confortimetro.drive import sync as drive_sync
 from confortimetro.idf import (apply_equipment_fixes, plan_equipment_fixes,
-                                read_run_period, read_zone_names, unwired_equipment,
+                                read_run_period, read_zone_names, rooms_without_people,
+                                unwired_equipment,
                                 write_idf_fields)
 from confortimetro.paths import app_data_path, new_run_path, runs_root
 from .components import (
@@ -752,6 +753,14 @@ class MainWindow(tk.Tk):
             toast(self, "Pasta do EnergyPlus não existe.", "error")
             return False
 
+        no_people = rooms_without_people(self.configs.idf_path,
+                                         self.configs.rooms or [])
+        if no_people:
+            for problem in no_people:
+                self.results_panel.append_error(problem)
+            messagebox.showerror("Zona sem ocupação no IDF", "\n\n".join(no_people))
+            return False
+
         # Zona sem o equipamento do módulo simularia inteira decidindo no vazio;
         # a simulação também barra isso, mas o aviso aqui chega antes da espera.
         self.configs.ignore_missing_equipment = False
@@ -803,6 +812,9 @@ class MainWindow(tk.Tk):
         message = message.strip()
         if message.startswith("PROGRESS "):
             self.control_panel.set_progress(float(message.split()[1]))
+            return
+        if message.startswith("WARNING "):
+            self.results_panel.append_warning(message[len("WARNING "):])
             return
         lower = message.lower()
         if "erro" in lower or "error" in lower or message.startswith("Erro"):

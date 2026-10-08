@@ -179,6 +179,9 @@ def test_simulation_success_handling(window):
     window._simulation_error = None
 
     window._handle_simulation_message("Executando etapa final")
+    # O resumo do eplusout.err sai em toda execução: é aviso, não falha.
+    window._handle_simulation_message(
+        "WARNING EnergyPlus: 56 avisos e 0 erros graves (veja eplusout.err na pasta da execução).")
     assert window._simulation_error is None
 
     window.simulation_thread = None

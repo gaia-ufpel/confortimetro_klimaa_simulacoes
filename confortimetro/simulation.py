@@ -305,8 +305,10 @@ class Simulation:
         except (OSError, IndexError):
             return
         if found and self._queue is not None:
-            self._queue.put(f"EnergyPlus: {found.group(1)} warnings e "
-                            f"{found.group(2)} severe errors (veja eplusout.err na pasta da execução).")
+            # `WARNING ` marca aviso: a GUI trata como erro qualquer texto com
+            # "erro"/"error", e este resumo sai em toda execução bem-sucedida.
+            self._queue.put(f"WARNING EnergyPlus: {found.group(1)} avisos e "
+                            f"{found.group(2)} erros graves (veja eplusout.err na pasta da execução).")
 
     def _say(self, q: Queue, message: str):
         """Mesma mensagem para a GUI (fila) e para quem roda pela CLI (stdout)."""

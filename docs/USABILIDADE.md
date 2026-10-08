@@ -282,3 +282,98 @@ componentes (1.4.11).
 10. Ajustar as cores que reprovam no WCAG e trocar a paleta dos gráficos por uma
     segura para daltonismo.
 11. Repetir a rodada com 3 a 5 usuários reais, incluindo uma no Windows.
+
+---
+
+# 2ª rodada — versão 0.8.0 (`8966f72`)
+
+Rodada de 07/10/2026, à noite, depois das correções de `cf13421`. Mesmas cinco
+personas, mesmo método e cenário; desta vez cada agente usou Xvfb e
+`AMBIENS_DATA_DIR` próprios, e ninguém gravou em `examples/` (`git status`
+limpo nas cinco). Ricardo e Fernanda concluíram simulações de 1 semana
+(5 no total); Lucas rodou e parou várias.
+
+Dos achados da 1ª rodada, quase todos os P0 e a maior parte dos P1 ficaram
+corrigidos. A rodada achou 3 P0 novos — um deles regressão do próprio
+`cf13421` — e repetiu alguns P1 em várias personas.
+
+| Persona | Tarefas | Antes → agora |
+|---|---|---|
+| Juliana | 8 de 9, 1 parcial | 18 achados: 11 corrigidos, 5 parciais, 1 persiste, 1 não verificável |
+| Ricardo | 7 de 7 | comparou 3 cenários; números batem com a configuração |
+| Lucas | 11 de 18, 6 parciais | nenhum arquivo errado passou; 1 crash novo |
+| Fernanda | 4 de 8, 3 parciais | janela cabe em 720p e 125%; Regerar travou |
+| Marcos | 4 de 5 só com teclado | era 1 de 5, e com mouse |
+
+## Corrigido nesta rodada
+
+- **[P0] Toda simulação bem-sucedida terminava como "Simulação falhou".** O
+  resumo novo "N warnings e 0 severe errors" caía no teste `"error" in lower`
+  de `_handle_simulation_message`; o selo ficava vermelho e a execução não ia
+  ao Drive nem abria os detalhes. Agora o resumo sai com o prefixo `WARNING `,
+  como o `PROGRESS `, e entra no log como aviso. *Todas.*
+- **[P0] Zona sem `PEOPLE_<ZONA>` derrubava o app (segfault, exit 139).** O
+  controlador parava no primeiro timestep e o EnergyPlus 9.4 caía ao gravar a
+  saída; reproduzido pela CLI. `rooms_without_people` barra a zona antes de
+  simular, na GUI e em `validate_idf`, sem passar pelo "Rodar mesmo assim" do
+  equipamento. No FAURB, 9 das 16 zonas não têm People. *Lucas.*
+- **[P0] "Regerar estatísticas" travava para sempre no Linux.** O
+  `ProcessPoolExecutor` usava `fork` com as threads da GUI vivas e os workers
+  ficavam em `futex_wait`. Agora usa `spawn`, como no Windows; com Tk ativo,
+  regerou 2 execuções em 69 s. *Fernanda.*
+
+## Pendente
+
+**P1**
+
+- Aviso falso "Período de 365 dias… 1–2 h" com período editado:
+  `_warn_long_run` (`main_window.py`) lê o IDF original e ignora
+  `run_period_start/end`. *Juliana, Ricardo, Lucas, Marcos, Fernanda.*
+- "Editar IDF" depois de Duplicar recarrega o IDF e volta o Fim para 31/12 sem
+  aviso (`IDFEditorPanel.load`); Ricardo rodou um ano sem querer. *Ricardo.*
+- Selo e log da execução anterior não são limpos; o contador soma erros
+  antigos. *Juliana, Ricardo, Marcos, Lucas, Fernanda.*
+- "Passos por hora" aceita valor que não divide 60; o pós-processamento falha
+  ~3 min depois. *Lucas.*
+- Falha no pós-processamento aparece como "Interrompida", e o Assistente diz
+  que não há dados brutos. *Lucas.*
+- Comparação: "Carpete anual" estica 1 semana sobre o ano (`extent=[1, 365]`);
+  "Semana típica" abre vazia em 1970; "Exportar CSV" some ao trocar de gráfico;
+  rótulos arredondam 0,6 kWh para "1". *Fernanda.*
+- Seleção múltipla na lista só com Ctrl+clique: Comparação inalcançável por
+  teclado. *Marcos.*
+- Botões desabilitados recebem Tab sem anel (`theme.py`); Configurações não
+  rola atrás do foco. *Marcos.*
+- A 125%, Detalhes fica com a tabela por zona em altura zero. *Fernanda.*
+
+**P2**
+
+- Execuções indistinguíveis na lista ("FAURB_PTHP_ENTORNO · 07/…"), sem nome;
+  lista usa a hora de modificação e a comparação a de início. *Juliana,
+  Ricardo, Marcos, Fernanda.*
+- Desconforto 0 %, PMV fora 20–31 % e fora da banda adaptativa 24 % lado a
+  lado, sem explicação; a tela não diz que o PMV é o do controlador, não o
+  Fanger do EnergyPlus. *Juliana, Ricardo, Fernanda.*
+- Ctrl+A não seleciona o campo, e o que se digita é colado ao valor antigo;
+  campos de PMV/clo às vezes recebem foco sem seleção. *Juliana, Lucas, Marcos,
+  Fernanda.*
+- Validação incompleta: velocidade −2 e Met vazio sem borda vermelha; um erro
+  por vez; slider desenha −3 ou faixa invertida. *Lucas.*
+- Resto de inglês: filtro "all", "COMPLETE" na comparação, "True", números com
+  ponto. *Todas.*
+- Cards e rótulos cortados ("ESCONFORT", "Ajustar Clo antes dos equipame…").
+- Contraste: `#f67a24` em texto (2,60:1), anotação `#009e73` (3,28:1); aviso e
+  erro oliva sob deuteranopia (1,50:1). *Marcos.*
+- Abertura ainda leva ~26–45 s até a tela utilizável, agora com splash.
+  *Juliana, Ricardo.*
+
+## O que melhorou
+
+- Os números: "PMV fora" respeita a faixa de cada execução, energia no
+  período, período editado chega ao `in.idf` e passa pelo Duplicar.
+- Arquivo errado barrado na hora; valor inválido fica vermelho e não é trocado.
+- Parar e fechar a janela pedem confirmação, e fechar encerra o EnergyPlus.
+- Progresso com % e tempo restante; Esc, F5 e Ctrl+Enter; anel de foco nos
+  botões; setas e Enter na lista.
+- Janela proporcional à tela; Configurações e abas rolam.
+- Configuração e IDF editado na pasta de dados do app.

@@ -153,6 +153,22 @@ def missing_equipment(idf_path: str, rooms: List[str],
             if not used(f"{prefix}_{room.upper()}")]
 
 
+def rooms_without_people(idf_path: str, rooms: List[str]) -> List[str]:
+    """Mensagens para cada zona sem o objeto `People` `PEOPLE_<ZONA>`.
+
+    O controlador lê a ocupação e o conforto adaptativo desse objeto; sem ele a
+    simulação para no primeiro timestep e o EnergyPlus 9.4 cai (segfault) ao
+    encerrar. Ao contrário do equipamento, não dá para copiar de outra zona.
+    """
+    names = {fields[0].strip().upper()
+             for fields, _, _ in _parse_objects(_read_text(idf_path), "People")
+             if fields}
+    return [f"Zona '{room}' não tem ocupação: falta o objeto People "
+            f"PEOPLE_{room.upper()} no IDF. Remova a zona da lista ou "
+            "adicione o People no modelo."
+            for room in rooms if f"PEOPLE_{room.upper()}" not in names]
+
+
 def unwired_equipment(idf_path: str, rooms: List[str],
                       module_type: ModuleType) -> List[str]:
     """Mensagens prontas para o usuário sobre o equipamento que falta."""
@@ -1016,6 +1032,10 @@ class IDFProcessor:
                 
             except Exception as e:
                 errors.append(f"Failed to parse IDF file: {e}")
+
+            # Sem People não há como simular: não entra no ignore_missing_equipment.
+            errors.extend(rooms_without_people(self.configs.idf_path,
+                                               self.configs.rooms or []))
 
             problems = unwired_equipment(self.configs.idf_path,
                                          self.configs.rooms or [],
