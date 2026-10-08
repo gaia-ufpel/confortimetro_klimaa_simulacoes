@@ -21,7 +21,7 @@ from queue import Queue
 from confortimetro.assistant import simulacao
 from confortimetro.simulation import Simulation
 from confortimetro.config import SimulationConfig
-from confortimetro.etiquetagem import norma
+from confortimetro.etiquetagem import modelos, norma
 from confortimetro.module_type import ModuleType
 
 
@@ -42,6 +42,9 @@ def parse_args(argv=None):
                         help="Tipologia da INI-C (padrão: educacional).")
     parser.add_argument("--uso", help="Uso dentro da tipologia, que dá a densidade de "
                                       "ocupação (padrão: o primeiro da tipologia).")
+    parser.add_argument("--fachada", choices=list(modelos.ORIENTACOES),
+                        help="Orientação da fachada principal; exigida no varejo "
+                             "(tipologias varejo e mercado).")
     parser.add_argument("--zb", type=int, choices=range(1, 9),
                         help="Zona bioclimática (padrão: a do local do EPW).")
     return parser.parse_args(argv)
@@ -126,8 +129,10 @@ def _etiquetagem(config, args):
         if zb is None:
             raise ValueError("Nem o EPW nem o IDF dizem o local; informe --zb.")
         print(f"Zona bioclimática {zb} ({cidade}, pelo local do clima)")
-    return EtiquetagemRun(config, {"tipologia": args.tipologia, "uso": uso,
-                                   "modo": args.inic, "zb": zb}, config.output_path)
+    opcoes = {"tipologia": args.tipologia, "uso": uso, "modo": args.inic, "zb": zb}
+    if args.fachada:
+        opcoes["fachada"] = args.fachada
+    return EtiquetagemRun(config, opcoes, config.output_path)
 
 
 def _push_to_drive(run_path):

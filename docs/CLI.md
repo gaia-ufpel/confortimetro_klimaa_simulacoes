@@ -329,7 +329,14 @@ As `rooms` são as APP avaliadas; as demais zonas são APT.
 .venv/bin/python cli.py --inic condicionado --tipologia educacional \
     --uso "Ensino superior" --set 'rooms=["SALA_AULA","ATELIE1"]'   # --zb 2 opcional
 .venv/bin/python cli.py --inic hibrido ...    # + modelo real com janelas abrindo (PHOCT)
+.venv/bin/python cli.py --inic condicionado --tipologia varejo --fachada NE ...
 ```
+
+Tipologias (`--tipologia`): `educacional`, `escritorio`, `hospedagem`, `saude`
+(EAS exceto hospitais), `varejo`, `mercado`, `alimentacao` e `outra`. No
+varejo e no mercado o PAF de referência é 60 % na fachada principal e 5 % ou
+10 % nas demais: `--fachada` (N, NE, L, SE, S, SO, O, NO) diz para onde ela
+olha; as paredes a até 45° dela formam a fachada principal.
 
 - Gera `modelo_inic.idf` (`confortimetro/etiquetagem/modelos.py`) para cada
   papel — `real`, `referencia` e, no híbrido, `real_vn` — e simula cada um como
@@ -344,7 +351,7 @@ As `rooms` são as APP avaliadas; as demais zonas são APT.
   `Shading:Building`/`Site` ficam como entorno).
 - A nota (`ETIQUETAGEM.json` em cada pasta do grupo) sai de
   `etiquetagem/avaliacao.py`: RedCgTT contra os limites do CRCgTT (Tabelas
-  8.12, 8.13, 8.19) pelo fator de forma e pela ZB (automática pelo município
+  8.12 a 8.19) pelo fator de forma e pela ZB (automática pelo município
   mais próximo do local do EPW). No híbrido, FHdesc desconta só a
   refrigeração e PHOCT ≥ 90 % dá A.
 - Recusa geometria simplificada (`Wall:Exterior`, `Window`…) e HVAC fora de

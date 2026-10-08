@@ -45,7 +45,7 @@ def zona_sugerida(epw_path: str, idf_path: str = None):
 class EtiquetagemRun:
     """Mesma interface de `Simulation` (`run(q)`, `stop()`, `stop_requested`).
 
-    `opcoes` = `{"tipologia", "uso", "modo", "zb"}`. Os modelos são gerados no
+    `opcoes` = `{"tipologia", "uso", "modo", "zb"}` e, no varejo, `"fachada"`. Os modelos são gerados no
     construtor, para um IDF que a etiquetagem não suporta falhar antes de
     qualquer simulação; `self.execucoes` diz onde cada papel vai rodar.
     """
@@ -67,7 +67,8 @@ class EtiquetagemRun:
             os.makedirs(pasta, exist_ok=True)
             idf = os.path.join(pasta, MODELO)
             avisos = modelos.gerar_modelo(origem, idf, papel, zonas, opcoes["tipologia"],
-                                          opcoes["uso"], com_aquecimento)
+                                          opcoes["uso"], com_aquecimento,
+                                          opcoes.get("fachada"))
             self.avisos += [aviso for aviso in avisos if aviso not in self.avisos]
             cfg = copy.deepcopy(config)
             cfg.module_type = ModuleType.ENERGYPLUS_ONLY

@@ -424,7 +424,7 @@ class SimulationConfigPanel(ttk.Frame):
 
     def _build_labeling_tab(self):
         """Etiquetagem da envoltória pela INI-C: modelos real e de referência."""
-        from confortimetro.etiquetagem import norma
+        from confortimetro.etiquetagem import modelos, norma
 
         self._tipologias = {dados["nome"]: chave for chave, dados in norma.TIPOLOGIAS.items()}
         tab = self._scroll_tab("Etiquetagem", "zap")
@@ -451,21 +451,30 @@ class SimulationConfigPanel(ttk.Frame):
         self._combo(section, 3, 2, "Zona bioclimática",
                     [ZB_AUTO] + [zb_label(zb) for zb in range(1, 9)], self.labeling_zb,
                     columnspan=2, help="Automática: a do município mais próximo do local do EPW.")
+        self.labeling_facade = tk.StringVar(value="N")
+        self.cbx_facade = self._combo(
+            section, 5, 0, "Fachada principal", list(modelos.ORIENTACOES),
+            self.labeling_facade, columnspan=2,
+            help="Só no varejo: as paredes voltadas a até 45° dela recebem o PAF "
+                 "da fachada principal (Tabelas A.5 e A.6).")
         ttk.Label(section, style="Caption.TLabel", wraplength=520, justify="left",
                   text="As salas da aba Zonas são as APP avaliadas. Os modelos "
                        "rodam no módulo somente EnergyPlus, o ano inteiro; a nota "
                        "aparece no log e na comparação das execuções do grupo. "
                        + norma.AVISO_ESTIMATIVA).grid(
-            row=5, column=0, columnspan=4, padx=SPACE[1], sticky="w")
+            row=7, column=0, columnspan=4, padx=SPACE[1], sticky="w")
         self._on_labeling_changed()
 
     def _on_labeling_changed(self, event=None):
         from confortimetro.etiquetagem import norma
 
-        usos = list(norma.TIPOLOGIAS[self._tipologias[self.labeling_typology.get()]]["ocupacao"])
+        tipo = norma.TIPOLOGIAS[self._tipologias[self.labeling_typology.get()]]
+        usos = list(tipo["ocupacao"])
         self.cbx_use.configure(values=usos)
         if self.labeling_use.get() not in usos:
             self.labeling_use.set(usos[-1])
+        self.cbx_facade.configure(
+            state="readonly" if isinstance(tipo["paf"], tuple) else "disabled")
         self._on_config_changed()
 
     def _labeling_config(self):
@@ -473,10 +482,15 @@ class SimulationConfigPanel(ttk.Frame):
             return None
         modo = next(chave for chave, rotulo in LABELING_MODES.items()
                     if rotulo == self.labeling_mode.get())
+        from confortimetro.etiquetagem import norma
+
         zb = self.labeling_zb.get()
-        return {"tipologia": self._tipologias[self.labeling_typology.get()],
-                "uso": self.labeling_use.get(), "modo": modo,
-                "zb": None if zb == ZB_AUTO else int(zb.split()[0])}
+        tipologia = self._tipologias[self.labeling_typology.get()]
+        opcoes = {"tipologia": tipologia, "uso": self.labeling_use.get(), "modo": modo,
+                  "zb": None if zb == ZB_AUTO else int(zb.split()[0])}
+        if isinstance(norma.TIPOLOGIAS[tipologia]["paf"], tuple):
+            opcoes["fachada"] = self.labeling_facade.get()
+        return opcoes
 
     def _set_labeling(self, opcoes):
         from confortimetro.etiquetagem import norma
@@ -491,6 +505,7 @@ class SimulationConfigPanel(ttk.Frame):
         self.labeling_mode.set(LABELING_MODES[opcoes["modo"]])
         self.labeling_zb.set(zb_label(int(opcoes["zb"])) if opcoes.get("zb") else ZB_AUTO)
         self.labeling_use.set(opcoes["uso"])
+        self.labeling_facade.set(opcoes.get("fachada") or "N")
         self._on_labeling_changed()
 
     def set_room_options(self, rooms):

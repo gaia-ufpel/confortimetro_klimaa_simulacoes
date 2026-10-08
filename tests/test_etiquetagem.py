@@ -91,6 +91,24 @@ def test_paf_reduz_quando_passa(tmp_path):
     assert "reduzida" in avisos[0] and "→ 5.0 %" in avisos[0]
 
 
+def test_paf_do_varejo_por_fachada():
+    # A SALA tem janelas nas paredes norte e sul.
+    with open(SALA, encoding="latin-1") as arquivo:
+        texto = arquivo.read()
+    avisos = []
+    modelos.ajustar_paf(modelos._Idf(texto), {"SALA"}, (0.60, 0.05), avisos, "N")
+    principal = next(a for a in avisos if a.startswith("Zona SALA (fachada principal)"))
+    demais = next(a for a in avisos if a.startswith("Zona SALA (demais fachadas)"))
+    assert "→ 60.0 %" in principal and "→ 5.0 %" in demais
+    # Voltada a leste, nenhuma parede com janela é a principal.
+    avisos = []
+    modelos.ajustar_paf(modelos._Idf(texto), {"SALA"}, (0.60, 0.05), avisos, "L")
+    assert not any("fachada principal" in a for a in avisos)
+    with pytest.raises(ValueError, match="fachada principal"):
+        modelos.gerar_modelo(SALA, "/dev/null", "real", ["SALA"], "varejo", "Comércio", True)
+    assert set(norma.TIPOLOGIAS) == set(norma.CRCGTT)
+
+
 def test_janelas_da_mesma_parede_nao_se_sobrepoem():
     parede = [(0, 0, 3), (0, 0, 0), (10, 0, 0), (10, 0, 3)]
     a = [(1, 0, 2), (1, 0, 1), (2, 0, 1), (2, 0, 2)]

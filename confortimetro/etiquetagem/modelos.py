@@ -552,15 +552,44 @@ def _envoltoria_referencia(idf, zonas_app, avisos):
                       "edifício, ela deveria sair da referência.")
 
 
-def ajustar_paf(idf, zonas_app, paf, avisos):
+ORIENTACOES = {"N": 0, "NE": 45, "L": 90, "SE": 135, "S": 180, "SO": 225, "O": 270, "NO": 315}
+
+
+def _azimutes(idf):
+    """`{zona: graus somados ao azimute local}`: norte do edifício + o da zona."""
+    try:
+        norte = float(idf.todos("Building")[0]["campos"][1] or 0)
+    except (IndexError, ValueError):
+        norte = 0.0
+    giros = {}
+    for zona in idf.todos("Zone"):
+        try:
+            giros[zona["campos"][0].upper()] = norte + float(zona["campos"][1] or 0)
+        except (IndexError, ValueError):
+            giros[zona["campos"][0].upper()] = norte
+    return giros
+
+
+def _azimute(pontos, giro):
+    """Azimute da normal externa da parede, em graus a partir do norte (horário)."""
+    normal = _vetor_area(pontos)
+    return (math.degrees(math.atan2(normal[0], normal[1])) + giro) % 360
+
+
+def ajustar_paf(idf, zonas_app, paf, avisos, fachada_principal=None):
     """Redimensiona as janelas de cada APP para o PAF de referência (C.I.4.1).
 
     Cada janela é escalada em torno do próprio centro, todas na mesma
     proporção, mantendo a posição. A que bate na borda da parede para ali e as
     outras crescem mais para compensar; se nem assim couber, o PAF fica abaixo
     do alvo e o aviso diz quanto. Zona sem janela continua sem.
+
+    `paf` é um número, ou `(principal, demais)` nas tipologias de varejo
+    (Tabelas A.5 e A.6): aí as paredes voltadas a até 45° da
+    `fachada_principal` (`ORIENTACOES`) formam um grupo e as outras, outro.
     """
     superficies = _superficies(idf)
+    giros = _azimutes(idf)
     paredes = {}
     for nome, (obj, pontos) in superficies.items():
         campos = obj["campos"]
@@ -568,63 +597,81 @@ def ajustar_paf(idf, zonas_app, paf, avisos):
                 and campos[3].upper() in zonas_app:
             paredes[nome] = (campos[3].upper(), pontos)
 
-    por_zona = {}
+    def grupo(nome):
+        zona, pontos = paredes[nome]
+        if not isinstance(paf, tuple):
+            return (zona, "", paf)
+        diferenca = abs((_azimute(pontos, giros.get(zona, 0.0))
+                         - ORIENTACOES[fachada_principal] + 180) % 360 - 180)
+        return (zona, " (fachada principal)", paf[0]) if diferenca <= 45 \
+            else (zona, " (demais fachadas)", paf[1])
+
+    grupos = {}
+    for nome in paredes:
+        grupos.setdefault(grupo(nome), []).append(nome)
+
+    janelas_por_parede = {}
     for abertura in idf.todos(ABERTURA):
         pai = abertura["campos"][3].upper()
         if pai in paredes and _envidracada(abertura):
-            por_zona.setdefault(paredes[pai][0], []).append(abertura)
+            janelas_por_parede.setdefault(pai, []).append(abertura)
         elif pai in superficies and _envidracada(abertura) \
                 and superficies[pai][0]["campos"][1].lower() == "roof" \
                 and superficies[pai][0]["campos"][3].upper() in zonas_app:
             avisos.append(f"Abertura zenital '{abertura['campos'][0]}' mantida como "
                           "no modelo real (a Tabela C.1 não foi aplicada).")
 
-    for zona in sorted(zonas_app):
-        fachada = sum(_area(pontos) for z, pontos in paredes.values() if z == zona)
-        janelas = por_zona.get(zona, [])
-        if not fachada or not janelas:
-            continue
-        dados = []
-        for abertura in janelas:
-            pontos = _vertices(abertura["campos"], 9)
-            area = _area(pontos) * _multiplicador(abertura["campos"][7])
-            parede = paredes[abertura["campos"][3].upper()][1]
-            dados.append([abertura, pontos, area, _fator_maximo(pontos, parede)])
-        _limitar_vizinhas(dados, paredes)
-        atual = sum(area for _, _, area, _ in dados) / fachada
-        alvo = paf * fachada
+    for (zona, rotulo, alvo_paf), nomes in sorted(grupos.items()):
+        janelas = [j for nome in nomes for j in janelas_por_parede.get(nome, [])]
+        _ajustar_grupo(idf, f"{zona}{rotulo}", sum(_area(paredes[n][1]) for n in nomes),
+                       janelas, paredes, alvo_paf, avisos)
 
-        def total(escala):
-            return sum(area * min(escala, limite) ** 2 for _, _, area, limite in dados)
 
-        baixo, alto = 0.0, max(limite for *_, limite in dados)
-        if total(alto) < alvo:
-            escala = alto
-        else:
-            for _ in range(60):
-                meio = (baixo + alto) / 2
-                baixo, alto = (meio, alto) if total(meio) < alvo else (baixo, meio)
-            escala = alto
-        novas = {}
-        for abertura, pontos, area, limite in dados:
-            fator = min(escala, limite)
-            novas[abertura["campos"][0]] = (
-                abertura, _escalar(pontos, _centroide(pontos), fator), area * fator ** 2)
-        faixa = ""
-        if total(escala) < alvo - 0.005 * fachada:
-            faixa = _faixas(novas, paredes, alvo)
+def _ajustar_grupo(idf, rotulo, fachada, janelas, paredes, paf, avisos):
+    """Leva as `janelas` de um conjunto de paredes (área `fachada`) ao `paf`."""
+    if not fachada or not janelas:
+        return
+    dados = []
+    for abertura in janelas:
+        pontos = _vertices(abertura["campos"], 9)
+        area = _area(pontos) * _multiplicador(abertura["campos"][7])
+        parede = paredes[abertura["campos"][3].upper()][1]
+        dados.append([abertura, pontos, area, _fator_maximo(pontos, parede)])
+    _limitar_vizinhas(dados, paredes)
+    atual = sum(area for _, _, area, _ in dados) / fachada
+    alvo = paf * fachada
 
-        for abertura, pontos, _ in novas.values():
-            for posicao, ponto in enumerate(pontos):
-                for eixo, valor in enumerate(ponto):
-                    idf.campo(abertura, 9 + 3 * posicao + eixo, f"{valor:.4f}")
-        obtido = sum(area for *_, area in novas.values()) / fachada
-        mensagem = (f"Zona {zona}: PAF {atual * 100:.1f} % → {obtido * 100:.1f} % "
-                    f"({len(dados)} janela(s) {'ampliada(s)' if obtido > atual else 'reduzida(s)'}"
-                    f"{faixa})")
-        if obtido < paf - 0.005:
-            mensagem += f"; não coube {paf * 100:.0f} % nas paredes com janela"
-        avisos.append(mensagem + ".")
+    def total(escala):
+        return sum(area * min(escala, limite) ** 2 for _, _, area, limite in dados)
+
+    baixo, alto = 0.0, max(limite for *_, limite in dados)
+    if total(alto) < alvo:
+        escala = alto
+    else:
+        for _ in range(60):
+            meio = (baixo + alto) / 2
+            baixo, alto = (meio, alto) if total(meio) < alvo else (baixo, meio)
+        escala = alto
+    novas = {}
+    for abertura, pontos, area, limite in dados:
+        fator = min(escala, limite)
+        novas[abertura["campos"][0]] = (
+            abertura, _escalar(pontos, _centroide(pontos), fator), area * fator ** 2)
+    faixa = ""
+    if total(escala) < alvo - 0.005 * fachada:
+        faixa = _faixas(novas, paredes, alvo)
+
+    for abertura, pontos, _ in novas.values():
+        for posicao, ponto in enumerate(pontos):
+            for eixo, valor in enumerate(ponto):
+                idf.campo(abertura, 9 + 3 * posicao + eixo, f"{valor:.4f}")
+    obtido = sum(area for *_, area in novas.values()) / fachada
+    mensagem = (f"Zona {rotulo}: PAF {atual * 100:.1f} % → {obtido * 100:.1f} % "
+                f"({len(dados)} janela(s) {'ampliada(s)' if obtido > atual else 'reduzida(s)'}"
+                f"{faixa})")
+    if obtido < paf - 0.005:
+        mensagem += f"; não coube {paf * 100:.0f} % nas paredes com janela"
+    avisos.append(mensagem + ".")
 
 
 def _retangulo_vertical(pontos):
@@ -722,8 +769,12 @@ def _limitar_vizinhas(dados, paredes):
 
 
 def gerar_modelo(origem: str, destino: str, papel: str, zonas_app,
-                 tipologia: str, uso: str, aquecimento: bool) -> list:
-    """Grava o modelo do `papel` em `destino` e devolve os avisos para o usuário."""
+                 tipologia: str, uso: str, aquecimento: bool,
+                 fachada_principal: str = None) -> list:
+    """Grava o modelo do `papel` em `destino` e devolve os avisos para o usuário.
+
+    `fachada_principal` (`ORIENTACOES`) só vale no varejo, cujo PAF de
+    referência muda da fachada principal para as demais."""
     texto = _read_text(origem)
     if not texto:
         raise OSError(f"IDF ilegível: {origem}")
@@ -740,6 +791,9 @@ def gerar_modelo(origem: str, destino: str, papel: str, zonas_app,
 
     avisos = []
     tipo = norma.TIPOLOGIAS[tipologia]
+    if isinstance(tipo["paf"], tuple) and fachada_principal not in ORIENTACOES:
+        raise ValueError(f"{tipo['nome']}: informe a orientação da fachada principal ("
+                         + ", ".join(ORIENTACOES) + ").")
     _periodo_e_controle(idf)
     _agendas(idf, tipologia)
     _cargas_internas(idf, zonas_app, tipo["ocupacao"][uso], avisos)
@@ -748,7 +802,7 @@ def gerar_modelo(origem: str, destino: str, papel: str, zonas_app,
     _saidas(idf)
     if papel == "referencia":
         _envoltoria_referencia(idf, zonas_app, avisos)
-        ajustar_paf(idf, zonas_app, tipo["paf"], avisos)
+        ajustar_paf(idf, zonas_app, tipo["paf"], avisos, fachada_principal)
 
     with open(destino, "w", encoding="latin-1") as arquivo:
         arquivo.write(idf.texto(f"Modelo {PAPEIS[papel].lower()} da INI-C gerado pelo Ambiens "

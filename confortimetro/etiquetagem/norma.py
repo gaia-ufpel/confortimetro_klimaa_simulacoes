@@ -9,7 +9,7 @@ import csv
 import math
 import os
 
-# Tabelas A.1, A.2 e A.8: o que muda de uma tipologia para outra. O resto da
+# Tabelas A.1 a A.8: o que muda de uma tipologia para outra. O resto da
 # condição de referência (paredes, cobertura, piso, vidro) é igual em todas.
 # `ocupacao` é m²/pessoa por uso; `horas` escolhe a rotina da Tabela C.2.
 TIPOLOGIAS = {
@@ -26,6 +26,40 @@ TIPOLOGIAS = {
         "paf": 0.50,
         "horas": 10,
         "ocupacao": {"Escritório": 10.0},
+    },
+    # Tabela A.3
+    "hospedagem": {
+        "nome": "Hospedagem",
+        "paf": 0.45,
+        "horas": 12,
+        "ocupacao": {"Hospedagem": 18.0},
+    },
+    # Tabela A.4
+    "saude": {
+        "nome": "Estabelecimento assistencial de saúde (exceto hospitais)",
+        "paf": 0.14,
+        "horas": 12,
+        "ocupacao": {"Estabelecimento de saúde": 5.0},
+    },
+    # Tabelas A.5 e A.6: PAF da fachada principal e das demais.
+    "varejo": {
+        "nome": "Varejo - comércio",
+        "paf": (0.60, 0.05),
+        "horas": 12,
+        "ocupacao": {"Comércio": 5.0},
+    },
+    "mercado": {
+        "nome": "Varejo - mercado",
+        "paf": (0.60, 0.10),
+        "horas": 12,
+        "ocupacao": {"Mercado": 5.0},
+    },
+    # Tabela A.7
+    "alimentacao": {
+        "nome": "Alimentação (restaurantes)",
+        "paf": 0.40,
+        "horas": 8,
+        "ocupacao": {"Restaurante": 5.0},
     },
     "outra": {
         "nome": "Tipologia não descrita",
@@ -49,6 +83,31 @@ CRCGTT = {
                     3: (0.16, 0.17, 0.20, 0.25), 4: (0.21, 0.21, 0.26, 0.31),
                     5: (0.15, 0.16, 0.19, 0.23), 6: (0.17, 0.18, 0.21, 0.25),
                     7: (0.13, 0.13, 0.16, 0.19), 8: (0.11, 0.11, 0.14, 0.17)},
+    # Tabela 8.14
+    "hospedagem": {1: (0.36, 0.35, 0.35, 0.36), 2: (0.32, 0.32, 0.31, 0.31),
+                   3: (0.30, 0.30, 0.29, 0.28), 4: (0.34, 0.34, 0.35, 0.33),
+                   5: (0.29, 0.29, 0.29, 0.27), 6: (0.32, 0.31, 0.32, 0.30),
+                   7: (0.25, 0.25, 0.26, 0.24), 8: (0.23, 0.22, 0.21, 0.20)},
+    # Tabela 8.15
+    "saude": {1: (0.13, 0.13, 0.15, 0.18), 2: (0.10, 0.11, 0.12, 0.14),
+              3: (0.08, 0.08, 0.10, 0.11), 4: (0.11, 0.11, 0.14, 0.16),
+              5: (0.08, 0.08, 0.10, 0.12), 6: (0.11, 0.11, 0.14, 0.16),
+              7: (0.10, 0.10, 0.12, 0.14), 8: (0.08, 0.08, 0.10, 0.12)},
+    # Tabela 8.16
+    "varejo": {1: (0.23, 0.24, 0.26, 0.29), 2: (0.18, 0.18, 0.20, 0.22),
+               3: (0.16, 0.16, 0.18, 0.19), 4: (0.20, 0.21, 0.24, 0.26),
+               5: (0.15, 0.15, 0.17, 0.19), 6: (0.17, 0.17, 0.20, 0.22),
+               7: (0.14, 0.14, 0.16, 0.18), 8: (0.11, 0.12, 0.14, 0.15)},
+    # Tabela 8.17
+    "mercado": {1: (0.13, 0.13, 0.16, 0.18), 2: (0.12, 0.12, 0.14, 0.17),
+                3: (0.09, 0.09, 0.11, 0.13), 4: (0.14, 0.14, 0.17, 0.20),
+                5: (0.09, 0.10, 0.12, 0.14), 6: (0.13, 0.14, 0.16, 0.19),
+                7: (0.12, 0.12, 0.14, 0.17), 8: (0.09, 0.09, 0.12, 0.14)},
+    # Tabela 8.18
+    "alimentacao": {1: (0.22, 0.23, 0.26, 0.30), 2: (0.21, 0.21, 0.25, 0.28),
+                    3: (0.17, 0.18, 0.20, 0.23), 4: (0.23, 0.23, 0.27, 0.31),
+                    5: (0.17, 0.17, 0.20, 0.23), 6: (0.21, 0.21, 0.24, 0.27),
+                    7: (0.17, 0.17, 0.19, 0.22), 8: (0.14, 0.15, 0.17, 0.20)},
     # Tabela 8.19
     "outra": {1: (0.23, 0.23, 0.27, 0.31), 2: (0.25, 0.26, 0.30, 0.34),
               3: (0.22, 0.22, 0.25, 0.29), 4: (0.30, 0.30, 0.35, 0.39),
