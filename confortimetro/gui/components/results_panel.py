@@ -13,6 +13,10 @@ from ..theme import COLORS, FONTS, SPACE, RoundedButton
 _LOG_MARKS = {'info': '·', 'success': '✓', 'warning': '!', 'error': '×'}
 
 
+# Rótulo do filtro do log → tipo da mensagem.
+_FILTERS = {"Todas": "all", "Informação": "info", "Sucesso": "success",
+            "Aviso": "warning", "Erro": "error"}
+
 class ResultsPanelCallback(Protocol):
     """Protocol for results panel callbacks."""
     
@@ -37,13 +41,13 @@ class ResultsPanel(ttk.Frame):
         ttk.Label(toolbar, text="Filtro", style="Label.TLabel").pack(
             side="left", padx=(0, SPACE[2]))
 
-        self.filter_var = tk.StringVar(value="all")
+        self.filter_var = tk.StringVar(value="Todas")
         filter_combo = ttk.Combobox(
             toolbar,
             textvariable=self.filter_var,
-            values=["all", "info", "success", "warning", "error"],
+            values=list(_FILTERS),
             state="readonly",
-            width=10,
+            width=11,
             style="Field.TCombobox"
         )
         filter_combo.pack(side="left")
@@ -129,7 +133,7 @@ class ResultsPanel(ttk.Frame):
         self._update_counter()
         
         # Check if message should be displayed based on filter
-        if self.filter_var.get() != "all" and self.filter_var.get() != message_type:
+        if _FILTERS.get(self.filter_var.get()) not in ("all", message_type):
             return
         
         self.results_text.config(state="normal")
@@ -156,7 +160,7 @@ class ResultsPanel(ttk.Frame):
     
     def _filter_messages(self, event=None):
         """Filter messages based on selected type."""
-        filter_type = self.filter_var.get()
+        filter_type = _FILTERS.get(self.filter_var.get(), "all")
         
         # Clear current display
         self.results_text.config(state="normal")
@@ -227,18 +231,19 @@ class ResultsPanel(ttk.Frame):
         if self.all_messages:
             import tkinter.messagebox as messagebox
             if messagebox.askyesno("Confirmar", "Deseja realmente limpar todos os resultados?"):
-                self.results_text.config(state="normal")
-                self.results_text.delete(1.0, tk.END)
-                self.results_text.config(state="disabled")
-                
-                # Clear stored messages
-                self.all_messages.clear()
-                self.message_count = {"info": 0, "warning": 0, "error": 0, "success": 0}
-                self._update_counter()
+                self.clear()
                 self.status_var.set("Resultados limpos")
-                
                 if self.callback:
                     self.callback.on_results_cleared()
+
+    def clear(self):
+        """Esvazia o log e o contador, sem confirmação (nova execução)."""
+        self.results_text.config(state="normal")
+        self.results_text.delete(1.0, tk.END)
+        self.results_text.config(state="disabled")
+        self.all_messages.clear()
+        self.message_count = {"info": 0, "warning": 0, "error": 0, "success": 0}
+        self._update_counter()
     
     def append_info(self, message: str):
         """Append an info message."""

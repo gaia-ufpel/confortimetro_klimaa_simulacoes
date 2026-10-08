@@ -312,6 +312,10 @@ class MainWindow(tk.Tk):
         # tão rápido quanto antes.
         self.detail_tabs.bind("<<NotebookTabChanged>>", self._on_detail_tab_changed)
 
+        # Rolável: a 125% em 720p não cabia tudo, e o pack zerava a altura do
+        # último card (ou da tabela por zona).
+        summary = scrollable(summary)
+
         # --- Resumo de consumo (KPI cards) ---
         kpi_card = Card(summary, pad=SPACE[3])
         kpi_card.pack(fill="x", pady=(0, SPACE[3]))
@@ -349,7 +353,7 @@ class MainWindow(tk.Tk):
         ttk.Separator(kpi_row, orient="vertical").pack(
             side="left", fill="y", padx=(0, SPACE[5]))
 
-        kpi2 = _make_kpi("Aquecimento", self.kpi_aquec_var, COLORS["hot"], "flame")
+        kpi2 = _make_kpi("Aquecimento", self.kpi_aquec_var, COLORS["hot_text"], "flame")
         kpi2.pack(side="left", padx=(0, SPACE[5]))
 
         ttk.Separator(kpi_row, orient="vertical").pack(
@@ -366,6 +370,10 @@ class MainWindow(tk.Tk):
         stats_scroll = ttk.Scrollbar(stats_card.body, orient="horizontal",
                                      command=self.detail_stats.xview)
         self.detail_stats.configure(xscrollcommand=stats_scroll.set)
+        from .components.comparison_panel import METRICS_NOTE
+        ttk.Label(stats_card.body, text=METRICS_NOTE, style="Caption.TLabel",
+                  wraplength=900, justify="left").pack(
+                      side="bottom", fill="x", pady=(SPACE[2], 0))
         stats_scroll.pack(side="bottom", fill="x")
         self.detail_stats.pack(fill="x")
         self.detail_stats.tag_configure("total", font=FONTS["label"])
@@ -376,9 +384,9 @@ class MainWindow(tk.Tk):
 
         # --- Configuração da execução ---
         card = Card(summary, "Configuração da execução")
-        card.pack(fill="both", expand=True)
+        card.pack(fill="x")
         self.detail_text = tk.Text(
-            card.body, wrap="none", state="disabled", font=FONTS["mono"],
+            card.body, wrap="none", state="disabled", font=FONTS["mono"], height=14,
             background=COLORS["surface"], foreground=COLORS["text"],
             relief="flat", borderwidth=0, highlightthickness=1,
             highlightbackground=COLORS["line"], padx=SPACE[3], pady=SPACE[3])
@@ -1030,12 +1038,20 @@ class MainWindow(tk.Tk):
         pass
     
     # Callback implementations for ControlPanel
+    def _reset_run_feedback(self):
+        """Log, contador e selo limpos: cada execução começa sem a anterior."""
+        if self.control_panel.get_is_running():
+            return
+        self.results_panel.clear()
+        self.control_panel.set_status("Pronto para executar", "info")
+        self._simulation_error = None
+
     def on_run_simulation(self):
         """Handle run simulation request."""
         if self.control_panel.get_is_running():
             return
         
-        self._simulation_error = None
+        self._reset_run_feedback()
 
         # Save current configuration
         try:
@@ -1087,6 +1103,8 @@ class MainWindow(tk.Tk):
         recusada por `simulacao.validate` não roda: devolve `None` e o motivo
         vai para o log e um toast.
         """
+        if origin != "editor":   # o Executar do editor já limpou antes de validar
+            self._reset_run_feedback()
         problems, _ = simulacao.validate(config)
         if problems:
             self._reject_configuration(problems)
@@ -1127,11 +1145,17 @@ class MainWindow(tk.Tk):
         return config.output_path
 
     def _warn_long_run(self, config: SimulationConfig):
-        """Avisa quando o período do IDF torna a simulação demorada."""
+        """Avisa quando o período simulado torna a simulação demorada.
+
+        O período editado na tela vale sobre o do IDF: é ele que vai para o
+        RunPeriod da execução."""
+        from confortimetro.idf.processor import parse_iso_date
         try:
             start, end = read_run_period(config.idf_path)
         except Exception:
             return
+        start = parse_iso_date(getattr(config, "run_period_start", None)) or start
+        end = parse_iso_date(getattr(config, "run_period_end", None)) or end
         days = (end - start).days
         if days > 90:
             self.results_panel.append_warning(
@@ -1188,6 +1212,7 @@ class MainWindow(tk.Tk):
 
     def on_new_run(self):
         """Página de execução; a pasta de saída sai da raiz ao rodar."""
+        self._reset_run_feedback()
         self.show_page("editor")
 
     def on_compare_runs(self, runs: list, outputs_path: str):
@@ -1227,7 +1252,17 @@ class MainWindow(tk.Tk):
                  f"{'status':24s} {run['status']}",
                  f"{'modificado':24s} {run['modificado'].strftime('%d/%m/%Y %H:%M')}",
                  f"{'zonas':24s} {', '.join(run['rooms_disponiveis']) or '—'}", ""]
-        lines += [f"{key.lstrip('_'):24s} {value}"
+        def shown(value):
+            # Sem "True" nem ponto decimal numa tela em português.
+            if isinstance(value, bool):
+                return "Sim" if value else "Não"
+            if isinstance(value, float):
+                return f"{value:g}".replace(".", ",")
+            if isinstance(value, (list, tuple)):
+                return ", ".join(shown(item) for item in value)
+            return value
+
+        lines += [f"{key.lstrip('_'):24s} {shown(value)}"
                   for key, value in run['config'].items()]
 
         self.detail_text.configure(state="normal")
@@ -1368,6 +1403,7 @@ class MainWindow(tk.Tk):
 
         self.configs = config
         self._update_ui_from_config()
+        self._reset_run_feedback()
         self.results_panel.append_info(f"Configuração duplicada de {run['run']}.")
         self.show_page("editor")
 

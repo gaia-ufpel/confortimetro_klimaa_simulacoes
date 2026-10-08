@@ -703,3 +703,36 @@ def test_idf_novo_vai_para_dados_do_app(window):
     alvo = window._new_idf_name("/x/examples/modelo.idf")
     assert alvo.startswith(os.path.join(str(window.config_path and os.environ["AMBIENS_DATA_DIR"])))
     assert alvo.endswith("modelo_editado.idf")
+
+
+def test_lista_seleciona_varias_pelo_teclado(window):
+    tree = window.simulations_panel.tree
+    for index in range(3):
+        tree.insert("", "end", iid=f"r{index}", values=(f"r{index}",))
+    tree.focus("r0")
+    tree.selection_set("r0")
+    window.simulations_panel._extend_selection(1)
+    assert set(tree.selection()) == {"r0", "r1"}
+    tree.focus("r2")
+    window.simulations_panel._toggle_focused()
+    assert set(tree.selection()) == {"r0", "r1", "r2"}
+    window.simulations_panel._toggle_focused()
+    assert "r2" not in tree.selection()
+    window.simulations_panel._select_all()
+    assert len(tree.selection()) == 3
+
+
+def test_botao_desabilitado_sai_do_tab(window):
+    from confortimetro.gui.theme import RoundedButton
+    button = RoundedButton(window, text="X")
+    button.configure(state="disabled")
+    assert str(button.cget("takefocus")) == "0"
+    button.configure(state="normal")
+    assert str(button.cget("takefocus")) == "1"
+
+
+def test_nome_automatico_usa_hora_de_inicio():
+    from confortimetro.gui.components.simulations_panel import _display
+    run = {'run': '20261007_2133_2', 'idf': 'FAURB.idf', 'module_type': 'COMPLETE',
+           'config': {}, 'modificado': datetime.datetime(2026, 10, 9, 8, 0)}
+    assert _display(run)['name'] == "FAURB · 07/10 21:33 (2)"

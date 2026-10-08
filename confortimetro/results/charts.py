@@ -111,6 +111,13 @@ def trim_common_prefix(labels):
     return [label[len(prefix):] for label in labels]
 
 
+def _number(value):
+    """Número no formato brasileiro, com 1 casa abaixo de 10 (0,6 não vira 1)."""
+    digits = 1 if abs(value) < 10 else 0
+    return (f"{value:,.{digits}f}".replace(',', '\0').replace('.', ',')
+            .replace('\0', '.'))
+
+
 def _short(label, limit=30):
     return label if len(label) <= limit else label[:limit - 1] + '…'
 
@@ -137,8 +144,9 @@ def energia_vs_desconforto(df, comfort_metric=None):
 
     # Canto inferior esquerdo é o melhor dos dois mundos; dizer isso poupa a
     # legenda mental de quem lê o gráfico pela primeira vez.
+    # Verde escurecido: o #009E73 da paleta dá 3,3:1 sobre branco como texto.
     axes.text(0.01, 1.02, '↙ menos energia e menos desconforto', fontsize=9,
-              color=PALETTE[2], transform=axes.transAxes)
+              color='#00704f', transform=axes.transAxes)
     return figure
 
 
@@ -163,7 +171,7 @@ def energia_por_execucao(df):
     axes.bar(positions, fan, 0.6, bottom=heating + cooling_ac, label='Ventilador',
              color=PALETTE[2])
     for position, total in zip(positions, heating + cooling_total):
-        axes.text(position, total, f"{total:,.0f}".replace(',', '.'),
+        axes.text(position, total, _number(total),
                   ha='center', va='bottom', fontsize=9, color=TEXT_COLOR)
 
     axes.set_xticks(positions)
@@ -331,19 +339,28 @@ def adaptativo(runs, room, sample=2000):
     return figure
 
 
+# Primeiro dia de cada mês no ano (não bissexto), para os ticks da carpete.
+_MONTH_STARTS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335]
+
+
 def carpete(runs, room, variable='temp_operativa'):
-    """Mapa dia × hora da variável, um painel por execução na mesma escala."""
+    """Mapa dia × hora da variável, um painel por execução na mesma escala.
+
+    O eixo cobre só os dias simulados: uma semana não é esticada sobre o ano.
+    """
     titles = {'temp_operativa': 'Temperatura operativa (°C)', 'pmv': 'PMV',
               'co2': 'CO₂ (ppm)'}
-    figure = _figure(f'{titles.get(variable, variable)} ao longo do ano — {room}',
+    figure = _figure(f'{titles.get(variable, variable)} ao longo do período — {room}',
                      (12, 2.4 * len(runs) + 1.2))
     axes_list = figure.subplots(len(runs), 1, squeeze=False)[:, 0]
 
-    grids = []
+    grids, year = [], None
     for _, run_path in runs:
         series = load_zone_series(run_path, room)
         data = series[['data', variable]].dropna()
         stamps = data['data']
+        if year is None and len(stamps):
+            year = int(stamps.iloc[0].year)
         # Uma coluna por dia, uma linha por timestep do dia.
         day = stamps.dt.dayofyear
         slot = stamps.dt.hour * 60 + stamps.dt.minute
@@ -353,37 +370,83 @@ def carpete(runs, room, variable='temp_operativa'):
 
     low = min(float(numpy.nanmin(grid.to_numpy())) for grid in grids)
     high = max(float(numpy.nanmax(grid.to_numpy())) for grid in grids)
+    first = min(int(grid.columns.min()) for grid in grids)
+    last = max(int(grid.columns.max()) for grid in grids)
+
+    months = [day for day in _MONTH_STARTS if first <= day <= last]
+    if len(months) >= 2:
+        ticks, tick_labels = months, [list(_MESES.values())[_MONTH_STARTS.index(day)]
+                                      for day in months]
+    else:
+        # Período curto: um tick por dia (ou a cada poucos dias), em dd/mm.
+        step = max(1, (last - first + 1) // 10)
+        ticks = list(range(first, last + 1, step))
+        origin = numpy.datetime64(f'{year or 2015}-01-01')
+        tick_labels = [str(origin + numpy.timedelta64(day - 1, 'D'))[8:10] + '/'
+                       + str(origin + numpy.timedelta64(day - 1, 'D'))[5:7]
+                       for day in ticks]
 
     for axes, label, grid in zip(axes_list, _run_labels(runs), grids):
         image = axes.imshow(grid.to_numpy(), aspect='auto', origin='lower',
                             cmap='RdYlGn_r' if variable != 'co2' else 'YlOrBr',
                             vmin=low, vmax=high,
-                            extent=[1, 365, 0, 24])
+                            extent=[grid.columns.min() - 0.5,
+                                    grid.columns.max() + 0.5, 0, 24])
+        axes.set_xlim(first - 0.5, last + 0.5)
         axes.set_title(_short(label, 40), color=TEXT_COLOR, fontsize=10, loc='left')
         axes.set_ylabel('Hora', color=TEXT_COLOR, fontsize=9)
         axes.set_yticks([0, 6, 12, 18, 24])
-        axes.set_xticks([1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335])
-        axes.set_xticklabels(list(_MESES.values()))
+        axes.set_xticks(ticks)
+        axes.set_xticklabels(tick_labels)
         axes.tick_params(colors=TEXT_COLOR, labelsize=8)
         figure.colorbar(image, ax=axes, pad=0.01)
 
-    axes_list[-1].set_xlabel('Dia do ano', color=TEXT_COLOR, fontsize=9)
+    axes_list[-1].set_xlabel('Dia', color=TEXT_COLOR, fontsize=9)
     return figure
 
 
-def periodo(runs, room, start='2015-01-15', days=7):
-    """Recorte de alguns dias: externa, operativa, banda adaptativa e estados."""
-    figure = _figure(f'{days} dias a partir de {start} — {room}',
+def _parse_start(text):
+    """`dd/mm/aaaa` (como no editor) ou `aaaa-mm-dd`; vazio devolve `None`."""
+    text = (text or '').strip()
+    if not text:
+        return None
+    match = re.fullmatch(r'(\d{1,2})/(\d{1,2})/(\d{4})', text)
+    if match:
+        day, month, year = match.groups()
+        text = f'{year}-{int(month):02d}-{int(day):02d}'
+    try:
+        return numpy.datetime64(text, 'D')
+    except ValueError:
+        raise ValueError(f'Início “{text}” não é uma data dd/mm/aaaa.') from None
+
+
+def periodo(runs, room, start=None, days=7):
+    """Recorte de alguns dias: externa, operativa, banda adaptativa e estados.
+
+    Sem `start`, começa no primeiro dia simulado; fora do período simulado, o
+    painel diz qual é o período em vez de sair vazio.
+    """
+    zones = [load_zone_series(run_path, room) for _, run_path in runs]
+    begin = _parse_start(start)
+    if begin is None:
+        begin = min(zone['data'].min() for zone in zones).to_datetime64().astype('datetime64[D]')
+    end = begin + numpy.timedelta64(days, 'D')
+    shown = str(begin)
+    figure = _figure(f'{days} dias a partir de {shown[8:10]}/{shown[5:7]}/{shown[:4]} — {room}',
                      (12, 2.6 * len(runs) + 1.2))
     axes_list = figure.subplots(len(runs), 1, sharex=True, squeeze=False)[:, 0]
 
-    begin = numpy.datetime64(start)
-    end = begin + numpy.timedelta64(days, 'D')
-
-    for axes, label, (_, run_path) in zip(axes_list, _run_labels(runs), runs):
-        zone = load_zone_series(run_path, room)
+    for axes, label, zone in zip(axes_list, _run_labels(runs), zones):
         window = zone[(zone['data'] >= begin) & (zone['data'] < end)]
         _style(axes, '', '°C')
+        if window.empty:
+            first, last = zone['data'].min(), zone['data'].max()
+            axes.text(0.5, 0.5, f"Sem dados nesse intervalo. Período simulado: "
+                      f"{first:%d/%m/%Y} a {last:%d/%m/%Y}.",
+                      transform=axes.transAxes, ha='center', va='center',
+                      color=TEXT_COLOR, fontsize=10)
+            axes.set_title(_short(label, 40), color=TEXT_COLOR, fontsize=10, loc='left')
+            continue
 
         axes.plot(window['data'], window['temp_externa'], color=PALETTE[1],
                   linewidth=1.2, label='Externa')

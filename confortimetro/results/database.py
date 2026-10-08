@@ -25,6 +25,14 @@ DATABASE_NAME = 'simulacoes.db'
 
 #: Arquivo vazio que a simulação grava na pasta da execução ao ser parada.
 INTERRUPTED_MARKER = "INTERROMPIDA"
+# Gravado quando a simulação ou o pós-processamento levanta erro: sem ele a
+# falta de planilhas fazia a falha passar por "interrompida".
+FAILED_MARKER = "FALHOU"
+
+
+def is_failed(run) -> bool:
+    """A simulação ou o pós-processamento terminou em erro (`FAILED_MARKER`)?"""
+    return os.path.exists(os.path.join(run.get('path', ''), FAILED_MARKER))
 
 
 def is_interrupted(run) -> bool:
@@ -34,6 +42,8 @@ def is_interrupted(run) -> bool:
     têm o marcador: sem planilhas, módulo que gera planilhas e sem erro fatal
     no eplusout.err, é o que sobra.
     """
+    if is_failed(run):
+        return False
     if os.path.exists(os.path.join(run.get('path', ''), INTERRUPTED_MARKER)):
         return True
     if run.get('status') != 'sem planilhas' or run.get('module_type') == 'ENERGYPLUS_ONLY':

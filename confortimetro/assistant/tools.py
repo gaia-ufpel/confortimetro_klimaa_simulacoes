@@ -20,7 +20,7 @@ from .. import control
 from ..control import MODULES_MAPPER, motivos
 from ..idf.processor import _iter_objects, _read_text
 from ..results import compare, series, tabular
-from ..results.database import is_interrupted
+from ..results.database import is_failed, is_interrupted
 from ..versao import code_version
 from . import simulacao
 
@@ -379,7 +379,8 @@ class Toolbox:
         runs = compare.list_runs(self.root)
         return {"linhas": [{
             "execucao": run["run"],
-            "status": "interrompida" if is_interrupted(run) else run["status"],
+            "status": ("interrompida" if is_interrupted(run)
+                       else "falhou" if is_failed(run) else run["status"]),
             "modulo": run["module_type"], "idf": run["idf"], "epw": run["epw"],
             "zonas": run["rooms_disponiveis"],
             "modificado": run["modificado"].strftime("%Y-%m-%d %H:%M"),

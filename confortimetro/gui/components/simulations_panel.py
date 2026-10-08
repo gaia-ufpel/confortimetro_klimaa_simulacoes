@@ -46,6 +46,7 @@ _STATUS_TEXT = {
     'sem estatísticas': 'sem estatísticas',
     'sem planilhas': 'sem planilhas',
     'interrompida': 'Interrompida',
+    'falhou': 'Falhou',
 }
 
 # Nome criado sozinho (data e hora): não diz nada, então o IDF o substitui.
@@ -64,7 +65,11 @@ def _display(run: dict) -> dict:
     if not name:
         name = run['run']
         if _AUTO_NAME.match(name) and idf:
-            name = f"{os.path.splitext(idf)[0]} · {run['modificado']:%d/%m %H:%M}"
+            # Hora de início, tirada do nome da pasta: a mesma que a comparação
+            # mostra, e única (a de modificação mudava ao regerar e repetia).
+            date, time, *suffix = name.split("_")
+            name = (f"{os.path.splitext(idf)[0]} · {date[6:8]}/{date[4:6]} "
+                    f"{time[:2]}:{time[2:]}" + (f" ({suffix[0]})" if suffix else ""))
     module = run['module_type']
     return {'name': name, 'idf': idf or "—",
             'module': _MODULE_NAMES.get(module, module) or "—"}
@@ -151,6 +156,12 @@ class SimulationsPanel(ttk.Frame):
         self.tree.bind("<Return>", lambda _event: self._open_details())
         self.tree.bind("<KP_Enter>", lambda _event: self._open_details())
         self.tree.bind("<FocusIn>", self._on_tree_focus)
+        # Seleção múltipla sem mouse: o Treeview só a oferece com Shift/Ctrl+clique.
+        self.tree.bind("<Shift-Up>", lambda _event: self._extend_selection(-1))
+        self.tree.bind("<Shift-Down>", lambda _event: self._extend_selection(1))
+        self.tree.bind("<Control-space>", self._toggle_focused)
+        self.tree.bind("<Control-a>", self._select_all)
+        self.tree.bind("<Control-A>", self._select_all)
 
         self.tree.tag_configure("incompleta", foreground=COLORS["text_mute"])
         self.tree.tag_configure("executando", foreground=COLORS["primary"])
@@ -201,22 +212,28 @@ class SimulationsPanel(ttk.Frame):
                                         highlightthickness=1,
                                         highlightbackground=COLORS["line"])
         self.kpi_energy_card.pack(side="left", fill="both", expand=True, padx=(0, SPACE[2]))
-        tk.Label(self.kpi_energy_card, text="CONSUMO TOTAL", bg=COLORS["surface_2"],
-                 fg=COLORS["text_mute"], font=FONTS["caption"], wraplength=130, justify="left").pack(anchor="w", padx=SPACE[3], pady=(SPACE[2], 0))
+        # Caixa normal e anchor="w": em maiúsculas centralizadas o card estreito
+        # (125%) cortava as duas pontas ("ESCONFORT").
+        tk.Label(self.kpi_energy_card, text="Consumo total", bg=COLORS["surface_2"],
+                 fg=COLORS["text_mute"], font=FONTS["caption"], wraplength=130,
+                 justify="left", anchor="w").pack(anchor="w", padx=SPACE[3], pady=(SPACE[2], 0))
         self.kpi_energy_val = tk.Label(
             self.kpi_energy_card, text="—", bg=COLORS["surface_2"],
-            fg=COLORS["text"], font=FONTS["h2"], wraplength=130, justify="left")
+            fg=COLORS["text"], font=FONTS["h2"], wraplength=130, justify="left",
+            anchor="w")
         self.kpi_energy_val.pack(anchor="w", padx=SPACE[3], pady=(0, SPACE[2]))
 
         self.kpi_discomfort_card = tk.Frame(self.kpi_frame, bg=COLORS["surface_2"],
                                             highlightthickness=1,
                                             highlightbackground=COLORS["line"])
         self.kpi_discomfort_card.pack(side="left", fill="both", expand=True)
-        tk.Label(self.kpi_discomfort_card, text="DESCONFORTO", bg=COLORS["surface_2"],
-                 fg=COLORS["text_mute"], font=FONTS["caption"], wraplength=130, justify="left").pack(anchor="w", padx=SPACE[3], pady=(SPACE[2], 0))
+        tk.Label(self.kpi_discomfort_card, text="Desconforto", bg=COLORS["surface_2"],
+                 fg=COLORS["text_mute"], font=FONTS["caption"], wraplength=130,
+                 justify="left", anchor="w").pack(anchor="w", padx=SPACE[3], pady=(SPACE[2], 0))
         self.kpi_discomfort_val = tk.Label(
             self.kpi_discomfort_card, text="—", bg=COLORS["surface_2"],
-            fg=COLORS["text"], font=FONTS["h2"], wraplength=130, justify="left")
+            fg=COLORS["text"], font=FONTS["h2"], wraplength=130, justify="left",
+            anchor="w")
         self.kpi_discomfort_val.pack(anchor="w", padx=SPACE[3], pady=(0, SPACE[2]))
 
         # Rodapé do painel de detalhes: Ação secundária para regerar estatísticas
@@ -287,6 +304,8 @@ class SimulationsPanel(ttk.Frame):
             running = run['path'] in self._running
             if not running and database.is_interrupted(run):
                 run['status'] = 'interrompida'
+            elif not running and database.is_failed(run):
+                run['status'] = 'falhou'
             shown = _display(run)
             status = 'em simulação' if running else run['status']
             tags = ("executando",) if running else (
@@ -307,6 +326,27 @@ class SimulationsPanel(ttk.Frame):
         if ingested:
             message += f". {ingested} ingeridas no banco agora"
         self._set_status(message)
+
+    def _extend_selection(self, step):
+        """Shift+seta: move o foco e acrescenta a linha à seleção."""
+        current = self.tree.focus()
+        target = self.tree.next(current) if step > 0 else self.tree.prev(current)
+        if current and target:
+            self.tree.selection_add(current, target)
+            self.tree.focus(target)
+            self.tree.see(target)
+        return "break"
+
+    def _toggle_focused(self, _event=None):
+        """Ctrl+Espaço: põe ou tira da seleção a linha com foco."""
+        item = self.tree.focus()
+        if item:
+            self.tree.selection_toggle(item)
+        return "break"
+
+    def _select_all(self, _event=None):
+        self.tree.selection_set(self.tree.get_children())
+        return "break"
 
     def _on_tree_focus(self, _event=None):
         """Com o foco na lista, as setas já têm de onde partir."""
@@ -689,7 +729,8 @@ class SimulationsPanel(ttk.Frame):
                   "info")
             return
         runs = [run for run in selected
-                if run['status'] in ('desatualizada', 'sem estatísticas', 'sem planilhas')]
+                if run['status'] in ('desatualizada', 'sem estatísticas', 'sem planilhas',
+                                     'falhou')]
         if not runs:
             toast(self, "As execuções escolhidas já têm estatísticas atualizadas.",
                   "info")

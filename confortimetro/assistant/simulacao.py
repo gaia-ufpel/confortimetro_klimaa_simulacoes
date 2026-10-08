@@ -15,7 +15,8 @@ import uuid
 
 from ..config import FIELD_LABELS, PORCENT2ADAPTATIVE, SimulationConfig, is_energy_path
 from ..idf.processor import (read_run_period, read_timesteps_per_hour,
-                             read_zone_names, unwired_equipment)
+                             read_zone_names, rooms_without_people,
+                             unwired_equipment, VALID_TIMESTEPS)
 from ..module_type import ModuleType
 
 # Campos que o assistente pode alterar, com o tipo esperado. Caminhos de saída,
@@ -181,6 +182,10 @@ def validate(config: SimulationConfig, remote: bool = None):
     if config.adaptative_bound not in PORCENT2ADAPTATIVE.values():
         problems.append(f"Margem do adaptativo [adaptative_bound] ({config.adaptative_bound}) precisa ser um de "
                         f"{sorted(PORCENT2ADAPTATIVE.values())}.")
+    steps = getattr(config, "timesteps_per_hour", None)
+    if steps and steps not in VALID_TIMESTEPS:
+        problems.append(f"Passos por hora ({steps}) precisa dividir 60: "
+                        + ", ".join(map(str, VALID_TIMESTEPS)) + ".")
     if config.clo_delta <= 0 or config.air_speed_delta <= 0:
         problems.append(f"{_label('clo_delta')} e {_label('air_speed_delta')} precisam ser positivos.")
 
@@ -193,6 +198,7 @@ def validate(config: SimulationConfig, remote: bool = None):
             problems.append(f"Zonas que não existem no IDF: {', '.join(unknown)}. "
                             f"Disponíveis: {', '.join(zones) or 'nenhuma'}.")
         elif rooms:
+            problems += rooms_without_people(config.idf_path, rooms)
             warnings += unwired_equipment(config.idf_path, rooms, config.module_type)
     return problems, warnings
 

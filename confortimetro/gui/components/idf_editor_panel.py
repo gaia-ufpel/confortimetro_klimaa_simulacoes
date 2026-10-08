@@ -2,6 +2,7 @@
 Painel de edição dos campos do IDF usados pelas simulações.
 """
 
+import re
 import tkinter as tk
 from tkinter import ttk
 from datetime import datetime, timedelta
@@ -13,8 +14,15 @@ from confortimetro.idf import (
     describe_changes, PEOPLE_METHODS, PEOPLE_METHOD_FIELD, read_people, read_run_period,
     read_timesteps_per_hour,
 )
-from confortimetro.idf.processor import PEOPLE_FIELDS
+from confortimetro.idf.processor import PEOPLE_FIELDS, VALID_TIMESTEPS
 
+
+
+def _date_problem(text: str) -> str:
+    """Por que `text` não virou data: formato errado ou dia que não existe."""
+    if re.fullmatch(r"\d{1,2}/\d{1,2}/\d{4}", text):
+        return f"“{text}” não existe no calendário."
+    return f"“{text}” não é uma data dd/mm/aaaa."
 
 class IDFEditorPanel(ttk.Frame):
     """Período, passo de tempo e ocupação lidos e reescritos no IDF.
@@ -138,8 +146,7 @@ class IDFEditorPanel(ttk.Frame):
             try:
                 dates[key] = datetime.strptime(text, "%d/%m/%Y")
             except ValueError:
-                raise ValueError(f"Período, {label}: “{text}” não é uma data "
-                                 "dd/mm/aaaa.") from None
+                raise ValueError(f"Período, {label}: {_date_problem(text)}") from None
         if dates["end"] < dates["start"]:
             raise ValueError("Período: o fim vem antes do início.")
         if (dates["start"].strftime("%d/%m/%Y") != self._loaded["start"]
@@ -153,8 +160,9 @@ class IDFEditorPanel(ttk.Frame):
             except ValueError:
                 raise ValueError(f"Passos por hora: “{text}” não é um "
                                  "número.") from None
-            if not 1 <= steps <= 60:
-                raise ValueError("Passos por hora deve ficar entre 1 e 60.")
+            if steps not in VALID_TIMESTEPS:
+                raise ValueError("Passos por hora precisa dividir 60: "
+                                 + ", ".join(map(str, VALID_TIMESTEPS)) + ".")
             fields["timesteps_per_hour"] = steps
         return fields
 
@@ -192,6 +200,14 @@ class IDFEditorPanel(ttk.Frame):
         IDF ilegível deixa os campos vazios em vez de levantar exceção, como
         as demais leituras de texto do `processor`.
         """
+        # Recarregar o mesmo arquivo ("Editar IDF", troca de aba) não pode
+        # apagar o período editado: a duplicata de uma semana virava anual.
+        pending = None
+        if idf_path == self.idf_path and self._loaded:
+            try:
+                pending = self.config_fields()
+            except ValueError:
+                pending = None
         self.idf_path = idf_path
         start, end = read_run_period(idf_path)
         # O fim guardado é exclusivo; o usuário edita o último dia simulado.
@@ -205,6 +221,8 @@ class IDFEditorPanel(ttk.Frame):
                            (self.timestep_entry, "timestep")):
             entry.delete(0, tk.END)
             entry.insert(0, self._loaded[key])
+        if pending:
+            self.apply_config(pending)
 
         self._people = read_people(idf_path)
         self._build_people_rows()
@@ -313,7 +331,7 @@ class IDFEditorPanel(ttk.Frame):
         try:
             return datetime.strptime(text, "%d/%m/%Y")
         except ValueError:
-            toast(self, f"{label} inválida: use dd/mm/aaaa.", "error")
+            toast(self, f"{label}: {_date_problem(text)}", "error")
             return "erro"
 
     def _period_updates(self):

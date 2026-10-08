@@ -572,6 +572,11 @@ OUTPUT_VARIABLES = [
 ]
 
 
+# Passos por hora que o EnergyPlus aceita: divisores de 60. Com outro valor
+# ele arredonda em silêncio (7 vira 6) e o pós-processamento falha depois.
+VALID_TIMESTEPS = (1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60)
+
+
 def parse_iso_date(text):
     """`aaaa-mm-dd` como `datetime`; vazio ou inválido devolve `None`."""
     try:

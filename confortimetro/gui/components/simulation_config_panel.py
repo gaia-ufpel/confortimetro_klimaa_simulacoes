@@ -77,6 +77,18 @@ def _invalid_style():
     return "Invalid.Field.TEntry"
 
 
+def _mark(entry, bad: bool):
+    """Texto vermelho e, pelo estado `invalid` do sv_ttk, borda vermelha;
+    só a cor do texto não aparecia num campo vazio."""
+    entry.configure(style=_invalid_style() if bad else "Field.TEntry")
+    entry.state(["invalid" if bad else "!invalid"])
+
+
+# Campos que não aceitam negativo (velocidade −2 passava) e Met, que nem zero.
+_NON_NEGATIVE = ("max_vel", "wme", "pmv_comfort_bound", "co2_limit",
+                 "air_speed_delta", "clo_delta")
+
+
 class StrictRangeField(RangeField):
     """`RangeField` que não corrige o que o usuário digitou.
 
@@ -103,9 +115,9 @@ class StrictRangeField(RangeField):
 
     def flag(self, message: str = ""):
         """Marca (ou, sem mensagem, limpa) o erro do campo."""
-        style = _invalid_style() if message else "Field.TEntry"
         for entry in (self.min_entry, self.max_entry):
-            entry.configure(style=style)
+            _mark(entry, bool(message))
+        self._redraw()
         self.error.configure(text=message)
         if message:
             self.error.grid()
@@ -126,6 +138,24 @@ class StrictRangeField(RangeField):
             return
         self.flag()
         super()._commit()
+
+    def _redraw(self):
+        """Com valor recusado, só o trilho: desenhar o valor corrigido (−3, ou
+        a faixa invertida) dizia que ele seria usado."""
+        if self._track.winfo_width() < 8 or not hasattr(self, "label"):
+            return super()._redraw()
+        try:
+            low, high = self.read_strict()
+            valid = self._lower <= low <= high <= self._upper
+        except ValueError:
+            valid = False
+        if valid:
+            return super()._redraw()
+        left, right = self._span()
+        middle = self._TRACK_HEIGHT / 2
+        self._track.delete("all")
+        self._track.create_line(left, middle, right, middle,
+                                fill=COLORS["danger"], width=2, dash=(4, 3))
 
 
 class KeyboardChipSelect(ChipSelect):
@@ -243,9 +273,9 @@ class SimulationConfigPanel(ttk.Frame):
         entry = event.widget
         try:
             parse_num(entry.get())
-            entry.configure(style="Field.TEntry")
+            _mark(entry, False)
         except ValueError:
-            entry.configure(style=_invalid_style())
+            _mark(entry, True)
         self._on_config_changed()
 
     def _combo(self, parent, row: int, column: int, label: str, values,
@@ -314,7 +344,8 @@ class SimulationConfigPanel(ttk.Frame):
             clothing, text="Ajustar Clo antes dos equipamentos",
             variable=self.clo_priority_var, command=self._on_config_changed,
             style="Card.TCheckbutton")
-        self.clo_priority_check.grid(row=1, column=3, padx=SPACE[1],
+        # Linha própria: ao lado da variação, a 125% o texto saía cortado.
+        self.clo_priority_check.grid(row=2, column=0, columnspan=4, padx=SPACE[1],
                                      pady=(0, SPACE[2]), sticky="w")
 
     def _scroll_tab(self, title: str, icon_name: str) -> ttk.Frame:
@@ -390,13 +421,19 @@ class SimulationConfigPanel(ttk.Frame):
         """Configuração da tela. Campo inválido (texto que não é número,
         valor fora da escala, mínimo acima do máximo) levanta `ValueError` com
         o rótulo do campo e o marca em vermelho; nada é corrigido em silêncio."""
+        # Junta todos os erros: um por vez obrigava a uma volta por campo.
+        problems = []
+
         def num(entry):
             try:
                 value = parse_num(entry.get())
             except ValueError:
-                entry.configure(style=_invalid_style())
-                raise ValueError(f"{entry.label}: “{entry.get()}” não é um número") from None
-            entry.configure(style="Field.TEntry")
+                _mark(entry, True)
+                text = entry.get().strip()
+                problems.append(f"{entry.label}: “{text}” não é um número."
+                                if text else f"{entry.label}: preencha o valor.")
+                return None
+            _mark(entry, False)
             return value
 
         # (campo, mínimo, máximo, par em config.RANGE_PAIRS)
@@ -409,7 +446,8 @@ class SimulationConfigPanel(ttk.Frame):
                 values[low], values[high] = field.read_strict()
             except ValueError as error:
                 field.flag(str(error))
-                raise
+                problems.append(str(error))
+                values[low] = values[high] = None
 
         config = {
             'pmv_lowerbound': values["pmv_lowerbound"],
@@ -433,8 +471,22 @@ class SimulationConfigPanel(ttk.Frame):
             'module_type': LABEL2MODULE.get(self.selected_module.get())
         }
 
-        problems = []
+        entries = {'max_vel': self.vel_max_entry, 'met': self.met_entry,
+                   'wme': self.wme_entry, 'pmv_comfort_bound': self.comfort_bound_entry,
+                   'co2_limit': self.co2_limit_entry,
+                   'air_speed_delta': self.air_speed_delta_entry,
+                   'clo_delta': self.clo_delta_entry}
+        for key, entry in entries.items():
+            value = config[key]
+            if value is None:
+                continue
+            if (value <= 0) if key == "met" else (key in _NON_NEGATIVE and value < 0):
+                _mark(entry, True)
+                problems.append(f"{entry.label}: use um valor "
+                                f"{'maior que zero' if key == 'met' else 'a partir de zero'}.")
         for field, low, high in ranges:
+            if values[low] is None:
+                continue
             found = range_problems(config, [p for p in RANGE_PAIRS
                                             if p[0] == low])
             field.flag(" ".join(found))

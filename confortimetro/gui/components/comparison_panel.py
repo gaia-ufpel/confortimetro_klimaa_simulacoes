@@ -19,6 +19,7 @@ from confortimetro.results.compare import (
     mismatched_periods,
 )
 
+from .simulation_config_panel import MODULE_LABELS
 from ..theme import COLORS, SPACE, Card, RoundedButton, scrollable, toast
 
 # Os nomes das colunas de estatística são longos demais para caber no
@@ -47,6 +48,17 @@ COMPARISON_HEADINGS = {
 }
 
 
+# As três medem coisas diferentes e lado a lado pareciam contraditórias
+# (0 % de desconforto com 30 % de PMV fora).
+METRICS_NOTE = (
+    "Percentuais do tempo ocupado. Desconforto: critério do próprio controlador "
+    "a cada passo (janela aberta: banda adaptativa ou ventilador; janela "
+    "fechada: PMV na faixa com a tolerância de conforto). PMV fora: "
+    "PMV calculado pelo controlador (ASHRAE 55, com o ventilador), não o "
+    "Fanger do EnergyPlus, fora da faixa configurada. Fora adapt.: "
+    "temperatura operativa fora da banda adaptativa.")
+
+
 class ComparisonPanel(ttk.Frame):
     """Barra de opções em cima, números à esquerda e gráfico à direita."""
 
@@ -61,7 +73,7 @@ class ComparisonPanel(ttk.Frame):
         self.chart_var = tk.StringVar(value=next(iter(charts.CHARTS)))
         self.baseline_var = tk.StringVar()
         self.variable_var = tk.StringVar(value=next(iter(charts.CARPET_VARIABLES)))
-        self.start_var = tk.StringVar(value='2015-01-15')
+        self.start_var = tk.StringVar(value='')   # vazio: primeiro dia simulado
         self.days_var = tk.StringVar(value='7')
 
         self._build_ui()
@@ -114,25 +126,27 @@ class ComparisonPanel(ttk.Frame):
                                             command=self.compare)
         self.compare_button.pack(side="left", padx=(0, SPACE[3]))
 
-        ttk.Separator(row, orient="vertical").pack(
-            side="left", fill="y", padx=(0, SPACE[3]), pady=SPACE[1])
+        # Gráfico e opções numa linha própria: na mesma linha, as opções da
+        # "Semana típica" empurravam "Exportar CSV" para fora da janela.
+        chart_row = ttk.Frame(actions.body, style="Surface.TFrame")
+        chart_row.pack(fill="x", pady=(SPACE[2], 0))
 
-        ttk.Label(row, text="Gráfico", style="Label.TLabel").pack(
+        ttk.Label(chart_row, text="Gráfico", style="Label.TLabel").pack(
             side="left", padx=(0, SPACE[1]))
-        self.chart_combo = ttk.Combobox(row, textvariable=self.chart_var,
+        self.chart_combo = ttk.Combobox(chart_row, textvariable=self.chart_var,
                                         style="Field.TCombobox", state="readonly",
                                         values=list(charts.CHARTS), width=24)
         self.chart_combo.pack(side="left", padx=(0, SPACE[2]))
         self.chart_combo.bind('<<ComboboxSelected>>', self._on_chart_changed)
 
         # Cada gráfico mostra só as suas opções; o resto some da barra.
-        self.option_row = ttk.Frame(row, style="Surface.TFrame")
+        self.option_row = ttk.Frame(chart_row, style="Surface.TFrame")
         self.option_row.pack(side="left", padx=(0, SPACE[2]))
         self._option_widgets = {}
         self._build_option_fields()
         self._on_chart_changed()
 
-        self.plot_button = RoundedButton(row, text="Gerar gráfico", variant="primary", icon="chart",
+        self.plot_button = RoundedButton(chart_row, text="Gerar gráfico", variant="primary", icon="chart",
                                          command=self.plot)
         self.plot_button.pack(side="left", padx=(0, SPACE[3]))
 
@@ -159,6 +173,9 @@ class ComparisonPanel(ttk.Frame):
                                          command=self.compare_tree.yview)
         self.compare_tree.configure(xscrollcommand=compare_scroll.set,
                                     yscrollcommand=compare_scroll_y.set)
+        ttk.Label(table_frame, text=METRICS_NOTE, style="Caption.TLabel",
+                  wraplength=420, justify="left").pack(
+                      side="bottom", fill="x", pady=(SPACE[2], 0))
         compare_scroll.pack(side="bottom", fill="x")
         compare_scroll_y.pack(side="right", fill="y")
         self.compare_tree.pack(side="left", fill="both", expand=True)
@@ -245,10 +262,11 @@ class ComparisonPanel(ttk.Frame):
     def _set_ready_state(self):
         count = len(self._runs)
         names = ", ".join(run["run"] for run in self._runs)
-        self.runs_var.set(
-            f"{count} execução(ões) selecionada(s): {names or 'nenhuma'}. "
-            "São necessárias ao menos duas execuções com estatísticas completas.")
         ready = count >= 2
+        self.runs_var.set(
+            f"{count} execução(ões) selecionada(s): {names or 'nenhuma'}."
+            + ("" if ready else
+               " São necessárias ao menos duas execuções com estatísticas completas."))
         for widget in (self.compare_button, self.plot_button):
             widget.configure(state="normal" if ready else "disabled")
         self.export_button.configure(state="disabled")
@@ -307,6 +325,10 @@ class ComparisonPanel(ttk.Frame):
         def _fmt_cell(col, val):
             if pandas.isna(val):
                 return "—"
+            if col == "module_type":
+                # "Completo", "Sem ventilador"…: o nome do enum é jargão interno.
+                label = {m.value: l for m, l in MODULE_LABELS.items()}.get(val, val)
+                return label.split(" (")[0]
             if isinstance(val, (int, float)):
                 if col in PERCENTAGE_COLUMNS:
                     return f"{val * 100:.1f}%".replace(".", ",")

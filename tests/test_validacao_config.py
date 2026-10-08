@@ -14,7 +14,7 @@ window = test_gui_pages.window
 def _config(tmp_path, **over):
     """Configuração que passa em `simulacao.validate`, mais `over`."""
     idf = tmp_path / "modelo.idf"
-    idf.write_text("Zone,\n  SALA1;\n")
+    idf.write_text("Zone,\n  SALA1;\n\nPeople,\n  PEOPLE_SALA1;\n")
     epw = tmp_path / "clima.epw"
     epw.write_text("LOCATION,Teste\n")
     energy = tmp_path / "EnergyPlus-9-4-0"
@@ -148,4 +148,41 @@ def test_gui_periodo_editado_vai_para_a_configuracao(window, tmp_path):
     window.idf_editor_panel.end_entry.delete(0, "end")
     window.idf_editor_panel.end_entry.insert(0, "32/01/2015")
     with pytest.raises(ValueError, match="Período"):
+        window.simulation_panel.get_configuration()
+
+
+def test_gui_junta_erros_e_recusa_negativo(window):
+    panel = window.simulation_panel
+    panel.vel_max_entry.delete(0, "end")
+    panel.vel_max_entry.insert(0, "-2")
+    panel.met_entry.delete(0, "end")
+    with pytest.raises(ValueError) as error:
+        panel.get_configuration()
+    message = str(error.value)
+    assert "a partir de zero" in message and "preencha o valor" in message
+    # Vazio também ganha a borda vermelha (estado invalid do sv_ttk).
+    assert panel.met_entry.instate(["invalid"])
+    assert panel.vel_max_entry.instate(["invalid"])
+
+
+def test_gui_data_inexistente_diz_por_que(window, tmp_path):
+    idf = tmp_path / "anual.idf"
+    idf.write_text("Zone,\n  SALA1;\n"
+                   "RunPeriod,\n  ANO, 1, 1, 2015, 12, 31, 2015;\n")
+    window.idf_editor_panel.load(str(idf))
+    window.idf_editor_panel.end_entry.delete(0, "end")
+    window.idf_editor_panel.end_entry.insert(0, "31/02/2015")
+    with pytest.raises(ValueError, match="não existe no calendário"):
+        window.simulation_panel.get_configuration()
+
+
+def test_gui_passos_por_hora_precisa_dividir_60(window, tmp_path):
+    idf = tmp_path / "anual.idf"
+    idf.write_text("Zone,\n  SALA1;\n"
+                   "RunPeriod,\n  ANO, 1, 1, 2015, 12, 31, 2015;\n")
+    window.idf_editor_panel.load(str(idf))
+    entry = window.idf_editor_panel.timestep_entry
+    entry.delete(0, "end")
+    entry.insert(0, "7")
+    with pytest.raises(ValueError, match="dividir 60"):
         window.simulation_panel.get_configuration()

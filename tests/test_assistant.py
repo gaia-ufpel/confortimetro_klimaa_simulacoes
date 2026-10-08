@@ -436,7 +436,7 @@ def test_execucao_recalculada_gera_aviso(root):
 def modelo_valido(tmp_path, zone="SALA1"):
     """IDF de 3 dias, EPW e uma "instalação" do EnergyPlus que passa na validação."""
     idf = tmp_path / "modelo.idf"
-    idf.write_text(f"Zone,\n  {zone};\n\nRunPeriod,\n  Curto,\n  1,\n  5,\n  2015,\n"
+    idf.write_text(f"Zone,\n  {zone};\n\nPeople,\n  PEOPLE_{zone.upper()};\n\nRunPeriod,\n  Curto,\n  1,\n  5,\n  2015,\n"
                    "  1,\n  7,\n  2015,\n  Monday;\n\nTimestep,\n  6;\n")
     epw = tmp_path / "clima.epw"
     epw.write_text("LOCATION,Teste\n")

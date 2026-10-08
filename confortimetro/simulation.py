@@ -12,7 +12,7 @@ from time import perf_counter
 from confortimetro.control import MODULES_MAPPER
 from confortimetro.versao import code_version
 from confortimetro.control.base import request_stop
-from confortimetro.results.database import INTERRUPTED_MARKER
+from confortimetro.results.database import FAILED_MARKER, INTERRUPTED_MARKER
 from confortimetro.results import (
     summary_rooms_results_from_eso,
     get_stats_from_simulation,
@@ -114,6 +114,9 @@ class Simulation:
             error_msg = f"Erro durante simulação: {str(e)}"
             self.logger.error(error_msg)
             q.put(error_msg)
+            if not self.stop_requested and os.path.isdir(self.configs.output_path or ""):
+                with open(os.path.join(self.configs.output_path, FAILED_MARKER), "w") as marker:
+                    marker.write(str(e))
             raise
         finally:
             self._record_time("Total", perf_counter() - started)

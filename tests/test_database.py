@@ -85,3 +85,14 @@ def test_execucao_interrompida_nao_e_erro(tmp_path):
     from confortimetro.results.database import INTERRUPTED_MARKER
     (parada / INTERRUPTED_MARKER).touch()
     assert is_interrupted(read_run(str(parada)))
+
+
+def test_falha_nao_vira_interrompida(tmp_path):
+    from confortimetro.results.database import (
+        FAILED_MARKER, INTERRUPTED_MARKER, is_failed, is_interrupted)
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / INTERRUPTED_MARKER).write_text("")
+    (run / FAILED_MARKER).write_text("KeyError")
+    info = {'path': str(run), 'status': 'sem planilhas'}
+    assert is_failed(info) and not is_interrupted(info)

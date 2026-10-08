@@ -74,3 +74,12 @@ def test_faixa_do_pmv_e_rotulos_usam_configuracao_e_idf(duas_execucoes):
     assert any('PREDIO_A' in text.get_text() for text in figure.axes[0].get_legend().get_texts())
     assert figure.axes[0].patches[0].get_xy()[0, 0] == pytest.approx(-0.8)
     assert charts._pt('Feb 15 Oct') == 'Fev 15 Out'
+
+
+def test_rotulos_e_inicio_em_formato_brasileiro():
+    assert charts._number(0.6) == '0,6'
+    assert charts._number(1234.4) == '1.234'
+    assert str(charts._parse_start('15/01/2015')) == '2015-01-15'
+    assert charts._parse_start('') is None
+    with pytest.raises(ValueError):
+        charts._parse_start('15-jan')

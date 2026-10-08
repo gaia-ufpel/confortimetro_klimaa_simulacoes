@@ -318,6 +318,34 @@ corrigidos. A rodada achou 3 P0 novos, dois já corrigidos, — um deles regress
   simular, na GUI e em `validate_idf`, sem passar pelo "Rodar mesmo assim" do
   equipamento. No FAURB, 9 das 16 zonas não têm People. *Lucas.*
 
+- **[P1]** Aviso de "365 dias" usa o período editado (`run_period_start/end`)
+  antes do IDF. "Editar IDF" com o mesmo IDF preserva o período e os passos
+  já digitados. Log e selo zeram ao executar, duplicar ou criar execução.
+- **[P1]** "Passos por hora" só aceita divisores de 60 (GUI e Assistente).
+- **[P1]** Falha grava o marcador `FALHOU`: lista mostra "Falhou", não
+  "Interrompida", e o Assistente diz o mesmo.
+- **[P1]** Comparação: carpete usa o período simulado (meses ou dias no eixo);
+  "Semana típica" começa no 1º dia simulado e avisa o intervalo sem dados;
+  gráfico e opções numa linha própria, "Exportar CSV" fica visível; rótulos
+  com 1 casa abaixo de 10; módulo em português; aviso de "ao menos duas"
+  só quando faltam.
+- **[P1]** Lista: Shift+setas, Ctrl+Espaço e Ctrl+A selecionam várias.
+  Botão desabilitado sai do Tab. Área rolável segue o foco.
+- **[P1]** Detalhes: aba Resumo rola; a tabela por zona não zera a 125%.
+- **[P2]** Nome automático usa a hora de início (pasta), igual à comparação, e
+  o sufixo `_2` vira "(2)".
+- **[P2]** Legenda explica Desconforto (critério do controlador), PMV fora
+  (PMV do controlador, não o Fanger) e Fora adapt., em Detalhes e Comparação.
+- **[P2]** Ctrl+A seleciona o campo inteiro.
+- **[P2]** Validação junta todos os erros; negativo e Met ≤ 0 recusados; campo
+  vazio ganha borda vermelha (estado `invalid` do sv_ttk); slider não desenha
+  faixa recusada; "31/02" diz que a data não existe.
+- **[P2]** Filtro do log, "True"/"False" e decimais dos detalhes em português.
+- **[P2]** KPIs em caixa normal alinhados à esquerda; "Ajustar Clo antes dos
+  equipamentos" numa linha própria.
+- **[P2]** Contraste: laranja de texto `#b45309` (4,8:1); anotação verde
+  `#00704f`; `danger` `#7d1712` (2,7:1 contra `warn` sob deuteranopia).
+
 ## Pendente
 
 **P0**
@@ -334,46 +362,12 @@ corrigidos. A rodada achou 3 P0 novos, dois já corrigidos, — um deles regress
   45 min (`compare.STALL_TIMEOUT`) os workers são encerrados e as que faltam
   voltam com erro; ZIP e Regerar avisam quando há tarefa em andamento.
 
-**P1**
-
-- Aviso falso "Período de 365 dias… 1–2 h" com período editado:
-  `_warn_long_run` (`main_window.py`) lê o IDF original e ignora
-  `run_period_start/end`. *Juliana, Ricardo, Lucas, Marcos, Fernanda.*
-- "Editar IDF" depois de Duplicar recarrega o IDF e volta o Fim para 31/12 sem
-  aviso (`IDFEditorPanel.load`); Ricardo rodou um ano sem querer. *Ricardo.*
-- Selo e log da execução anterior não são limpos; o contador soma erros
-  antigos. *Juliana, Ricardo, Marcos, Lucas, Fernanda.*
-- "Passos por hora" aceita valor que não divide 60; o pós-processamento falha
-  ~3 min depois. *Lucas.*
-- Falha no pós-processamento aparece como "Interrompida", e o Assistente diz
-  que não há dados brutos. *Lucas.*
-- Comparação: "Carpete anual" estica 1 semana sobre o ano (`extent=[1, 365]`);
-  "Semana típica" abre vazia em 1970; "Exportar CSV" some ao trocar de gráfico;
-  rótulos arredondam 0,6 kWh para "1". *Fernanda.*
-- Seleção múltipla na lista só com Ctrl+clique: Comparação inalcançável por
-  teclado. *Marcos.*
-- Botões desabilitados recebem Tab sem anel (`theme.py`); Configurações não
-  rola atrás do foco. *Marcos.*
-- A 125%, Detalhes fica com a tabela por zona em altura zero. *Fernanda.*
-
 **P2**
 
-- Execuções indistinguíveis na lista ("FAURB_PTHP_ENTORNO · 07/…"), sem nome;
-  lista usa a hora de modificação e a comparação a de início. *Juliana,
-  Ricardo, Marcos, Fernanda.*
-- Desconforto 0 %, PMV fora 20–31 % e fora da banda adaptativa 24 % lado a
-  lado, sem explicação; a tela não diz que o PMV é o do controlador, não o
-  Fanger do EnergyPlus. *Juliana, Ricardo, Fernanda.*
-- Ctrl+A não seleciona o campo, e o que se digita é colado ao valor antigo;
-  campos de PMV/clo às vezes recebem foco sem seleção. *Juliana, Lucas, Marcos,
-  Fernanda.*
-- Validação incompleta: velocidade −2 e Met vazio sem borda vermelha; um erro
-  por vez; slider desenha −3 ou faixa invertida. *Lucas.*
-- Resto de inglês: filtro "all", "COMPLETE" na comparação, "True", números com
-  ponto. *Todas.*
-- Cards e rótulos cortados ("ESCONFORT", "Ajustar Clo antes dos equipame…").
-- Contraste: `#f67a24` em texto (2,60:1), anotação `#009e73` (3,28:1); aviso e
-  erro oliva sob deuteranopia (1,50:1). *Marcos.*
+- Campos de PMV/clo às vezes recebem foco sem seleção (não reproduzido).
+  *Juliana, Marcos.*
+- Comparação ainda mostra a pasta (`20261007_2133`) na coluna Execução; não
+  há campo para dar nome à execução. *Juliana, Ricardo.*
 - Abertura ainda leva ~26–45 s até a tela utilizável, agora com splash.
   *Juliana, Ricardo.*
 

@@ -38,16 +38,19 @@ COLORS = {
     # Laranja do bulbo da logo. Só decorativo (2.6:1 sobre `surface`): serve de
     # preenchimento em barra/indicador de calor, nunca de cor de texto.
     "hot": "#f67a24",
+    # Versão do laranja para texto: 4,8:1 sobre `surface`.
+    "hot_text": "#b45309",
     # Cinza do polegar de scrollbar do sv_ttk, para as barras tk clássicas.
     # 3,07:1 sobre o trilho `surface_2`.
     "scroll": "#858585",
     # ok/warn/danger separados também por luminância e matiz, para não virarem
     # o mesmo oliva sob deuteranopia: ok azul-petróleo escuro (L 0,12), warn
-    # âmbar mais claro (L 0,17), danger vermelho mais escuro (L 0,08).
-    # Texto branco sobre cada um: 5,94 / 4,73 / 7,77 :1.
+    # âmbar mais claro (L 0,17), danger vermelho bem mais escuro (L 0,03):
+    # 2,7:1 entre warn e danger sob deuteranopia (era 1,5:1).
+    # Texto branco sobre cada um: 5,94 / 4,73 / 11,4 :1.
     "ok": "#1a6a7a",
     "warn": "#9a6a00",
-    "danger": "#a11d16",
+    "danger": "#7d1712",
 }
 
 SPACE = (0, 4, 8, 12, 16, 24, 32)
@@ -216,6 +219,17 @@ def apply_theme(root: tk.Misc) -> None:
 
     sv_ttk.set_theme("light", root)
 
+    # Ctrl+A seleciona o campo inteiro (no Tk ia ao início da linha, e o que se
+    # digitava colava no valor antigo).
+    def select_all(event):
+        event.widget.selection_range(0, "end")
+        event.widget.icursor("end")
+        return "break"
+
+    for widget_class in ("TEntry", "TCombobox", "Entry"):
+        root.bind_class(widget_class, "<Control-a>", select_all)
+        root.bind_class(widget_class, "<Control-A>", select_all)
+
     # set_theme roda tk_setPalette, que grava `*background` no banco de opções
     # do Tk. `ttk.Label` tem `-background` própria, e o valor herdado do banco
     # vence o do estilo: sem isto, todo rótulo pinta o #fafafa do sv_ttk e os
@@ -357,6 +371,26 @@ def scrollable(parent) -> ttk.Frame:
 
     canvas.bind("<Enter>", grab)
     canvas.bind("<Leave>", release)
+
+    # Tab até um campo fora da área visível: rola até ele, senão o foco some
+    # atrás da borda.
+    def follow_focus(event):
+        widget = event.widget
+        if not isinstance(widget, tk.Misc) or not str(widget).startswith(str(inner) + "."):
+            return
+        total = inner.winfo_height()
+        if total <= 1:
+            return
+        top = widget.winfo_rooty() - inner.winfo_rooty()
+        bottom = top + widget.winfo_height()
+        view_top = canvas.canvasy(0)
+        view_height = canvas.winfo_height()
+        if top < view_top:
+            canvas.yview_moveto(top / total)
+        elif bottom > view_top + view_height:
+            canvas.yview_moveto((bottom - view_height) / total)
+
+    canvas.bind_all("<FocusIn>", follow_focus, add="+")
     return inner
 
 
@@ -486,7 +520,7 @@ def _place_toasts(stack):
 _BUTTON_VARIANTS = {
     "primary": (COLORS["primary"], COLORS["primary_h"], COLORS["primary_d"],
                 "#ffffff", None),
-    "danger": (COLORS["danger"], "#c8433c", "#8f1e18", "#ffffff", None),
+    "danger": (COLORS["danger"], "#a11d16", "#5e110d", "#ffffff", None),
     "ghost": (COLORS["surface"], COLORS["surface_2"], COLORS["surface_3"],
               COLORS["primary"], COLORS["line"]),
     # Sobre o fundo da janela, não sobre um card.
@@ -653,6 +687,10 @@ class RoundedButton(tk.Canvas):
         # chamada tenha fixado uma.
         if redraw and self._fixed_width is None:
             super().configure(width=self._width_for(self._text, self._icon))
+        # Desabilitado sai da ordem do Tab: o anel não aparece nele e o foco
+        # parava num botão que não faz nada.
+        if redraw:
+            kwargs.setdefault("takefocus", 0 if self._state == "disabled" else 1)
         result = super().configure(**kwargs) if kwargs else None
         if redraw:
             self._redraw()
