@@ -56,6 +56,19 @@ CRCGTT = {
               7: (0.22, 0.23, 0.26, 0.30), 8: (0.19, 0.19, 0.22, 0.26)},
 }
 
+# Zonas bioclimáticas (NBR 15220-3) como a interface as descreve: clima e
+# cidades de exemplo, conferidas no CSV do PBE Edifica deste pacote.
+ZONAS = {
+    1: ("Mais frio", "Curitiba/PR, Caxias do Sul/RS"),
+    2: ("Frio", "Pelotas/RS"),
+    3: ("Ameno", "Porto Alegre/RS, São Paulo/SP"),
+    4: ("Ameno e seco", "Brasília/DF"),
+    5: ("Ameno", "Niterói/RJ, Vitória da Conquista/BA"),
+    6: ("Quente, inverno seco", "Goiânia/GO"),
+    7: ("Quente e seco", "Teresina/PI, Cuiabá/MT"),
+    8: ("Quente e úmido", "Rio de Janeiro/RJ, Salvador/BA, Manaus/AM"),
+}
+
 # Tabela C.2: horário ocupado nos dias de semana, como (início, fim) em horas.
 ROTINAS = {8: (9, 17), 10: (7, 17), 12: (7, 19)}
 

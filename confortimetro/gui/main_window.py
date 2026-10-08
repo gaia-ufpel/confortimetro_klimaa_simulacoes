@@ -1183,6 +1183,7 @@ class MainWindow(tk.Tk):
     def _labeling(self, config: SimulationConfig, opcoes: dict):
         """Gera os modelos da etiquetagem; a ZB automática sai do EPW."""
         from confortimetro.etiquetagem.execucao import EtiquetagemRun, zona_sugerida
+        from confortimetro.etiquetagem.norma import ZONAS
 
         opcoes = dict(opcoes)
         if not opcoes.get("zb"):
@@ -1192,7 +1193,8 @@ class MainWindow(tk.Tk):
                                  "zona bioclimática.")
             opcoes["zb"] = zb
             self.results_panel.append_info(
-                f"Zona bioclimática {zb} ({cidade}, município mais próximo do EPW).")
+                f"Zona bioclimática {zb} ({ZONAS[zb][0].lower()}), pelo município "
+                f"mais próximo do EPW: {cidade}.")
         return EtiquetagemRun(copy.deepcopy(config), opcoes, config.output_path)
 
     def _warn_long_run(self, config: SimulationConfig):

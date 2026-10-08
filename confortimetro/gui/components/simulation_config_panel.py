@@ -180,6 +180,14 @@ LABELING_MODES = {"condicionado": "Condicionado",
 ZB_AUTO = "Automática (pelo EPW)"
 
 
+def zb_label(zb: int) -> str:
+    """"2 — Frio (ex.: Pelotas/RS)": o número e o que ele quer dizer."""
+    from confortimetro.etiquetagem.norma import ZONAS
+
+    clima, exemplos = ZONAS[zb]
+    return f"{zb} — {clima} (ex.: {exemplos})"
+
+
 class SimulationConfigCallback(Protocol):
     """Protocol for simulation configuration callbacks."""
     
@@ -441,7 +449,7 @@ class SimulationConfigPanel(ttk.Frame):
                          "abrindo e desconta as horas em conforto (PHOCT).")
         self.labeling_zb = tk.StringVar(value=ZB_AUTO)
         self._combo(section, 3, 2, "Zona bioclimática",
-                    [ZB_AUTO] + [str(zb) for zb in range(1, 9)], self.labeling_zb,
+                    [ZB_AUTO] + [zb_label(zb) for zb in range(1, 9)], self.labeling_zb,
                     columnspan=2, help="Automática: a do município mais próximo do local do EPW.")
         ttk.Label(section, style="Caption.TLabel", wraplength=520, justify="left",
                   text="As salas da aba Zonas são as APP avaliadas. Os modelos "
@@ -468,7 +476,7 @@ class SimulationConfigPanel(ttk.Frame):
         zb = self.labeling_zb.get()
         return {"tipologia": self._tipologias[self.labeling_typology.get()],
                 "uso": self.labeling_use.get(), "modo": modo,
-                "zb": None if zb == ZB_AUTO else int(zb)}
+                "zb": None if zb == ZB_AUTO else int(zb.split()[0])}
 
     def _set_labeling(self, opcoes):
         from confortimetro.etiquetagem import norma
@@ -481,7 +489,7 @@ class SimulationConfigPanel(ttk.Frame):
             return
         self.labeling_typology.set(norma.TIPOLOGIAS[opcoes["tipologia"]]["nome"])
         self.labeling_mode.set(LABELING_MODES[opcoes["modo"]])
-        self.labeling_zb.set(str(opcoes["zb"]) if opcoes.get("zb") else ZB_AUTO)
+        self.labeling_zb.set(zb_label(int(opcoes["zb"])) if opcoes.get("zb") else ZB_AUTO)
         self.labeling_use.set(opcoes["uso"])
         self._on_labeling_changed()
 
