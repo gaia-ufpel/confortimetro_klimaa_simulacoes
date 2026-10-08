@@ -114,7 +114,8 @@ def test_duplicar_reaproveita_parametros_com_saida_nova(window, tmp_path):
     run_path.mkdir()
     config = SimulationConfig(met_as_watts=125.496, _idf_path=str(run_path / "modelo.idf"),
                              _met=1.2, epw_path="clima.epw", output_path=str(run_path),
-                             source_idf_path=str(idf), pmv_upperbound=0.9)
+                             source_idf_path=str(idf), pmv_upperbound=0.9,
+                             nome="Base")
     config.to_json(str(run_path / "configs.json"))
 
     window.on_duplicate_run({'run': 'execucao_antiga', 'path': str(run_path),
@@ -128,6 +129,22 @@ def test_duplicar_reaproveita_parametros_com_saida_nova(window, tmp_path):
     # …e nenhuma pasta de saída herdada: ela nasce da raiz quando a simulação
     # começa, então nunca escreve por cima da execução duplicada.
     assert window.configs.output_path is None
+    # Nome repetido deixaria a listagem e a comparação ambíguas.
+    assert window.control_panel.get_name() == "Base (cópia)"
+
+    window.on_new_run()
+    assert window.control_panel.get_name() is None
+
+
+def test_comparacao_mostra_nome_e_nao_a_pasta():
+    from confortimetro.gui.components.comparison_panel import run_labels
+
+    runs = [{'run': '20261007_2133', 'idf': 'FAURB.idf', 'config': {}},
+            {'run': '20261007_2200', 'config': {'nome': 'Base'}},
+            {'run': '20261007_2201', 'config': {'nome': 'Base'}}]
+    assert run_labels(runs) == {'20261007_2133': 'FAURB · 07/10 21:33',
+                                '20261007_2200': 'Base',
+                                '20261007_2201': 'Base (2)'}
 
 
 def _toast_text(frame):

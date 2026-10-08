@@ -607,6 +607,7 @@ class MainWindow(tk.Tk):
             'timesteps_per_hour': self.configs.timesteps_per_hour,
         }
         self.simulation_panel.set_configuration(config_dict)
+        self.control_panel.set_name(self.configs.nome)
     
     def _update_config_from_ui(self):
         """Update configuration from UI components."""
@@ -618,6 +619,7 @@ class MainWindow(tk.Tk):
         self.configs.runs_root_path = self.settings_panel.get_output_path()
         self.configs.epw_path = self.path_panel.get_epw_path()
         self.configs.energy_path = self.settings_panel.get_energy_path()
+        self.configs.nome = self.control_panel.get_name()
         
         # Update from simulation panel
         sim_config = self.simulation_panel.get_configuration()
@@ -1213,6 +1215,9 @@ class MainWindow(tk.Tk):
     def on_new_run(self):
         """Página de execução; a pasta de saída sai da raiz ao rodar."""
         self._reset_run_feedback()
+        # Os parâmetros da anterior ficam; o nome é dela.
+        if not self.control_panel.get_is_running():
+            self.control_panel.set_name(None)
         self.show_page("editor")
 
     def on_compare_runs(self, runs: list, outputs_path: str):
@@ -1400,6 +1405,9 @@ class MainWindow(tk.Tk):
             config.idf_path = config.source_idf_path
         config.output_path = None
         config.runs_root_path = self._outputs_root()
+        # Mesmo nome nas duas deixaria a listagem e a comparação ambíguas.
+        if config.nome:
+            config.nome = f"{config.nome} (cópia)"
 
         self.configs = config
         self._update_ui_from_config()

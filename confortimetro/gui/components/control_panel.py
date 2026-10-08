@@ -3,10 +3,11 @@ Control panel component.
 """
 
 import time
+import tkinter as tk
 from tkinter import ttk
 from typing import Protocol, Optional
 
-from ..theme import SPACE, RoundedButton, StatusPill
+from ..theme import SPACE, RoundedButton, StatusPill, Tooltip
 
 
 class ControlPanelCallback(Protocol):
@@ -67,6 +68,14 @@ class ControlPanel(ttk.Frame):
             command=self._on_edit_idf_clicked)
         self.edit_idf_button.pack(side="left", padx=(SPACE[2], 0))
 
+        # Sem nome, a execução aparece como "IDF · dd/mm hh:mm".
+        ttk.Label(row, text="Nome", style="Label.TLabel").pack(
+            side="left", padx=(SPACE[4], SPACE[1]))
+        self.name_entry = ttk.Entry(row, style="Field.TEntry", width=28)
+        self.name_entry.pack(side="left")
+        Tooltip(self.name_entry, "Opcional. Aparece na listagem e na comparação "
+                "no lugar da data e hora.")
+
         self.status_pill = StatusPill(row, "Pronto para executar", "info")
         self.status_pill.pack(side="right")
 
@@ -117,6 +126,7 @@ class ControlPanel(ttk.Frame):
             self.save_button.configure(state="disabled")
             self.load_button.configure(state="disabled")
             self.edit_idf_button.configure(state="disabled")
+            self.name_entry.state(["disabled"])
             # Volta ao indeterminado: a etapa de preparo não reporta
             # percentual, só o EnergyPlus reporta.
             self.progress_bar.configure(mode="indeterminate", value=0)
@@ -132,6 +142,7 @@ class ControlPanel(ttk.Frame):
             self.save_button.configure(state="normal")
             self.load_button.configure(state="normal")
             self.edit_idf_button.configure(state="normal")
+            self.name_entry.state(["!disabled"])
             self.progress_bar.stop()
             self.progress_bar.pack_forget()
             self.progress_label.pack_forget()
@@ -171,6 +182,14 @@ class ControlPanel(ttk.Frame):
             status_type: 'info', 'success', 'warning', 'error' or 'running'
         """
         self.status_pill.set(status, status_type)
+
+    def get_name(self) -> Optional[str]:
+        """Nome digitado, ou None se vazio."""
+        return self.name_entry.get().strip() or None
+
+    def set_name(self, name: Optional[str]):
+        self.name_entry.delete(0, tk.END)
+        self.name_entry.insert(0, name or "")
 
     def get_is_running(self) -> bool:
         """Check if simulation is running."""

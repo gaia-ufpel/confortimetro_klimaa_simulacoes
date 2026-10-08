@@ -285,6 +285,9 @@ class SimulationConfig:
     run_period_start: str = None
     run_period_end: str = None
     timesteps_per_hour: int = None
+    # Nome dado pelo usuário; a listagem e a comparação o mostram no lugar da
+    # pasta (`20261007_2133`). None = nome montado com o IDF e a hora.
+    nome: str = None
 
     def __post_init__(self):
         # Sem saída escolhida, cada execução ganha a sua subpasta na pasta de

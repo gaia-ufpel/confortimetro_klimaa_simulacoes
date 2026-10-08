@@ -234,6 +234,11 @@ def _config(args: dict, output: str) -> SimulationConfig:
                 continue
             if key == "timesteps_per_hour" and value is None:
                 continue
+            if key == "nome":
+                if value is not None and not (isinstance(value, str) and len(value) <= 120):
+                    raise ValueError("nome deve ser texto de até 120 caracteres")
+                setattr(config, key, value or None)
+                continue
             if key == "module_type" and value not in ("COMPLETE", "CLOSED_WINDOW", "WITHOUT_FAN", "FIXED_AC_WITHOUT_FAN", "ENERGYPLUS_ONLY"):
                 raise ValueError("module_type inválido")
             if key in ("ignore_missing_equipment", "clo_priority") and not isinstance(value, bool):

@@ -20,7 +20,22 @@ from confortimetro.results.compare import (
 )
 
 from .simulation_config_panel import MODULE_LABELS
+from .simulations_panel import _display
 from ..theme import COLORS, SPACE, Card, RoundedButton, scrollable, toast
+
+def run_labels(runs) -> dict:
+    """Pasta → nome da listagem (`_display`), com "(2)" se dois coincidem."""
+    labels, taken = {}, set()
+    for run in runs:
+        base = name = _display(run)['name']
+        count = 1
+        while name in taken:
+            count += 1
+            name = f"{base} ({count})"
+        taken.add(name)
+        labels[run['run']] = name
+    return labels
+
 
 # Os nomes das colunas de estatística são longos demais para caber no
 # cabeçalho da tabela comparativa.
@@ -68,6 +83,7 @@ class ComparisonPanel(ttk.Frame):
         self.room_var = tk.StringVar()
         self.status_var = tk.StringVar(value="")
         self._runs: list[dict] = []
+        self._labels: dict[str, str] = {}
         self._comparison = None
         self._busy = False
         self.chart_var = tk.StringVar(value=next(iter(charts.CHARTS)))
@@ -82,6 +98,8 @@ class ComparisonPanel(ttk.Frame):
     def set_runs(self, runs, outputs_path: str):
         """Recebe as execuções escolhidas na listagem e já compara."""
         self._runs = list(runs)
+        # A tabela, os gráficos e o CSV mostram o nome, não a pasta.
+        self._labels = run_labels(self._runs)
         self.outputs_path = outputs_path
 
         rooms = sorted({room for run in self._runs
@@ -261,7 +279,7 @@ class ComparisonPanel(ttk.Frame):
 
     def _set_ready_state(self):
         count = len(self._runs)
-        names = ", ".join(run["run"] for run in self._runs)
+        names = ", ".join(self._labels[run["run"]] for run in self._runs)
         ready = count >= 2
         self.runs_var.set(
             f"{count} execução(ões) selecionada(s): {names or 'nenhuma'}."
@@ -373,7 +391,7 @@ class ComparisonPanel(ttk.Frame):
                              + self._period_warning(df))
             return
 
-        missing = [run['run'] for run in runs
+        missing = [self._labels[run['run']] for run in runs
                    if room not in run['rooms_disponiveis']]
         if missing:
             toast(self, f"{', '.join(missing)} não tem a planilha da zona {room}.",
@@ -390,7 +408,7 @@ class ComparisonPanel(ttk.Frame):
             f"Gráfico: {name} — zona {room}.\n"
             "A primeira leitura de cada planilha leva cerca de 20 s; "
             "depois fica em cache.")
-        series_runs = [(run['run'], run['path']) for run in runs]
+        series_runs = [(self._labels[run['run']], run['path']) for run in runs]
 
         def work():
             # A leitura é o gasto; a figura sai pronta e só é anexada ao canvas
@@ -409,7 +427,11 @@ class ComparisonPanel(ttk.Frame):
         paths = [run['path'] for run in runs]
         df = database.load_comparison(database.database_path(self.outputs_path),
                                       paths, room)
-        return df if not df.empty else compare_runs(paths, room)
+        if df.empty:
+            df = compare_runs(paths, room)
+        if not df.empty:
+            df['Execução'] = df['Execução'].map(lambda run: self._labels.get(run, run))
+        return df
 
     def _plot_done(self, figure, title):
         self._busy = False

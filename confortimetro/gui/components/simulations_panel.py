@@ -60,7 +60,7 @@ _MODULE_NAMES = {module.value: label.split(" (")[0]
 def _display(run: dict) -> dict:
     """Nome, IDF de origem e módulo como a listagem os mostra."""
     config = run.get('config') or {}
-    idf = os.path.basename(config.get('source_idf_path') or '') or run['idf']
+    idf = os.path.basename(config.get('source_idf_path') or '') or run.get('idf')
     name = config.get('nome') or config.get('rotulo') or config.get('label')
     if not name:
         name = run['run']
@@ -70,7 +70,7 @@ def _display(run: dict) -> dict:
             date, time, *suffix = name.split("_")
             name = (f"{os.path.splitext(idf)[0]} · {date[6:8]}/{date[4:6]} "
                     f"{time[:2]}:{time[2:]}" + (f" ({suffix[0]})" if suffix else ""))
-    module = run['module_type']
+    module = run.get('module_type')
     return {'name': name, 'idf': idf or "—",
             'module': _MODULE_NAMES.get(module, module) or "—"}
 
@@ -382,7 +382,7 @@ class SimulationsPanel(ttk.Frame):
             'epw': os.path.basename(getattr(config, 'epw_path', '') or ''),
             'rooms_disponiveis': getattr(config, 'rooms', None) or [],
             'modificado': datetime.datetime.now(),
-            'config': {},
+            'config': {'nome': getattr(config, 'nome', None)},
         }
         self.btn_new_run.configure(text="Ver em andamento", icon="running")
         self.refresh()
