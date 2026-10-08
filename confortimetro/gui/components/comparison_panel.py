@@ -345,7 +345,7 @@ class ComparisonPanel(ttk.Frame):
                 return "—"
             if col == "module_type":
                 # "Completo", "Sem ventilador"…: o nome do enum é jargão interno.
-                label = {m.value: l for m, l in MODULE_LABELS.items()}.get(val, val)
+                label = {module.value: text for module, text in MODULE_LABELS.items()}.get(val, val)
                 return label.split(" (")[0]
             if isinstance(val, (int, float)):
                 if col in PERCENTAGE_COLUMNS:
