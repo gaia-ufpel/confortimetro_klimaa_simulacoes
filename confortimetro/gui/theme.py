@@ -851,8 +851,11 @@ class RangeField(ttk.Frame):
         return self._clamp(parse_num(text, fallback))
 
     def _write(self, entry, value):
-        entry.delete(0, tk.END)
-        entry.insert(0, fmt_num(value))
+        # Texto igual fica intocado: o FocusOut do mínimo reescrevia o máximo
+        # e apagava a seleção que o Tab acabara de pôr nele.
+        if entry.get() != fmt_num(value):
+            entry.delete(0, tk.END)
+            entry.insert(0, fmt_num(value))
 
     def _clamp(self, value):
         return min(max(float(value), self._lower), self._upper)

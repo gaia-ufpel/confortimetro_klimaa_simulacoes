@@ -147,6 +147,22 @@ def test_comparacao_mostra_nome_e_nao_a_pasta():
                                 '20261007_2201': 'Base (2)'}
 
 
+def test_tab_no_intervalo_seleciona_o_maximo(window):
+    # O FocusOut do mínimo reescrevia o máximo e apagava a seleção do Tab.
+    from confortimetro.gui.components.simulation_config_panel import StrictRangeField
+
+    field = StrictRangeField(window, "PMV", -3, 3)
+    field.place(x=0, y=0)
+    field.set(-0.5, 0.5)
+    _settle(window)
+    field.min_entry.focus_force()
+    _settle(window)
+    field.min_entry.event_generate("<Tab>")
+    _settle(window)
+    assert window.focus_get() is field.max_entry
+    assert field.max_entry.selection_present()
+
+
 def _toast_text(frame):
     """Texto do toast (o rótulo é o segundo filho, depois da barra de cor)."""
     return " ".join(child.cget("text") for child in frame.winfo_children()
