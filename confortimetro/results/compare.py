@@ -1,7 +1,6 @@
 """Listagem e comparação de execuções já simuladas dentro de um diretório."""
 
 import concurrent.futures
-import multiprocessing
 import datetime
 import fnmatch
 import json
@@ -261,11 +260,7 @@ def recompute_runs(run_paths, workers=None, on_result=None):
     # bundle inteiro (centenas de MB): mais workers que execuções só gasta RAM,
     # e o pool do Windows não aceita mais de 61 processos.
     workers = min(workers or os.cpu_count() or 1, len(run_paths), 61)
-    # spawn em todo lugar: o fork padrão do Linux copia os locks das threads
-    # da GUI (Tk, logging) e os workers travavam para sempre em futex_wait.
-    context = multiprocessing.get_context("spawn")
-    with concurrent.futures.ProcessPoolExecutor(max_workers=workers,
-                                                mp_context=context) as pool:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as pool:
         for run_path, error in pool.map(recompute_run, run_paths):
             errors[run_path] = error
             if on_result:

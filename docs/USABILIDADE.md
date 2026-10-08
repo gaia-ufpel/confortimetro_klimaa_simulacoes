@@ -294,7 +294,7 @@ limpo nas cinco). Ricardo e Fernanda concluíram simulações de 1 semana
 (5 no total); Lucas rodou e parou várias.
 
 Dos achados da 1ª rodada, quase todos os P0 e a maior parte dos P1 ficaram
-corrigidos. A rodada achou 3 P0 novos — um deles regressão do próprio
+corrigidos. A rodada achou 3 P0 novos, dois já corrigidos, — um deles regressão do próprio
 `cf13421` — e repetiu alguns P1 em várias personas.
 
 | Persona | Tarefas | Antes → agora |
@@ -317,12 +317,17 @@ corrigidos. A rodada achou 3 P0 novos — um deles regressão do próprio
   saída; reproduzido pela CLI. `rooms_without_people` barra a zona antes de
   simular, na GUI e em `validate_idf`, sem passar pelo "Rodar mesmo assim" do
   equipamento. No FAURB, 9 das 16 zonas não têm People. *Lucas.*
-- **[P0] "Regerar estatísticas" travava para sempre no Linux.** O
-  `ProcessPoolExecutor` usava `fork` com as threads da GUI vivas e os workers
-  ficavam em `futex_wait`. Agora usa `spawn`, como no Windows; com Tk ativo,
-  regerou 2 execuções em 69 s. *Fernanda.*
 
 ## Pendente
+
+**P0**
+
+- "Regerar estatísticas" ficou mais de 10 min em "Regerando…", sem fim, e o
+  ZIP não respondeu; os 2 workers estavam em `futex_wait` com CPU quase zero.
+  *Fernanda.* Não reproduzido: com a `MainWindow` real sob Xvfb, a mesma
+  regeração de 2 execuções terminou em 18 s com `fork` e em 31 s com `spawn`.
+  Diferenças do cenário dela: uma execução com planilha corrompida e a máquina
+  carregada por outras 4 instâncias. Causa em aberto.
 
 **P1**
 
